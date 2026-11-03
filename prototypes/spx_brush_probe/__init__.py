@@ -79,8 +79,46 @@ def start_plugin():
 
     b6.clicked.connect(open_dir)
 
+    class DropZone(QtWidgets.QLabel):
+        def __init__(self):
+            super().__init__("⬇ Húzz ide egy brusht az Assets ablakból ⬇")
+            self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            self.setMinimumHeight(50)
+            self.setStyleSheet("border: 2px dashed #888; padding: 6px;")
+            self.setAcceptDrops(True)
+            self._entered = False
+
+        def dragEnterEvent(self, e):
+            if not self._entered:  # elég egyszer naplózni, ha a drop nem engedélyezett
+                self._entered = True
+                checks.guard(checks.log_drop, e.mimeData(), "dragEnter")
+                checks.flush()
+            e.acceptProposedAction()
+
+        def dropEvent(self, e):
+            urls = checks.guard(checks.log_drop, e.mimeData(), "drop") or []
+            path = checks.flush()
+            e.acceptProposedAction()
+            hit = None
+            for u in urls:
+                base = u.split("?")[0]
+                for i, (label, _) in enumerate(presets):
+                    if base in label:
+                        hit = i
+                        break
+                if hit is not None:
+                    break
+            if hit is not None:
+                combo.setCurrentIndex(hit)
+                self.setText(f"Behúzva és kiválasztva: {presets[hit][0].split('  ')[0]}")
+            else:
+                self.setText("Behúzás naplózva (a listában nem találtam).")
+            status.setText(f"Behúzás naplózva: {path}")
+
+    drop = DropZone()
     lay.addWidget(b0)
     lay.addWidget(combo)
+    lay.addWidget(drop)
     for b in (b1, b2, b3, b4, b5, b6):
         lay.addWidget(b)
     lay.addWidget(status)

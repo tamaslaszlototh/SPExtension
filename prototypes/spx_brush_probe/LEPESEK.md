@@ -12,7 +12,7 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 > - **Mindkét gépen:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak).
 > - **Otthoni gép:** csak a **2.**, **3.**, **4.** és **6.** lépés kell (előkészítés, felderítés, A próba, C próba), plusz természetesen az 1. (telepítés) és a 8. (eredmények elküldése). Az 5. és a 7. lépést hagyd ki.
 > - **Céges gép:** csináld végig az egészet.
-> - **Újdonság:** az ellenőrzésnél a plugin megkér, hogy **fess egy rövid vonást** a modellre. Így látszik biztosan, melyik brush aktív. Utána a vonást Ctrl+Z-vel visszavonhatod. A „teendő” ablak közben nyitva maradhat, nem akadályoz a festésben.
+> - **Újdonság:** a 3. lépésben egy brusht be kell húznod a panelre (pár másodperc). Az ellenőrzésnél a plugin megkér, hogy **fess egy rövid vonást** a modellre. Így látszik biztosan, melyik brush aktív. Utána a vonást Ctrl+Z-vel visszavonhatod. A „teendő” ablak közben nyitva maradhat, nem akadályoz a festésben.
 
 **Időigény:** kb. 15–20 perc gépenként. Admin jog nem kell, és a plugin semmit nem telepít a rendszerbe.
 
@@ -46,6 +46,8 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 
 1. Kattints az **„1. Felderítés”** gombra. A futás kb. 1 perc, közben a Painter nem reagál. Ez normális.
 2. Várd meg, amíg a panel alján a „kész” felirat megjelenik.
+3. **Behúzás:** fogj meg egy [TOOL] brusht az **Assets** ablakban, és húzd rá a panel szaggatott keretes **„Húzz ide egy brusht”** mezőjére. Engedd el.
+   📝 Mi történt? Átalakult a felirat („Behúzva és kiválasztva: …” vagy „Behúzás naplózva”)? Vagy tiltó jel jelent meg az egérmutatón, és nem lehetett elengedni?
 
 ## 4. A próba – kijelölés
 

@@ -600,8 +600,74 @@ def api_presence():
             log(f"  {cls_name}: {[n for n in dir(cls) if not n.startswith('_')]}")
 
 
+QML_HANDLER = re.compile(r"on(Clicked|DoubleClicked|Activated|Pressed|Released|Dropped)\b|"
+                         r"\b\w+\.(set|select|activate|apply|use|load)\w*(Tool|Brush|Preset|Resource)\w*\s*\(", re.I)
+QML_TOPIC = re.compile(r"tool|brush|preset|shelf|asset|resource", re.I)
+
+
+def qml_sources():
+    """A telepítés .qml/.js forrásai zipben, és a preset-kattintás kezelőinek gyors listája."""
+    section("1e. A Painter saját QML-forrásai (Assets / preset kezelés)")
+    roots = [root for label, root in _roots() if label == "install"]
+    if not roots:
+        log("  install mappa nem található")
+        return
+    root = os.path.join(roots[0], "resources")
+    zpath = out_file("qml_sources.zip")
+    total, nfiles, hits = 0, 0, []
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        for dp, _, fns in os.walk(root):
+            if "javascript-doc" in dp.lower():
+                continue
+            for f in fns:
+                if not f.lower().endswith((".qml", ".js", ".qmltypes", "qmldir")):
+                    continue
+                fp = os.path.join(dp, f)
+                size = os.path.getsize(fp)
+                if total + size < 40 * 1024 * 1024:
+                    z.write(fp, os.path.relpath(fp, root))
+                    total += size
+                    nfiles += 1
+                try:
+                    lines = open(fp, encoding="utf-8", errors="ignore").read().splitlines()
+                except Exception:
+                    continue
+                topical = bool(QML_TOPIC.search(fp))
+                for i, line in enumerate(lines):
+                    if QML_HANDLER.search(line) and (topical or QML_TOPIC.search(line)):
+                        ctx = " | ".join(x.strip() for x in lines[i:i + 3])
+                        hits.append(f"{os.path.relpath(fp, root)}:{i + 1}: {ctx[:220]}")
+    log(f"  zip: {zpath} ({nfiles} fájl, {total // 1024} KB)")
+    log(f"  preset/tool/shelf jellegű kezelők ({len(hits)}, első 150):")
+    for h in hits[:150]:
+        log("   ", h)
+
+
+def log_drop(mime, phase):
+    """Az Assets ablakból behúzott elem mime-adatai (a Layout-szerkesztő behúzásos létrehozásához)."""
+    section(f"6. Behúzás az Assets ablakból ({phase})")
+    log(f"  formátumok: {list(mime.formats())}")
+    log(f"  hasText={mime.hasText()} text={mime.text()[:500]!r}")
+    log(f"  hasUrls={mime.hasUrls()} urls={[u.toString() for u in mime.urls()][:10]}")
+    for f in mime.formats():
+        data = bytes(mime.data(f))
+        dec = ""
+        for enc in ("utf-8", "utf-16-le"):
+            try:
+                dec = data.decode(enc)
+                if dec.isprintable() or "resource://" in dec:
+                    break
+            except Exception:
+                pass
+        log(f"  [{f}] {len(data)} bájt: hex={data[:48].hex(' ')} szöveg={dec[:300]!r}")
+    found = re.findall(r"resource://[^\s\"'\x00]+", mime.text() + " " + " ".join(
+        bytes(mime.data(f)).decode("utf-8", "ignore") for f in mime.formats()))
+    log(f"  talált resource URL-ek: {found[:10]}")
+    return found
+
+
 def run_discovery():
-    for step in (api_presence, js_discovery, js_docs, ui_structure):
+    for step in (api_presence, js_discovery, js_docs, ui_structure, qml_sources):
         guard(step)
     return flush()
 
