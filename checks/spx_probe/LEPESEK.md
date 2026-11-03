@@ -1,10 +1,12 @@
 # SPX Probe – ellenőrzési lépések
 
+Ezt a listát te végzed el, **külön a két gépeden**: egyszer az otthoni, egyszer a céges gépen. A két gép eredményeit tartsd külön (a riportfájlok nevében benne van a Painter verziója).
+
 Cél: kideríteni, hogyan viselkedik a Substance 3D Painter és a hálózat a két gépen, mielőtt eldöntjük, hogyan települjön és frissüljön a plugin.
 
-- **A rész**: mindkét gépen el kell végezni (céges 12.2.0, saját 11.1.0).
+- **A rész**: el kell végezni a céges gépeden (12.2.0) és az otthoni gépeden (11.1.0) is.
 - **B rész**: csak a céges gépen.
-- **C rész**: csak a saját gépen.
+- **C rész**: csak az otthoni gépen.
 
 Időigény: kb. 20–30 perc gépenként. Admin jog nem kell. A teszt nem telepít semmit a rendszerbe, és a végén minden törölhető (lásd **D rész**).
 
@@ -112,7 +114,7 @@ Ez azt méri, hogy a cég engedi-e az internetről letöltött programok futtat�
 
 ---
 
-## C rész – csak a saját (11.1.0) gépen
+## C rész – csak az otthoni (11.1.0) gépen
 
 1. Nyisd meg a **Creative Cloud** alkalmazást → **Alkalmazások**. Keresd meg a Substance 3D Paintert.
 2. 📝 Jegyezd fel: kínál-e frissítést **11.1.1**-re (vagy újabbra)? Ha a **⋯** menüben van „Más verziók” / „Other versions”, nézd meg, szerepel-e ott a 11.1.1.
@@ -131,7 +133,7 @@ Ez azt méri, hogy a cég engedi-e az internetről letöltött programok futtat�
 
 ## Összefoglaló: mit kell visszaküldeni
 
-| | Céges gép (12.2.0) | Saját gép (11.1.0) |
+| | Céges gép (12.2.0) | Otthoni gép (11.1.0) |
 |---|---|---|
 | A1 pluginmappa útvonala | ☐ | ☐ |
 | A4–A7 három riportfájl | ☐ | ☐ |
