@@ -1,16 +1,9 @@
-# SPExtension gépdiagnosztika (Task: telepítési és hálózati ellenőrzések a két gépen)
-#
-# Használat: Painter -> Python menü -> (Python konzol / Script editor), a teljes fájl
-# tartalmát bemásolni és lefuttatni. A riport ide kerül:
-#     %TEMP%\spx_check_<painter verzió>.txt
-# Ezt a fájlt kell visszaküldeni / a tickethez kommentbe tenni.
-#
-# A Layer stack (ScopedModification) próbákhoz legyen nyitva egy ELDOBHATÓ projekt
-# (pl. File > New egy tetszőleges meshsel). A szkript létrehoz és töröl fill layereket.
-# Ha nincs nyitott projekt, ez a rész kimarad.
+# SPExtension gépdiagnosztika – a spx_probe plugin gombjai hívják.
+# Riportok helye: %APPDATA%\spx_probe\
 
-import io, os, sys, json, ssl, time, platform, traceback, tempfile
+import io, os, sys, json, ssl, time, platform, traceback
 
+REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_probe")
 OUT = io.StringIO()
 
 
@@ -74,7 +67,7 @@ def paths():
     for base in (os.environ.get("APPDATA"), os.environ.get("LOCALAPPDATA")):
         if not base:
             continue
-        d = os.path.join(base, "SPExtension_probe")
+        d = os.path.join(base, "SPExtension_writetest")
         try:
             os.makedirs(d, exist_ok=True)
             f = os.path.join(d, "w.txt")
@@ -196,7 +189,7 @@ def plugin_state():
     import substance_painter_plugins as spp
     log("  betöltött pluginok:", [m.__name__ for m in spp.plugins.keys()] if hasattr(spp, "plugins") else "?")
     log("  spx_probe betöltve:", "spx_probe" in sys.modules)
-    probe_log = os.path.join(os.environ.get("APPDATA", ""), "spx_probe.log")
+    probe_log = os.path.join(REPORT_DIR, "spx_probe.log")
     if os.path.exists(probe_log):
         log("  spx_probe.log tartalma:")
         log(open(probe_log, encoding="utf-8").read())
@@ -289,16 +282,33 @@ def menu_actions():
         log(" ", p)
 
 
-for step in (versions, paths, proxy_info, network_urllib, network_qt, plugin_state, layerstack, menu_actions):
-    guard(step)
 
-try:
-    import substance_painter.application as _app
-    _ver = _app.version()
-except Exception:
-    _ver = "unknown"
-_path = os.path.join(tempfile.gettempdir(), f"spx_check_{_ver}.txt")
-with open(_path, "w", encoding="utf-8") as fh:
-    fh.write(OUT.getvalue())
-print(OUT.getvalue()[:3000])
-print("...\nTeljes riport:", _path)
+def _painter_version():
+    try:
+        import substance_painter.application as app
+        return app.version()
+    except Exception:
+        return "unknown"
+
+
+def _write(name):
+    os.makedirs(REPORT_DIR, exist_ok=True)
+    path = os.path.join(REPORT_DIR, f"{name}_{_painter_version()}.txt")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(OUT.getvalue())
+    OUT.seek(0)
+    OUT.truncate()
+    return path
+
+
+def run_diagnostics():
+    """Projekt nélkül is futtatható ellenőrzések. Visszaadja a riport útvonalát."""
+    for step in (versions, paths, proxy_info, network_urllib, network_qt, plugin_state, menu_actions):
+        guard(step)
+    return _write("diagnosztika")
+
+
+def run_layerstack():
+    """Nyitott (eldobható) projekt kell hozzá. Visszaadja a riport útvonalát."""
+    guard(layerstack)
+    return _write("layerstack")
