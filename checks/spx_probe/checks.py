@@ -197,7 +197,7 @@ def network_qt():
 def plugin_state():
     section("6. Plugin állapot")
     import substance_painter_plugins as spp
-    log("  betöltött pluginok:", [m.__name__ for m in spp.plugins.keys()] if hasattr(spp, "plugins") else "?")
+    log("  betöltött pluginok:", sorted(str(k) for k in spp.plugins.keys()) if hasattr(spp, "plugins") else "?")
     log("  spx_probe betöltve:", "spx_probe" in sys.modules)
     probe_log = os.path.join(REPORT_DIR, "spx_probe.log")
     if os.path.exists(probe_log):
@@ -265,6 +265,13 @@ def menu_actions():
     from PySide6 import QtGui, QtWidgets, QtCore
     import substance_painter.ui as ui
     mw = ui.get_main_window()
+    # A menük egy része csak megnyitáskor (aboutToShow) töltődik fel: kényszerítjük.
+    for m in mw.menuBar().findChildren(QtWidgets.QMenu):
+        try:
+            m.aboutToShow.emit()
+        except Exception as e:
+            log("  aboutToShow hiba:", m.objectName(), e)
+    QtWidgets.QApplication.processEvents()
     rows = []
     for a in mw.findChildren(QtGui.QAction):
         owners = [o.objectName() or type(o).__name__ for o in a.associatedObjects()]

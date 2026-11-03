@@ -63,7 +63,7 @@ Ha egy lépés nem úgy működik, ahogy le van írva, **az is eredmény**. Írd
    - b) **„SPX probe: külső”** és **„SPX probe: belső”**: két külön bejegyzés lett, vagy csak egy („külső”)?
    - c) Van-e kijelöléssel kapcsolatos bejegyzés (pl. „Select…”, „Selection…”, „SPX probe: kijelölés”)?
    - Legjobb, ha a History panelről **képernyőképet** készítesz.
-5. Nyomj egyszer **Ctrl+Z**-t. 📝 Mi tűnt el? (Egy próbaréteg, kettő, vagy csak a kijelölés változott?)
+5. 📝 Számold meg a **Layers** panelen a rétegeket. Nyomj egyszer **Ctrl+Z**-t, és számold meg újra. Jegyezd fel mindkét számot, és azt is, mi lett a History legfelső bejegyzése a Ctrl+Z előtt.
 6. A projektet **mentés nélkül** zárd be (**File → Close** → *Don't save*).
 
 ### A6. Megmarad-e a plugin és a panel helye újraindítás után
