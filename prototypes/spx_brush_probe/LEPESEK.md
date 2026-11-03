@@ -8,6 +8,14 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 - **B**: a Painter régi JavaScript API-ja;
 - **C**: a plugin „rákattint” helyetted.
 
+> **3. kör, második próbálkozás (v3.1).** Az előző futásnál a Painter a régi plugin-fájlt használta tovább, mert a „Reload Plugins Folder” nem tölti újra a plugin minden részét. Ez az én hibám volt, nem a tiéd. Most így telepíts:
+> 1. **Lépj ki teljesen a Painterből** (File → Exit).
+> 2. Töröld a régi `spx_brush_probe` mappát a pluginmappából és a `%APPDATA%\spx_brush_probe` mappát.
+> 3. Másold be az új mappát, és **indítsd el a Paintert**.
+> 4. A panel címében ennek kell állnia: **„SPX Brush Probe v3.1”**, alján pedig „(checks v3.1)”. Ha nem ez látszik, szólj, és ne folytasd.
+>
+> A lépések ugyanazok, mint lent a 3. körnél.
+
 > **3. kör.** Köszönöm a 2. kört! Az ikon kérdése megoldódott. A „kattintás szimulálása” (C) viszont megint nem találta az Assets ablakot. Ez a plugin hibája volt, most javítottam.
 > - **Mindkét gépen:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak).
 > - **Otthoni gép:** csak a **2.**, **3.**, **4.** és **6.** lépés kell (előkészítés, felderítés, A próba, C próba), plusz természetesen az 1. (telepítés) és a 8. (eredmények elküldése). Az 5. és a 7. lépést hagyd ki.
@@ -30,7 +38,7 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 2. A kibontott **`spx_brush_probe`** mappát másold be a pluginmappába (ugyanoda, ahová múltkor az `spx_probe` került):
    `Dokumentumok\Adobe\Adobe Substance 3D Painter\python\plugins\spx_brush_probe\__init__.py`
    ⚠️ Ne legyen dupla mappa (`spx_brush_probe\spx_brush_probe\...`).
-3. Painter: **Python** menü → **Reload Plugins Folder**, utána **Python** menü → **spx_brush_probe** (pipa kerül elé).
+3. Indítsd el (vagy indítsd újra) a Paintert. Utána **Python** menü → **spx_brush_probe** (pipa kerül elé). A **Reload Plugins Folder** ehhez nem elég.
 4. Megjelenik az **„SPX Brush Probe”** panel. Ha nem látod, keresd a **Window → Views** menüben.
 
 ## 2. Előkészítés

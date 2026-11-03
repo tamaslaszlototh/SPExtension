@@ -5,12 +5,19 @@
 #   <Documents>\Adobe\Adobe Substance 3D Painter\python\plugins\spx_brush_probe\
 # Lépések: LEPESEK.md. Riportok: %APPDATA%\spx_brush_probe\
 
-import os
+import os, sys, importlib
 
 from PySide6 import QtWidgets, QtCore, QtGui
 import substance_painter.ui as ui
 
-from . import checks
+PROBE_VERSION = "v3.1"
+
+# A „Reload Plugins Folder” csak ezt a modult tölti újra, az almodulokat nem:
+# a régi checks a sys.modules-ban maradna. Ezért kidobjuk, és frissen töltjük be.
+for _name in [n for n in sys.modules if n.startswith(__name__ + ".")]:
+    del sys.modules[_name]
+from . import checks  # noqa: E402
+importlib.reload(checks)
 
 _widgets = []
 
@@ -18,13 +25,14 @@ _widgets = []
 def start_plugin():
     w = QtWidgets.QWidget()
     w.setObjectName("spx_brush_probe_panel")
-    w.setWindowTitle("SPX Brush Probe")
+    w.setWindowTitle(f"SPX Brush Probe {PROBE_VERSION}")
     lay = QtWidgets.QVBoxLayout(w)
 
     combo = QtWidgets.QComboBox()
     combo.setMinimumContentsLength(30)
     combo.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-    status = QtWidgets.QLabel("Kezdd a „0. Presetek betöltése” gombbal (lásd LEPESEK.md).")
+    status = QtWidgets.QLabel(f"SPX Brush Probe {PROBE_VERSION} (checks {checks.PROBE_VERSION}). "
+                              "Kezdd a „0. Presetek betöltése” gombbal (lásd LEPESEK.md).")
     status.setWordWrap(True)
     presets = []
 

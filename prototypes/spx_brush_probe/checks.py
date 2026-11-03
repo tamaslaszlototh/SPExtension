@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import substance_painter.resource as res
 import substance_painter.ui as ui
 
+PROBE_VERSION = "v3.1"
 REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_brush_probe")
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}
@@ -251,7 +252,7 @@ def _usages(r):
 
 def list_presets():
     """(címke, Resource) párok: előbb a tool presetek, utána a brush (alpha) resource-ok."""
-    section("0. Presetek listázása")
+    section(f"0. Presetek listázása – próba-verzió {PROBE_VERSION}, {time.strftime('%Y-%m-%d %H:%M:%S')}")
     found = {}
     for q in ("u:tool", "u:brush", ""):
         try:
