@@ -27,7 +27,9 @@ Ha egy lépés nem úgy működik, ahogy le van írva, **az is eredmény**. Írd
 
 ### A2. A próba-plugin bemásolása
 
-1. Csomagold ki a kapott `spx_probe.zip`-et (jobb klikk → **Összes kibontása**).
+1. Töltsd le a zipet böngészőből: https://github.com/tamaslaszlototh/SPExtension/raw/task/machine-checks/checks/spx_probe.zip
+   📝 Ha a letöltés nem sikerül (a böngésző, a vírusirtó vagy a céges proxy blokkolja), jegyezd fel az üzenetet, és kérd el a zipet e-mailben.
+   Csomagold ki (jobb klikk → **Összes kibontása**).
 2. A kibontott **`spx_probe`** mappát (amelyben az `__init__.py`, a `checks.py` és ez a fájl van) másold be a pluginmappába.
    Helyes eredmény: `...\python\plugins\spx_probe\__init__.py`.
    ⚠️ Ne legyen dupla mappa (`spx_probe\spx_probe\__init__.py`). Ha mégis az lett, a belső mappát másold eggyel feljebb.

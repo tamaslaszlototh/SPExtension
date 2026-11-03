@@ -109,8 +109,10 @@ def proxy_info():
 
 
 UA = {"User-Agent": "SPExtension-check/0.1", "Accept": "application/vnd.github+json"}
-# A SPExtension repo még privát, ezért egy publikus repóval teszteljük ugyanazt az utat.
+# A release-letöltés útját egy publikus repóval teszteljük, amelyiknek már van zip assetje.
 API_URL = "https://api.github.com/repos/cli/cli/releases/latest"
+# A saját repónk: amíg nincs release, 404 a várt (és jó) válasz, mert az is azt jelenti, hogy elérhető.
+OWN_URL = "https://api.github.com/repos/tamaslaszlototh/SPExtension/releases/latest"
 
 
 def _urlopen(url, ctx, headers=UA, read=4096):
@@ -126,6 +128,14 @@ def network_urllib():
     section("4. Hálózat: urllib (api.github.com + asset redirect)")
     ctx = ssl.create_default_context()
     log("verify_flags:", ctx.verify_flags)
+    import urllib.error
+    try:
+        status, final, data, dt = _urlopen(OWN_URL, ctx)
+        log(f"  SPExtension releases/latest: {status} {dt:.2f}s")
+    except urllib.error.HTTPError as e:
+        log(f"  SPExtension releases/latest: HTTP {e.code} (404 = elérhető, még nincs release)")
+    except Exception as e:
+        log(f"  SPExtension releases/latest HIBA: {type(e).__name__}: {e}")
     asset_url = None
     for label, c in (("default context", ctx), ("X509_STRICT nélkül", None)):
         if c is None:
