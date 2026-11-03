@@ -8,9 +8,11 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 - **B**: a Painter régi JavaScript API-ja;
 - **C**: a plugin „rákattint” helyetted.
 
-> **2. kör (javított verzió).** Az első otthoni futásnál a plugin hibája miatt a 4., a 6. és a 7. lépés elhasalt. Ez nem a te hibád volt.
-> - **Otthoni gép:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak). Az 5. lépést (B próba) itt **kihagyhatod**, az már megvan. Minden mást csinálj végig.
+> **3. kör.** Köszönöm a 2. kört! Az ikon kérdése megoldódott. A „kattintás szimulálása” (C) viszont megint nem találta az Assets ablakot. Ez a plugin hibája volt, most javítottam.
+> - **Mindkét gépen:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak).
+> - **Otthoni gép:** csak a **2.**, **3.**, **4.** és **6.** lépés kell (előkészítés, felderítés, A próba, C próba), plusz természetesen az 1. (telepítés) és a 8. (eredmények elküldése). Az 5. és a 7. lépést hagyd ki.
 > - **Céges gép:** csináld végig az egészet.
+> - **Újdonság:** az ellenőrzésnél a plugin megkér, hogy **fess egy rövid vonást** a modellre. Így látszik biztosan, melyik brush aktív. Utána a vonást Ctrl+Z-vel visszavonhatod. A „teendő” ablak közben nyitva maradhat, nem akadályoz a festésben.
 
 **Időigény:** kb. 15–20 perc gépenként. Admin jog nem kell, és a plugin semmit nem telepít a rendszerbe.
 
@@ -48,7 +50,7 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 ## 4. A próba – kijelölés
 
 1. Kattints a **„2. A: kijelölés az Assets ablakban”** gombra.
-2. Válaszolj a felugró kérdésekre. Ennél a próbánál neked kell kézzel rákattintanod a kijelölt brushra.
+2. Válaszolj a felugró kérdésekre. Ennél a próbánál neked kell kézzel rákattintanod a kijelölt brushra: amikor a „teendő” ablak kéri, kattints rá egyszer az Assets ablakban, majd nyomd meg a „Rákattintottam” gombot. Utána fess egy vonást.
 3. 📝 Az utolsó kérdés a véleményedet kéri: mennyire lenne zavaró, ha a gomb csak kijelölne, és még egyszer rá kellene kattintanod. Ez **fontos**, írd le pár mondatban.
 
 ## 5. B próba – JavaScript
@@ -62,7 +64,8 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 
 1. Válassz megint egy **másik**, most nem aktív [TOOL] brusht. 📝 Írd fel a nevét.
 2. Kattints a **„4. C: kattintás szimulálása”** gombra. **Közben ne mozgasd az egeret, és ne kattints semmire.**
-3. A plugin először egyet, majd (ha az nem volt elég) kettőt „kattint” a brushra. Mindkettő után megkérdezi, hogy aktív lett-e.
+3. A plugin legfeljebb négyféleképpen próbál „kattintani” a brushra. Kétféle módszert próbál, mindkettőt egyszeres és dupla kattintással. A Windows-egeres módszernél az egérmutató egy pillanatra magától odaugrik, aztán visszajön. Ez normális.
+4. Minden próba után megkér, hogy fess egy vonást, és megkérdezi, hogy a kiválasztott brush mintáját festette-e. Ha **Igen**, a próba ott véget ér.
 
 ## 7. Ikon próbák
 

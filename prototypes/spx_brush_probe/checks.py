@@ -9,7 +9,7 @@
 #   T2 thumbnail a preset fájlból / cache-ből
 #   T3 thumbnail képernyőképből / QML Image elemből
 
-import io, os, re, sys, json, time, zipfile, traceback
+import io, os, re, sys, json, time, zipfile, traceback, importlib
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -93,42 +93,139 @@ def ask_text(parent, question):
     log(f"  >> KÉRDÉS: {question}\n  >> VÁLASZ: {text if ok else '(kihagyva)'}")
 
 
+def wait_for_user(parent, text, button="Kész"):
+    """Nem modális ablak: közben a Painterben lehet kattintani."""
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("SPX Brush Probe – teendő")
+    dlg.setWindowModality(QtCore.Qt.WindowModality.NonModal)
+    dlg.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
+    lay = QtWidgets.QVBoxLayout(dlg)
+    lab = QtWidgets.QLabel(text)
+    lab.setWordWrap(True)
+    lay.addWidget(lab)
+    b = QtWidgets.QPushButton(button)
+    lay.addWidget(b)
+    done = []
+    b.clicked.connect(lambda: done.append(1))
+    dlg.show()
+    while not done and dlg.isVisible():
+        QtWidgets.QApplication.processEvents()
+        time.sleep(0.03)
+    dlg.close()
+
+
+PAINT_CHECK = ("Ellenőrzés: fess egy rövid vonást a modellre.\n"
+               "Olyan mintát fest, mint a(z) „{name}” brush (az Assets ablakban látható ikonja alapján)?\n"
+               "(Utána Ctrl+Z-vel visszavonhatod a vonást.)")
+
+
 def main_window():
     return ui.get_main_window()
 
 
+_SB = []
+
+
+def _shiboken():
+    if not _SB:
+        mod = None
+        for name in ("shiboken6", "PySide6.shiboken6"):
+            try:
+                mod = importlib.import_module(name)
+                break
+            except Exception:
+                pass
+        _SB.append(mod)
+    return _SB[0]
+
+
 def alive(o):
     """False, ha a Python wrapper mögötti C++ objektum már törölve van (11.1 „ghost widget”)."""
+    sb = _shiboken()
+    if sb is not None:
+        try:
+            if not sb.isValid(o):
+                return False
+        except Exception:
+            pass
     try:
-        import shiboken6
-        if not shiboken6.isValid(o):
-            return False
         o.objectName()
         return True
-    except Exception:
+    except RuntimeError:
         return False
 
 
 def live_children(parent, cls):
-    return [c for c in parent.findChildren(cls) if alive(c)]
+    """parent alatti cls példányok: findChildren + QApplication.allWidgets() uniója, halottak nélkül."""
+    out, seen = [], set()
+    try:
+        cands = list(parent.findChildren(cls))
+    except Exception:
+        cands = []
+    if issubclass(cls, QtWidgets.QWidget):
+        cands += [w for w in QtWidgets.QApplication.allWidgets() if isinstance(w, cls)]
+    for c in cands:
+        if not alive(c) or id(c) in seen:
+            continue
+        try:
+            if c is not parent and isinstance(c, QtWidgets.QWidget) and not _descends(c, parent):
+                continue
+        except RuntimeError:
+            continue
+        seen.add(id(c))
+        out.append(c)
+    return out
 
 
-_DEAD_REPORTED = set()
+def _descends(w, parent):
+    """Szülőlánc bejárása (az isAncestorOf megáll az ablakhatáron, pl. lebegő docknál)."""
+    def key(o):
+        sb = _shiboken()
+        try:
+            return sb.getCppPointer(o)[0] if sb else id(o)
+        except Exception:
+            return id(o)
+    target = key(parent)
+    p = w.parentWidget()
+    while p is not None:
+        if p is parent or key(p) == target:
+            return True
+        p = p.parentWidget()
+    return False
+
+
+_DOCK_DIAG = []
+
+
+def _dock_diagnostics():
+    if _DOCK_DIAG:
+        return
+    _DOCK_DIAG.append(1)
+    sb = _shiboken()
+    log(f"  dock-diagnosztika: shiboken modul = {getattr(sb, '__name__', None)}")
+    for src, items in (("findChildren", main_window().findChildren(QtWidgets.QDockWidget)),
+                       ("allWidgets", [w for w in QtWidgets.QApplication.allWidgets()
+                                       if isinstance(w, QtWidgets.QDockWidget)])):
+        valid = sum(1 for d in items if alive(d))
+        log(f"    {src}: {len(items)} dock, ebből élő {valid}")
+        for d in items[:3]:
+            try:
+                info = (type(d).__name__, sb.isValid(d) if sb else "?", d.objectName())
+            except Exception as e:
+                info = (type(d).__name__, "HIBA", repr(e)[:80])
+            log(f"      minta: {info}")
 
 
 def find_dock(object_name, title_part):
-    all_docks = main_window().findChildren(QtWidgets.QDockWidget)
-    docks = [d for d in all_docks if alive(d)]
-    dead = len(all_docks) - len(docks)
-    if dead and dead not in _DEAD_REPORTED:
-        _DEAD_REPORTED.add(dead)
-        log(f"  FIGYELEM: {dead} törölt (halott) QDockWidget wrapper a findChildren eredményében")
+    _dock_diagnostics()
+    docks = live_children(main_window(), QtWidgets.QDockWidget)
     for d in docks:
         if d.objectName() == object_name:
             return d
     for d in docks:
         if title_part.lower() in d.windowTitle().lower():
             return d
+    log(f"  {title_part} dock nem található; élő dockok: {[(d.objectName(), d.windowTitle()) for d in docks]}")
     return None
 
 
@@ -523,11 +620,12 @@ def try_show_in_ui(parent, r):
     screenshot(d, "A_assets_after_show_in_ui.png")
     ask(parent, f"Látod az Assets ablakban kijelölve (kiemelve) ezt: „{r.gui_name()}”?")
     before = collect_texts(props_dock())
-    QtWidgets.QMessageBox.information(parent, "SPX Brush Probe",
-                                      "Most kattints KÉZZEL a kijelölt presetre az Assets ablakban,\n"
-                                      "majd gyere vissza, és nyomd meg az OK-t.")
+    wait_for_user(parent, f"Most kattints KÉZZEL egyszer a kijelölt „{r.gui_name()}” presetre az Assets ablakban.\n"
+                          f"Ez az ablak nyitva maradhat. Ha rákattintottál, nyomd meg a gombot.",
+                  "Rákattintottam")
     log_diff(before, collect_texts(props_dock()), "kézi kattintás után")
-    ask(parent, f"A kézi kattintás után aktív lett a(z) „{r.gui_name()}” brush (a Properties – Paint panelen látszik)?")
+    wait_for_user(parent, PAINT_CHECK.format(name=r.gui_name()), "Festettem egy vonást")
+    ask(parent, f"A kézi kattintás után a(z) „{r.gui_name()}” brush mintáját festette?")
     ask_text(parent, "Ha a Brush button csak KIJELÖLNÉ a presetet, és neked kellene még egyszer rákattintani,\n"
                      "mennyire lenne ez zavaró a munkában? Írd le pár szóban.")
     return flush()
@@ -680,20 +778,62 @@ def try_qt_click(parent, r):
     if not cands:
         screenshot(assets_dock(), "C_assets_no_candidate.png")
         return flush()
-    desc, click, _, _ = cands[0]
-    for double in (False, True):
-        before = collect_texts(props_dock())
-        screenshot(props_dock(), f"C_props_before_{'dbl' if double else 'single'}.png")
-        how = guard(click, double)
+    desc, click, _, grect = cands[0]
+    log(f"  célpont: {desc} global_rect={grect}")
+    crop_screen(grect.adjusted(-20, -20, 20, 20), "C_target.png")
+    methods = (("Qt esemény, egy kattintás", lambda: click(False)),
+               ("Qt esemény, dupla kattintás", lambda: click(True)),
+               ("Windows egér, egy kattintás", lambda: os_click(grect.center(), False)),
+               ("Windows egér, dupla kattintás", lambda: os_click(grect.center(), True)))
+    for n, (label, fn) in enumerate(methods):
+        r.show_in_ui()
         wait(1000)
-        screenshot(props_dock(), f"C_props_after_{'dbl' if double else 'single'}.png")
-        label = "dupla kattintás" if double else "egy kattintás"
-        log(f"  {label} ({how})")
+        before = collect_texts(props_dock())
+        screenshot(props_dock(), f"C_{n}_props_before.png")
+        how = guard(fn)
+        wait(1000)
+        screenshot(props_dock(), f"C_{n}_props_after.png")
+        log(f"  [{n}] {label} ({how})")
         log_diff(before, collect_texts(props_dock()), label)
-        if ask(parent, f"Szimulált {label.upper()} történt a(z) „{r.gui_name()}” presetre.\n"
-                       f"Aktív lett ez a brush (a Properties – Paint panelen látszik)?") == "IGEN":
+        wait_for_user(parent, f"Szimulált kattintás történt: {label}.\n\n" + PAINT_CHECK.format(name=r.gui_name()),
+                      "Festettem egy vonást")
+        if ask(parent, f"[{label}] Most a(z) „{r.gui_name()}” brush mintáját festette?") == "IGEN":
             break
     return flush()
+
+
+def crop_screen(grect, name):
+    try:
+        scr = QtGui.QGuiApplication.screenAt(grect.center()) or QtGui.QGuiApplication.primaryScreen()
+        geo = scr.geometry()
+        pix = scr.grabWindow(0, grect.x() - geo.x(), grect.y() - geo.y(), grect.width(), grect.height())
+        path = out_file(name)
+        pix.save(path)
+        log(f"  kivágás: {path} ({pix.width()}x{pix.height()})")
+    except Exception as e:
+        log(f"  kivágás hiba ({name}): {e}")
+
+
+def os_click(gp, double):
+    """Valódi Windows egérkattintás (SetCursorPos + mouse_event), utána az egér visszakerül."""
+    import ctypes
+    from ctypes import wintypes
+    u = ctypes.windll.user32
+    scr = QtGui.QGuiApplication.screenAt(gp) or QtGui.QGuiApplication.primaryScreen()
+    g, dpr = scr.geometry(), scr.devicePixelRatio()
+    x = int(round(g.x() + (gp.x() - g.x()) * dpr))
+    y = int(round(g.y() + (gp.y() - g.y()) * dpr))
+    old = wintypes.POINT()
+    u.GetCursorPos(ctypes.byref(old))
+    u.SetCursorPos(x, y)
+    wait(80)
+    for _ in range(2 if double else 1):
+        u.mouse_event(0x0002, 0, 0, 0, 0)  # LEFTDOWN
+        u.mouse_event(0x0004, 0, 0, 0, 0)  # LEFTUP
+        wait(60)
+    wait(300)
+    u.SetCursorPos(old.x, old.y)
+    return f"Windows egér: logikai {gp.x()},{gp.y()} -> fizikai {x},{y} (dpr={dpr}, képernyő={scr.name()})"
 
 
 # ----------------------------------------------------------------- ikon
