@@ -20,6 +20,7 @@ REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "s
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}
 _FILE_INDEX = None  # {kisbetűs fájlnév törzs: [útvonalak]}
+_DOC_DIRS = []
 
 
 # ----------------------------------------------------------------- segédek
@@ -96,11 +97,36 @@ def main_window():
     return ui.get_main_window()
 
 
+def alive(o):
+    """False, ha a Python wrapper mögötti C++ objektum már törölve van (11.1 „ghost widget”)."""
+    try:
+        import shiboken6
+        if not shiboken6.isValid(o):
+            return False
+        o.objectName()
+        return True
+    except Exception:
+        return False
+
+
+def live_children(parent, cls):
+    return [c for c in parent.findChildren(cls) if alive(c)]
+
+
+_DEAD_REPORTED = set()
+
+
 def find_dock(object_name, title_part):
-    for d in main_window().findChildren(QtWidgets.QDockWidget):
+    all_docks = main_window().findChildren(QtWidgets.QDockWidget)
+    docks = [d for d in all_docks if alive(d)]
+    dead = len(all_docks) - len(docks)
+    if dead and dead not in _DEAD_REPORTED:
+        _DEAD_REPORTED.add(dead)
+        log(f"  FIGYELEM: {dead} törölt (halott) QDockWidget wrapper a findChildren eredményében")
+    for d in docks:
         if d.objectName() == object_name:
             return d
-    for d in main_window().findChildren(QtWidgets.QDockWidget):
+    for d in docks:
         if title_part.lower() in d.windowTitle().lower():
             return d
     return None
@@ -215,7 +241,7 @@ def quick_surfaces(region=None):
     surfaces = []
     try:
         from PySide6 import QtQuickWidgets
-        for qw in main_window().findChildren(QtQuickWidgets.QQuickWidget):
+        for qw in live_children(main_window(), QtQuickWidgets.QQuickWidget):
             root = qw.rootObject()
             if root is None or not qw.isVisible():
                 continue
@@ -261,7 +287,7 @@ def dump_widget_tree(w, depth=0, maxd=12, lines=None):
     lines.append("  " * depth + f"{w.metaObject().className()} '{w.objectName()}' "
                  f"vis={w.isVisible()} {w.width()}x{w.height()}{extra}")
     for c in w.children():
-        if isinstance(c, QtWidgets.QWidget):
+        if isinstance(c, QtWidgets.QWidget) and alive(c):
             dump_widget_tree(c, depth + 1, maxd, lines)
     return lines
 
@@ -271,7 +297,7 @@ def collect_texts(dock):
     texts = set()
     if dock is None:
         return texts
-    for w in [dock] + dock.findChildren(QtWidgets.QWidget):
+    for w in [dock] + live_children(dock, QtWidgets.QWidget):
         for attr in ("text", "currentText", "toolTip"):
             f = getattr(w, attr, None)
             if callable(f):
@@ -387,9 +413,10 @@ def _roots():
 def build_file_index():
     global _FILE_INDEX
     if _FILE_INDEX is not None:
-        return _FILE_INDEX
+        return _FILE_INDEX, _DOC_DIRS
     _FILE_INDEX = {}
-    doc_dirs = []
+    doc_dirs = _DOC_DIRS
+    doc_dirs.clear()
     for label, root in _roots():
         if not os.path.isdir(root):
             log(f"  [{label}] nincs: {root}")
@@ -519,9 +546,11 @@ def try_js(parent, r):
     url = r.identifier().url()
     funcs = [k for k, v in _JS_API.items() if v.startswith("function")]
     getters = [k for k in funcs if re.search(r"resource|shelf", k, re.I) and GETTER.search(k.rsplit(".", 1)[-1])]
-    setters = [k for k in funcs if re.search(r"tool|brush|preset", k, re.I) and SETTER.search(k.rsplit(".", 1)[-1])]
+    setters = [k for k in funcs if re.search(r"tool|brush|preset", k, re.I) and SETTER.search(k.rsplit(".", 1)[-1])
+               and not re.search(r"mapexport|display|export", k, re.I)]
     log(f"  getter jelöltek ({len(getters)}): {getters}")
     log(f"  setter jelöltek ({len(setters)}): {setters}")
+    getters = [g for g in getters if not g.endswith("findResources")]  # névvel kell hívni, nem URL-lel
     for g in getters[:20]:
         try:
             v = js.evaluate(f"JSON.stringify({g}({json.dumps(url)}))")
@@ -580,7 +609,7 @@ def _find_candidates(r):
         log("  Assets dock nem található")
         return cands
     # widget alapú nézetek
-    for view in d.findChildren(QtWidgets.QAbstractItemView):
+    for view in live_children(d, QtWidgets.QAbstractItemView):
         m = view.model()
         if m is None:
             continue
@@ -670,7 +699,9 @@ def try_qt_click(parent, r):
 # ----------------------------------------------------------------- ikon
 def _extract_embedded_image(path):
     data = open(path, "rb").read()
-    log(f"    {path}: {len(data)} bájt, eleje={data[:8]!r}, zip={zipfile.is_zipfile(path)}")
+    log(f"    {path}: {len(data)} bájt, eleje={data[:32].hex(' ')}, zip={zipfile.is_zipfile(path)}")
+    strs = re.findall(rb"[ -~]{6,}", data[:200000])
+    log(f"    olvasható szövegek ({len(strs)}, első 40): {[x[:60].decode() for x in strs[:40]]}")
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as z:
             names = z.namelist()
@@ -693,16 +724,57 @@ def _extract_embedded_image(path):
     log("    nincs benne felismerhető kép")
 
 
+def scan_thumbnail_cache():
+    """A LOCALAPPDATA / APPDATA Painter-mappák kiterjesztés nélküli fájljai: van-e köztük kép (thumbnail-cache)?"""
+    log("  T2b: lehetséges thumbnail-cache a LOCALAPPDATA / APPDATA alatt")
+    sigs = ((b"\x89PNG", "png"), (b"\xff\xd8\xff", "jpg"), (b"RIFF", "riff/webp"), (b"DDS ", "dds"),
+            (b"PK\x03\x04", "zip"), (b"SQLite format", "sqlite"))
+    for env in ("LOCALAPPDATA", "APPDATA"):
+        root = os.path.join(os.environ.get(env, ""), "Adobe", "Adobe Substance 3D Painter")
+        if not os.path.isdir(root):
+            continue
+        dirs, kinds, saved = {}, {}, 0
+        for dp, _, fns in os.walk(root):
+            rel = os.path.relpath(dp, root)
+            dirs[rel] = len(fns)
+            for f in fns:
+                fp = os.path.join(dp, f)
+                try:
+                    head = open(fp, "rb").read(16)
+                except Exception:
+                    continue
+                kind = next((k for sig, k in sigs if head.startswith(sig)), "egyéb")
+                kinds[kind] = kinds.get(kind, 0) + 1
+                if kind in ("png", "jpg") and saved < 12:
+                    dst = out_file(f"T2b_{env}_{saved}.{kind}")
+                    with open(fp, "rb") as a, open(dst, "wb") as b:
+                        b.write(a.read())
+                    log(f"    kép: {fp} ({os.path.getsize(fp)} bájt) -> {dst}")
+                    saved += 1
+        log(f"    [{env}] mappák (fájlszám): {sorted(dirs.items(), key=lambda kv: -kv[1])[:20]}")
+        log(f"    [{env}] fájltípusok a fejléc alapján: {kinds}")
+
+
 def try_icons(parent, r):
     section(f"5. Ikon próbák – {r.gui_name()}")
     rid = r.identifier()
-    # T2: fájl a lemezen
+    # T2: fájl a lemezen – elsőként a JS API által megadott pontos útvonal
+    paths = []
+    try:
+        import substance_painter.js as js
+        info = json.loads(js.evaluate(f"JSON.stringify(alg.resources.getResourceInfo({json.dumps(rid.url())}))"))
+        log(f"  getResourceInfo: {info}")
+        if info.get("filePath"):
+            paths.append(info["filePath"])
+    except Exception as e:
+        log(f"  getResourceInfo hiba: {e}")
     index, _ = build_file_index()
     keys = {rid.name.lower(), r.gui_name().lower(), os.path.basename(rid.name).lower()}
-    paths = sorted({p for k in keys for p in index.get(k, [])})
+    paths += sorted({p for k in keys for p in index.get(k, [])} - set(os.path.normpath(x) for x in paths))
     log(f"  T2: {len(paths)} azonos nevű fájl: {paths[:20]}")
     for p in paths[:6]:
         guard(_extract_embedded_image, p)
+    guard(scan_thumbnail_cache)
     # T3: képernyőkép és QML Image
     r.show_in_ui()
     wait(1500)

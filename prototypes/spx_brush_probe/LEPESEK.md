@@ -8,6 +8,10 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 - **B**: a Painter régi JavaScript API-ja;
 - **C**: a plugin „rákattint” helyetted.
 
+> **2. kör (javított verzió).** Az első otthoni futásnál a plugin hibája miatt a 4., a 6. és a 7. lépés elhasalt. Ez nem a te hibád volt.
+> - **Otthoni gép:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak). Az 5. lépést (B próba) itt **kihagyhatod**, az már megvan. Minden mást csinálj végig.
+> - **Céges gép:** csináld végig az egészet.
+
 **Időigény:** kb. 15–20 perc gépenként. Admin jog nem kell, és a plugin semmit nem telepít a rendszerbe.
 
 **Fontos:**
