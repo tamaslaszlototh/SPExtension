@@ -9,7 +9,12 @@
 **Workflow**: A user-defined, ordered sequence of Steps that Painter carries out one after another (e.g. "create Fill layer → add black mask"). The user creates it on the Panel. If a Step fails, the Workflow stops.
 _Avoid_: process, macro
 
-**Step**: A single action inside a Workflow. It can be anything a Button can do (menu command, brush selection), as well as other Painter actions, such as layer and mask operations.
+**Step**: A single action inside a Workflow, chosen from a fixed list of supported actions: layer and mask operations, effects, layer settings, and (only at the end of a Workflow) brush selection, menu commands and saving. A Brush button or Menu button behaves like a Workflow with exactly one Step.
+
+**Recording**: Creating a Workflow by performing its Steps in Painter while the Panel watches, then stopping. The captured Steps can be reviewed and corrected before the Workflow is saved.
+_Avoid_: macro recording
+
+**Current layer**: The layer a Step acts on while a Workflow runs. It starts as the layer selected when the Workflow is started, and becomes each newly created layer in turn.
 
 **Workflow button**: A Button that runs a Workflow.
 
