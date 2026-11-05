@@ -21,4 +21,7 @@ _Avoid_: macro recording
 **Menu button**: A Button that triggers an existing Painter menu command (e.g. Save).
 _Avoid_: menu item (this means the original item inside Painter's menu, not the Button)
 
-**Layout**: The set of Buttons on the Panel and their order. In v1 there is exactly one Layout.
+**Group**: A named, collapsible section of the Panel that holds an ordered set of Buttons. The user creates, renames and reorders Groups on the Panel; a Button belongs to exactly one Group.
+_Avoid_: category, folder (a folder is a Painter layer type)
+
+**Layout**: The Groups on the Panel, their order, and the Buttons inside each of them in order. In v1 there is exactly one Layout.
