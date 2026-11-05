@@ -18,7 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import substance_painter.resource as res
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.5"
+PROBE_VERSION = "v3.6"
 REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_brush_probe")
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}
@@ -1078,6 +1078,21 @@ def _save_visual(v, base):
     return None, None
 
 
+def _save_tooltip_image(html, base):
+    """A tooltip HTML-be ágyazott data:image/...;base64 kép kimentése. 12.2-n 256x256 PNG."""
+    import base64
+    m = re.search(r"data:image/(\w+);base64,([A-Za-z0-9+/=]+)", html)
+    if not m:
+        return None, None
+    data = base64.b64decode(m.group(2))
+    img = QtGui.QImage.fromData(data)
+    path = base + "." + m.group(1)
+    open(path, "wb").write(data)
+    rest = re.sub(r"<img[^>]*>", "<img…>", html)
+    return (f"tooltip-kép {m.group(1)} {len(data)} bájt {img.width()}x{img.height()} -> {path}; "
+            f"tooltip többi része: {rest[:300]!r}"), path
+
+
 def icon_from_model(r, tag):
     """T4: a csempe ikonja közvetlenül a modellből. Visszaad: a mentett képek útvonalai."""
     name = r.gui_name()
@@ -1108,6 +1123,10 @@ def icon_from_model(r, tag):
         if v is None:
             continue
         desc, path = _save_visual(v, out_file(f"T4_{tag}_{_safe(name)}_role{role}"))
+        if desc is None and isinstance(v, str) and "data:image/" in v:
+            desc, path = _save_tooltip_image(v, out_file(f"T4t_{tag}_{_safe(name)}_tooltip"))
+            if path:
+                saved.insert(0, path)  # a legnagyobb felbontású: ezt mutatja a behúzás
         if desc is None:
             text = repr(v)
             desc = f"{type(v).__name__} {text[:160]}"
@@ -1215,14 +1234,12 @@ def icon_batch(parent, presets, current):
         log(f"  --- {tag}: {r.gui_name()}")
         log(f"    T2: {guard(embedded_png_present, r)}")
         guard(icon_from_model, r, tag)
-    guard(scan_previews, [r for _, r in picks])
     flush()
     QtWidgets.QMessageBox.information(parent, "SPX Brush Probe",
-                                      "Nyisd meg a riport mappát, és nézd meg a T4_* , T4c_* és T5_* képeket.\n"
+                                      "Nyisd meg a riport mappát, és nézd meg a T4t_… (tooltip) képeket.\n"
                                       "Utána válaszolj a kérdésekre.")
-    ask(parent, "A T4_… képek (a „role1” és a „late” végűek) mind a saját brushuk tiszta képei, felirat nélkül?")
-    ask(parent, "A T4c_… képek (a „grab” végűek) jók lennének gomb-ikonnak?")
-    ask(parent, "Van a T5_… képek között brush-kép?")
+    ask(parent, "A T4t_… képek (a „tooltip” végűek) mind a saját brushuk nagy, éles képei?")
+    ask(parent, "Ugyanaz a kép, mint amit a Painter mutat, ha az Assets ablakban a brush fölé viszed az egeret?")
     ask_text(parent, "Ha valami furcsa volt a képeken (rossz brush, üres, homályos, felirat), írd le pár szóban.")
     return flush()
 

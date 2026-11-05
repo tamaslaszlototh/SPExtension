@@ -10,7 +10,7 @@ import os, sys, importlib
 from PySide6 import QtWidgets, QtCore, QtGui
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.5"
+PROBE_VERSION = "v3.6"
 
 # A „Reload Plugins Folder” csak ezt a modult tölti újra, az almodulokat nem:
 # a régi checks a sys.modules-ban maradna. Ezért kidobjuk, és frissen töltjük be.
@@ -77,7 +77,7 @@ def start_plugin():
     b4.clicked.connect(run("C próba", checks.try_qt_click))
     b5 = QtWidgets.QPushButton("4. Ikon próbák")
     b5.clicked.connect(run("Ikon próba", checks.try_icons))
-    b7 = QtWidgets.QPushButton("5. Ikon sorozat (több brush) – v3.5")
+    b7 = QtWidgets.QPushButton("5. Ikon sorozat (több brush) – v3.6")
     b7.clicked.connect(run("Ikon sorozat", lambda parent, r: checks.icon_batch(parent, presets, r)))
     b6 = QtWidgets.QPushButton("Riport mappa megnyitása")
 

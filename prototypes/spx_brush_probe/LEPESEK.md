@@ -7,20 +7,22 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 - **A**: a plugin csak kijelöli a brusht az Assets ablakban;
 - **C**: a plugin „rákattint” helyetted.
 
-> ## 4. kör (v3.5): csak az ikon, kb. 10 perc gépenként
+> ## 5. kör (v3.6): az ikon megerősítése, kb. 10 perc gépenként
 >
-> Köszönöm a céges kört! Bebizonyosodott, hogy a brush-váltás egy kattintással mindkét gépen működik. Egy kérdés maradt nyitva: nem minden brush fájljában van benne a brush képe (a „Basic Hard”-ban pl. nincs). Most azt próbáljuk ki, hogy a képet közvetlenül az Assets ablaktól el tudjuk-e kérni.
+> Köszönöm a céges v3.5-ös kört! Kiderült, hogy a brush nagy (256×256) képe benne van abban a buboréksúgóban, amit a Painter akkor mutat, ha az Assets ablakban a brush fölé viszed az egeret. A v3.6 ezt menti ki. Most azt kell megnézni, hogy ez **mindkét gépen** így van-e.
 >
-> **Mindkét gépen** ezt csináld, a lenti 1–8. lépés helyett:
-> 1. **Telepítés:** lépj ki a Painterből. Töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát. Töltsd le az új zipet: https://github.com/tamaslaszlototh/SPExtension/raw/prototype/brush-button/prototypes/spx_brush_probe.zip, másold be a mappát, és **indítsd el a Paintert**. A panel címében **„SPX Brush Probe v3.5”** kell, hogy álljon, alján „(checks v3.5)”.
-> 2. **Előkészítés:** mint lent a 2. lépésben. Új projekt, a Paint eszköz kiválasztva, majd a **„0. Presetek betöltése”** gomb. Az Assets ablak legyen nyitva, rácsos (ikonos) nézetben.
+> - **Otthoni gép (11.1.0):** ez itt az első ikonos kör. Csináld végig az alábbi 1–5. lépést.
+> - **Céges gép (12.2.0):** elég az 1., 3. és 5. lépés, plusz a 4. lépésből az „5. Ikon sorozat” gomb.
+>
+> 1. **Telepítés:** lépj ki a Painterből. Töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát. Töltsd le az új zipet: https://github.com/tamaslaszlototh/SPExtension/raw/prototype/brush-button/prototypes/spx_brush_probe.zip, másold be a mappát, és **indítsd el a Paintert**. A panel címében **„SPX Brush Probe v3.6”** kell, hogy álljon, alján „(checks v3.6)”.
+> 2. **Előkészítés:** új projekt, a Paint eszköz kiválasztva, majd a **„0. Presetek betöltése”** gomb. Az Assets ablak legyen nyitva, rácsos (ikonos) nézetben.
 > 3. **Behúzás, háromszor:** húzz be egyenként a panel szaggatott mezőjébe
 >    - egy beépített brusht (pl. „Basic Hard”),
->    - egy **saját** presetet, ha van (pl. `cadiz_hair_new`),
->    - egy Photoshop (`.abr`) brusht, ha van.
+>    - egy **saját** presetet, ha van,
+>    - egy Photoshop (`.abr`) brusht, ha van (pl. „Archive Inker”).
 >
->    Minden behúzás után pár másodperc múlva **a brush képének kell megjelennie** a mezőben. 📝 Mindháromnál írd fel: megjelent a kép? Az a brush volt? Éles vagy homályos?
-> 4. Válassz a listából egy brusht, és kattints az **„5. Ikon sorozat (több brush)”** gombra. Ez kb. fél perc. A végén nyisd meg a riport mappát, nézd meg a `T4_…`, `T4c_…` és `T5_…` képeket, és válaszolj a kérdésekre.
+>    Minden behúzás után pár másodperc múlva **meg kell jelennie a brush nagy képének** a mezőben. 📝 Mindháromnál írd fel: megjelent? Az a brush volt? Éles?
+> 4. Válassz a listából egy brusht, és kattints az **„5. Ikon sorozat (több brush)”** gombra. Ez kb. fél perc. A végén nyisd meg a riport mappát, nézd meg a `T4t_…` (tooltip) képeket, és válaszolj a kérdésekre.
 > 5. **Visszaküldés:** a `%APPDATA%\spx_brush_probe` mappa zipben + a 📝 jegyzetek. Utána a 8. lépés szerint takaríts.
 
 > **3. kör, második próbálkozás (v3.4).** Az előző futásnál a Painter a régi plugin-fájlt használta tovább, mert a „Reload Plugins Folder” nem tölti újra a plugin minden részét. Ez az én hibám volt, nem a tiéd. Most így telepíts:
