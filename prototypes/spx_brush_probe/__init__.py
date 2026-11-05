@@ -10,14 +10,14 @@ import os, sys, importlib
 from PySide6 import QtWidgets, QtCore, QtGui
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.2"
+PROBE_VERSION = "v3.3"
 
 # A „Reload Plugins Folder” csak ezt a modult tölti újra, az almodulokat nem:
 # a régi checks a sys.modules-ban maradna. Ezért kidobjuk, és frissen töltjük be.
+# (A `from . import checks` itt nem jó: ha a csomagon már ott a régi `checks` attribútum, azt adja vissza.)
 for _name in [n for n in sys.modules if n.startswith(__name__ + ".")]:
     del sys.modules[_name]
-from . import checks  # noqa: E402
-importlib.reload(checks)
+checks = importlib.import_module(__name__ + ".checks")
 
 _widgets = []
 
