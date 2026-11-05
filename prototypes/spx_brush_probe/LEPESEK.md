@@ -7,11 +7,11 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 - **A**: a plugin csak kijelöli a brusht az Assets ablakban;
 - **C**: a plugin „rákattint” helyetted.
 
-> **3. kör, második próbálkozás (v3.3).** Az előző futásnál a Painter a régi plugin-fájlt használta tovább, mert a „Reload Plugins Folder” nem tölti újra a plugin minden részét. Ez az én hibám volt, nem a tiéd. Most így telepíts:
+> **3. kör, második próbálkozás (v3.4).** Az előző futásnál a Painter a régi plugin-fájlt használta tovább, mert a „Reload Plugins Folder” nem tölti újra a plugin minden részét. Ez az én hibám volt, nem a tiéd. Most így telepíts:
 > 1. **Lépj ki teljesen a Painterből** (File → Exit).
 > 2. Töröld a régi `spx_brush_probe` mappát a pluginmappából és a `%APPDATA%\spx_brush_probe` mappát.
 > 3. Másold be az új mappát, és **indítsd el a Paintert**.
-> 4. A panel címében ennek kell állnia: **„SPX Brush Probe v3.3”**, alján pedig „(checks v3.3)”. Ha nem ez látszik, szólj, és ne folytasd.
+> 4. A panel címében ennek kell állnia: **„SPX Brush Probe v3.4”**, alján pedig „(checks v3.4)”. Ha nem ez látszik, szólj, és ne folytasd.
 >
 > A lépések ugyanazok, mint lent a 3. körnél.
 

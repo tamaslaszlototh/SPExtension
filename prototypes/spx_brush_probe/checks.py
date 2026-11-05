@@ -16,7 +16,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import substance_painter.resource as res
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.3"
+PROBE_VERSION = "v3.4"
 REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_brush_probe")
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}
@@ -157,23 +157,17 @@ def alive(o):
 
 
 def live_children(parent, cls):
-    """parent alatti cls példányok: findChildren + QApplication.allWidgets() uniója, halottak nélkül."""
-    out, seen = [], set()
-    try:
-        cands = list(parent.findChildren(cls))
-    except Exception:
-        cands = []
-    if issubclass(cls, QtWidgets.QWidget):
-        cands += [w for w in QtWidgets.QApplication.allWidgets() if isinstance(w, cls)]
-    for c in cands:
-        if not alive(c) or id(c) in seen:
-            continue
+    """parent alatti cls példányok. Csak QApplication.allWidgets(): 11.1-en a findChildren halott
+    wrappereket ad, és a hívása a már élő wrappereket is érvénytelenítheti, ezért kerüljük."""
+    out = []
+    for c in QtWidgets.QApplication.allWidgets():
         try:
-            if c is not parent and isinstance(c, QtWidgets.QWidget) and not _descends(c, parent):
+            if not isinstance(c, cls) or not alive(c):
+                continue
+            if c is not parent and not _descends(c, parent):
                 continue
         except RuntimeError:
             continue
-        seen.add(id(c))
         out.append(c)
     return out
 
@@ -203,30 +197,28 @@ def _dock_diagnostics():
         return
     _DOCK_DIAG.append(1)
     sb = _shiboken()
-    log(f"  dock-diagnosztika: shiboken modul = {getattr(sb, '__name__', None)}")
-    for src, items in (("findChildren", main_window().findChildren(QtWidgets.QDockWidget)),
-                       ("allWidgets", [w for w in QtWidgets.QApplication.allWidgets()
-                                       if isinstance(w, QtWidgets.QDockWidget)])):
-        valid = sum(1 for d in items if alive(d))
-        log(f"    {src}: {len(items)} dock, ebből élő {valid}")
-        for d in items[:3]:
-            try:
-                info = (type(d).__name__, sb.isValid(d) if sb else "?", d.objectName())
-            except Exception as e:
-                info = (type(d).__name__, "HIBA", repr(e)[:80])
-            log(f"      minta: {info}")
+    items = [w for w in QtWidgets.QApplication.allWidgets() if isinstance(w, QtWidgets.QDockWidget)]
+    log(f"  dock-diagnosztika: shiboken={getattr(sb, '__name__', None)}, allWidgets: {len(items)} dock, "
+        f"élő {sum(1 for d in items if alive(d))} (findChildren-t nem hívunk)")
 
 
 def find_dock(object_name, title_part):
     _dock_diagnostics()
-    docks = live_children(main_window(), QtWidgets.QDockWidget)
-    for d in docks:
-        if d.objectName() == object_name:
+    found = []
+    for d in QtWidgets.QApplication.allWidgets():
+        try:
+            if not isinstance(d, QtWidgets.QDockWidget):
+                continue
+            found.append((d, d.objectName(), d.windowTitle()))
+        except RuntimeError:
+            continue
+    for d, name, _ in found:
+        if name == object_name:
             return d
-    for d in docks:
-        if title_part.lower() in d.windowTitle().lower():
+    for d, _, title in found:
+        if title_part.lower() in title.lower():
             return d
-    log(f"  {title_part} dock nem található; élő dockok: {[(d.objectName(), d.windowTitle()) for d in docks]}")
+    log(f"  {title_part} dock nem található; dockok: {[(n, t) for _, n, t in found]}")
     return None
 
 
@@ -364,8 +356,24 @@ def quick_surfaces(region=None):
     return surfaces
 
 
-def dump_widget_tree(w, depth=0, maxd=12, lines=None):
+def _child_map():
+    """{szülő C++ pointer: [gyerek widgetek]} az allWidgets()-ből (children()/findChildren nélkül)."""
+    sb, m = _shiboken(), {}
+    for c in QtWidgets.QApplication.allWidgets():
+        try:
+            p = c.parentWidget()
+            if p is None:
+                continue
+            k = sb.getCppPointer(p)[0] if sb else id(p)
+        except Exception:
+            continue
+        m.setdefault(k, []).append(c)
+    return m
+
+
+def dump_widget_tree(w, depth=0, maxd=12, lines=None, cmap=None):
     lines = [] if lines is None else lines
+    cmap = _child_map() if cmap is None else cmap
     if depth > maxd or len(lines) > 3000:
         return lines
     extra = ""
@@ -384,9 +392,14 @@ def dump_widget_tree(w, depth=0, maxd=12, lines=None):
         extra += f" MODEL rows={m.rowCount()} cols={m.columnCount()} minta={sample}"
     lines.append("  " * depth + f"{w.metaObject().className()} '{w.objectName()}' "
                  f"vis={w.isVisible()} {w.width()}x{w.height()}{extra}")
-    for c in w.children():
-        if isinstance(c, QtWidgets.QWidget) and alive(c):
-            dump_widget_tree(c, depth + 1, maxd, lines)
+    sb = _shiboken()
+    try:
+        k = sb.getCppPointer(w)[0] if sb else id(w)
+    except Exception:
+        return lines
+    for c in cmap.get(k, []):
+        if alive(c):
+            dump_widget_tree(c, depth + 1, maxd, lines, cmap)
     return lines
 
 
@@ -677,7 +690,7 @@ def run_discovery():
 def try_show_in_ui(parent, r):
     section(f"2. A: show_in_ui() – {r.gui_name()}")
     guard(describe_resource, r)
-    d = assets_dock()
+    d = guard(assets_dock)
     if d is not None:
         log(f"  előtte: Assets visible={d.isVisible()} region_empty={d.visibleRegion().isEmpty()}")
     r.show_in_ui()
