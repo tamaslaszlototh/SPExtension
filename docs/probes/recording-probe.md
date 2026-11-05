@@ -53,7 +53,7 @@ The smart mask label difference may come from the situation, not the version: on
 ## Problems (on both versions unless noted)
 
 1. **A generator's or filter's source changes without any event.** The renamed node (`Generator (empty)` → `Dirt`) and its new `source` showed up only through polling. The diff needs another trigger, for example the History row `Set generator` / `Set effect`.
-2. **Brush preset change is invisible on both versions**: no action, no menu, no event, no History row. Not recordable this way.
+2. **Brush preset change and brush settings (e.g. brush opacity) are invisible on both versions**: no action, no menu, no event, no History row. Not recordable this way.
 3. **Smart mask**: the diff only shows a `Mask Editor` generator (plus a `has_mask`/`mask_bg` change if the layer had no mask). Its name does not match the dropped resource (`Cavity Rust`, `Dirt`). The resource can only be identified from the drop data. The probe's resource `usage` lookup on drop raised `AttributeError` on both versions; this needs fixing.
 4. **Undo/redo triggers no `QAction`.** Ctrl+Z / Ctrl+Y only log the modifier (`Ctrl+Control`), not Z/Y. On 12.2.0 the Edit menu label was stale (`Undo Add stroke` while the last operation was `Add fill layer`), so do not trust its text. Detect undo/redo from the History current index.
 5. **Duplicate hook calls**:
@@ -68,7 +68,7 @@ The smart mask label difference may come from the situation, not the version: on
 
 ## Inconclusive (to re-check)
 
-- **S11 Opacity drag**: no diff and no History row on either version. Either the drag never reached the layer opacity, or it is not committed until something else happens. Needs a re-test with a precise description of what was dragged.
+- **S11 Opacity drag**: the user dragged the **brush** opacity slider (a tool setting), not a layer's opacity. No diff and no History row on either version: like the brush preset (problem 2), brush settings are invisible to every hook. **Layer opacity has not been tested yet**; it needs a re-test.
 - **S25 Save from menu on 11.1.0** reported `Save as...`. On 12.2.0 it reported `Save` correctly, so on 11.1.0 Save as was most likely chosen by hand.
 
 ## Recorder design (based on both runs)
@@ -82,4 +82,4 @@ The smart mask label difference may come from the situation, not the version: on
   - The `QAction` hook (first line of the text) and the drop hook give the operation's name. The `QMenu` hook is an extra source on 12.2.0 only.
   - The History label is the fallback when no hook fires (blend mode, rename, reorder).
   - The diff provides the content and the target layer.
-- Brush selection cannot be recorded. It has to be added by hand when the Recording is reviewed.
+- Brush selection and brush settings cannot be recorded. They have to be added by hand when the Recording is reviewed.
