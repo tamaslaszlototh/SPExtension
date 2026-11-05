@@ -2,19 +2,16 @@
 
 Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (12.2.0) is. A riportfájlok nevében benne van a Painter verziója, így a két gép eredményei nem keverednek.
 
-**Cél:** kideríteni, hogy a leendő plugin **Brush buttonja** hogyan tud egy kattintással brusht váltani, és honnan veheti a brush képét (thumbnailjét) ikonnak. A Painter hivatalos Python API-ja ezt nem tudja, ezért két kerülőutat próbálunk ki (a JavaScriptes utat már kizártuk):
+**Cél:** kideríteni, hogy a leendő plugin **Brush buttonja** hogyan tud egy kattintással brusht váltani, és honnan veheti a brush képét (thumbnailjét) ikonnak. A Painter hivatalos Python API-ja ezt nem tudja, ezért a plugin „rákattint” helyetted a brushra az Assets ablakban (**C próba**). A JavaScriptes utat és a „csak kijelöl” megoldást már kizártuk.
 
-- **A**: a plugin csak kijelöli a brusht az Assets ablakban;
-- **C**: a plugin „rákattint” helyetted.
-
-> ## 5. kör (v3.6): az ikon megerősítése, kb. 10 perc gépenként
+> ## 5. kör (v3.7): az ikon megerősítése, kb. 10 perc gépenként
 >
-> Köszönöm a céges v3.5-ös kört! Kiderült, hogy a brush nagy (256×256) képe benne van abban a buboréksúgóban, amit a Painter akkor mutat, ha az Assets ablakban a brush fölé viszed az egeret. A v3.6 ezt menti ki. Most azt kell megnézni, hogy ez **mindkét gépen** így van-e.
+> Köszönöm a céges v3.5-ös kört! Kiderült, hogy a brush nagy (256×256) képe benne van abban a buboréksúgóban, amit a Painter akkor mutat, ha az Assets ablakban a brush fölé viszed az egeret. A v3.7 ezt menti ki. Most azt kell megnézni, hogy ez **mindkét gépen** így van-e.
 >
 > - **Otthoni gép (11.1.0):** ez itt az első ikonos kör. Csináld végig az alábbi 1–5. lépést.
-> - **Céges gép (12.2.0):** elég az 1., 3. és 5. lépés, plusz a 4. lépésből az „5. Ikon sorozat” gomb.
+> - **Céges gép (12.2.0):** elég az 1., 3. és 5. lépés, plusz a 4. lépésből a „4. Ikon sorozat” gomb.
 >
-> 1. **Telepítés:** lépj ki a Painterből. Töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát. Töltsd le az új zipet: https://github.com/tamaslaszlototh/SPExtension/raw/prototype/brush-button/prototypes/spx_brush_probe.zip, másold be a mappát, és **indítsd el a Paintert**. A panel címében **„SPX Brush Probe v3.6”** kell, hogy álljon, alján „(checks v3.6)”.
+> 1. **Telepítés:** lépj ki a Painterből. Töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát. Töltsd le az új zipet: https://github.com/tamaslaszlototh/SPExtension/raw/prototype/brush-button/prototypes/spx_brush_probe.zip, másold be a mappát, és **indítsd el a Paintert**. A panel címében **„SPX Brush Probe v3.7”** kell, hogy álljon, alján „(checks v3.7)”.
 > 2. **Előkészítés:** új projekt, a Paint eszköz kiválasztva, majd a **„0. Presetek betöltése”** gomb. Az Assets ablak legyen nyitva, rácsos (ikonos) nézetben.
 > 3. **Behúzás, háromszor:** húzz be egyenként a panel szaggatott mezőjébe
 >    - egy beépített brusht (pl. „Basic Hard”),
@@ -22,22 +19,8 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 >    - egy Photoshop (`.abr`) brusht, ha van (pl. „Archive Inker”).
 >
 >    Minden behúzás után pár másodperc múlva **meg kell jelennie a brush nagy képének** a mezőben. 📝 Mindháromnál írd fel: megjelent? Az a brush volt? Éles?
-> 4. Válassz a listából egy brusht, és kattints az **„5. Ikon sorozat (több brush)”** gombra. Ez kb. fél perc. A végén nyisd meg a riport mappát, nézd meg a `T4t_…` (tooltip) képeket, és válaszolj a kérdésekre.
-> 5. **Visszaküldés:** a `%APPDATA%\spx_brush_probe` mappa zipben + a 📝 jegyzetek. Utána a 8. lépés szerint takaríts.
-
-> **3. kör, második próbálkozás (v3.4).** Az előző futásnál a Painter a régi plugin-fájlt használta tovább, mert a „Reload Plugins Folder” nem tölti újra a plugin minden részét. Ez az én hibám volt, nem a tiéd. Most így telepíts:
-> 1. **Lépj ki teljesen a Painterből** (File → Exit).
-> 2. Töröld a régi `spx_brush_probe` mappát a pluginmappából és a `%APPDATA%\spx_brush_probe` mappát.
-> 3. Másold be az új mappát, és **indítsd el a Paintert**.
-> 4. A panel címében ennek kell állnia: **„SPX Brush Probe v3.4”**, alján pedig „(checks v3.4)”. Ha nem ez látszik, szólj, és ne folytasd.
->
-> A lépések ugyanazok, mint lent a 3. körnél.
-
-> **3. kör.** Köszönöm a 2. kört! Az ikon kérdése megoldódott. A „kattintás szimulálása” (C) viszont megint nem találta az Assets ablakot. Ez a plugin hibája volt, most javítottam.
-> - **Mindkét gépen:** mielőtt telepítesz, töröld a pluginmappából a régi `spx_brush_probe` mappát és a `%APPDATA%\spx_brush_probe` mappát (a régi eredmények már nálam vannak).
-> - **Otthoni gép:** csak az **1–5.** és a **7.** lépés kell (telepítés, előkészítés, felderítés, A próba, C próba, eredmények elküldése). A 6. lépést (ikon) hagyd ki.
-> - **Céges gép:** csináld végig az egészet.
-> - **Újdonság:** a 3. lépésben egy brusht be kell húznod a panelre (pár másodperc). Az ellenőrzésnél a plugin megkér, hogy **fess egy rövid vonást** a modellre. Így látszik biztosan, melyik brush aktív. Utána a vonást Ctrl+Z-vel visszavonhatod. A „teendő” ablak közben nyitva maradhat, nem akadályoz a festésben.
+> 4. Válassz a listából egy brusht, és kattints a **„4. Ikon sorozat (több brush)”** gombra. Ez kb. fél perc. A végén nyisd meg a riport mappát, nézd meg a `T4t_…` (tooltip) képeket, és válaszolj a kérdésekre.
+> 5. **Visszaküldés:** a `%APPDATA%\spx_brush_probe` mappa zipben + a 📝 jegyzetek. Utána a 7. lépés szerint takaríts.
 
 **Időigény:** kb. 15–20 perc gépenként. Admin jog nem kell, és a plugin semmit nem telepít a rendszerbe.
 
@@ -74,27 +57,21 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 3. **Behúzás:** fogj meg egy [TOOL] brusht az **Assets** ablakban, és húzd rá a panel szaggatott keretes **„Húzz ide egy brusht”** mezőjére. Engedd el.
    📝 Mi történt? Átalakult a felirat („Behúzva és kiválasztva: …” vagy „Behúzás naplózva”)? Vagy tiltó jel jelent meg az egérmutatón, és nem lehetett elengedni?
 
-## 4. A próba – kijelölés
+## 4. C próba – kattintás szimulálása
 
-1. Kattints a **„2. A: kijelölés az Assets ablakban”** gombra.
-2. Válaszolj a felugró kérdésekre. Ennél a próbánál neked kell kézzel rákattintanod a kijelölt brushra: amikor a „teendő” ablak kéri, kattints rá egyszer az Assets ablakban, majd nyomd meg a „Rákattintottam” gombot. Utána fess egy vonást.
-3. 📝 Az utolsó kérdés a véleményedet kéri: mennyire lenne zavaró, ha a gomb csak kijelölne, és még egyszer rá kellene kattintanod. Ez **fontos**, írd le pár mondatban.
-
-## 5. C próba – kattintás szimulálása
-
-1. Válassz megint egy **másik**, most nem aktív [TOOL] brusht. 📝 Írd fel a nevét.
-2. Kattints a **„3. C: kattintás szimulálása”** gombra. **Közben ne mozgasd az egeret, és ne kattints semmire.**
+1. Válassz egy most nem aktív [TOOL] brusht. 📝 Írd fel a nevét.
+2. Kattints a **„2. C: kattintás szimulálása”** gombra. **Közben ne mozgasd az egeret, és ne kattints semmire.**
 3. A plugin legfeljebb négyféleképpen próbál „kattintani” a brushra. Kétféle módszert próbál, mindkettőt egyszeres és dupla kattintással. A Windows-egeres módszernél az egérmutató egy pillanatra magától odaugrik, aztán visszajön. Ez normális.
 4. Minden próba után megkér, hogy fess egy vonást, és megkérdezi, hogy a kiválasztott brush mintáját festette-e. Ha **Igen**, a próba ott véget ér.
 
-## 6. Ikon próbák
+## 5. Ikon próbák
 
-1. Maradhat ugyanaz a brush, mint az 5. lépésnél.
-2. Kattints az **„4. Ikon próbák”** gombra. Ez is eltarthat kb. 1 percig.
+1. Maradhat ugyanaz a brush, mint a 4. lépésnél.
+2. Kattints a **„3. Ikon próbák”** gombra. Ez is eltarthat kb. 1 percig.
 3. Amikor kéri, kattints a **„Riport mappa megnyitása”** gombra, és nézd meg a `T2_…` és `T3_…` kezdetű képeket.
 4. Válaszolj a kérdésre: van-e köztük olyan, ami a brush thumbnailje, és jó lenne gomb-ikonnak.
 
-## 7. Eredmények elküldése
+## 6. Eredmények elküldése
 
 1. **„Riport mappa megnyitása”** → a `%APPDATA%\spx_brush_probe` mappa.
 2. **Csomagold be az egész mappát** (jobb klikk → **Küldés → Tömörített mappa**), és küldd el. Benne lesz:
@@ -104,7 +81,7 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 3. Mellé a 📝 jegyzeteid: a brushok nevei, a lefagyások, és ami furcsa volt.
 4. Céges gépről csak azt küldd el, amit a szabályok engednek. A riportban útvonalak, a Painter felületének szerkezete és a brushok nevei vannak.
 
-## 8. Takarítás
+## 7. Takarítás
 
 1. A projektet **mentés nélkül** zárd be.
 2. **Python** menü → vedd ki a pipát az **spx_brush_probe** elől, és lépj ki a Painterből.
@@ -117,6 +94,5 @@ Ezt **mindkét gépeden** végezd el: az otthonin (11.1.0) és a céges gépen (
 | | Otthoni (11.1.0) | Céges (12.2.0) |
 |---|---|---|
 | `%APPDATA%\spx_brush_probe` mappa zipben | ☐ | ☐ |
-| A kipróbált brushok neve (A, C) | ☐ | ☐ |
-| Vélemény a „csak kijelöl” megoldásról (4. lépés) | ☐ | ☐ |
+| A kipróbált brushok neve (C, ikon) | ☐ | ☐ |
 | Lefagyás / hibaüzenet, ha volt | ☐ | ☐ |

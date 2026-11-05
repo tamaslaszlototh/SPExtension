@@ -3,7 +3,7 @@
 # Riportok: %APPDATA%\spx_brush_probe\
 #
 # Jelöltek:
-#   A  Resource.show_in_ui()               – hivatalos, csak kijelöl
+#   A  Resource.show_in_ui()               – hivatalos, csak kijelöl (v3.7 óta nincs gombja: kizárva)
 #   B  substance_painter.js.evaluate()     – legacy JS API felderítése és a talált függvények kipróbálása
 #   C  Qt/QML UI-automatizálás             – kattintás szimulálása az Assets ablak elemén
 #   T2 thumbnail a preset fájlból / cache-ből
@@ -18,7 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import substance_painter.resource as res
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.6"
+PROBE_VERSION = "v3.7"
 REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_brush_probe")
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}

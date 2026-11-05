@@ -10,7 +10,7 @@ import os, sys, importlib
 from PySide6 import QtWidgets, QtCore, QtGui
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.6"
+PROBE_VERSION = "v3.7"
 
 # A „Reload Plugins Folder” csak ezt a modult tölti újra, az almodulokat nem:
 # a régi checks a sys.modules-ban maradna. Ezért kidobjuk, és frissen töltjük be.
@@ -71,13 +71,11 @@ def start_plugin():
     b0.clicked.connect(load)
     b1 = QtWidgets.QPushButton("1. Felderítés (JS API, doksi, UI-fa) – kb. 1 perc")
     b1.clicked.connect(run("Felderítés", checks.run_discovery, needs_preset=False))
-    b2 = QtWidgets.QPushButton("2. A: kijelölés az Assets ablakban")
-    b2.clicked.connect(run("A próba", checks.try_show_in_ui))
-    b4 = QtWidgets.QPushButton("3. C: kattintás szimulálása")
+    b4 = QtWidgets.QPushButton("2. C: kattintás szimulálása")
     b4.clicked.connect(run("C próba", checks.try_qt_click))
-    b5 = QtWidgets.QPushButton("4. Ikon próbák")
+    b5 = QtWidgets.QPushButton("3. Ikon próbák")
     b5.clicked.connect(run("Ikon próba", checks.try_icons))
-    b7 = QtWidgets.QPushButton("5. Ikon sorozat (több brush) – v3.6")
+    b7 = QtWidgets.QPushButton("4. Ikon sorozat (több brush)")
     b7.clicked.connect(run("Ikon sorozat", lambda parent, r: checks.icon_batch(parent, presets, r)))
     b6 = QtWidgets.QPushButton("Riport mappa megnyitása")
 
@@ -130,7 +128,7 @@ def start_plugin():
     lay.addWidget(b0)
     lay.addWidget(combo)
     lay.addWidget(drop)
-    for b in (b1, b2, b4, b5, b7, b6):
+    for b in (b1, b4, b5, b7, b6):
         lay.addWidget(b)
     lay.addWidget(status)
     lay.addStretch(1)
