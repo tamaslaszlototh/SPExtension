@@ -23,12 +23,19 @@ class Host:
     def menu_actions(self):
         if self._actions is None:
             seen, out = set(), []
+            dead = 0
             for a in self.actions_raw():
-                name = a.text().replace("&&", "\0").replace("&", "").replace("\0", "&").split("\t")[0].strip()
-                if not name or a.isSeparator() or a.icon().isNull() or name in seen:
+                try:   # a findChildren már törölt QAction-t is visszaadhat (Painter 11.1/12.2)
+                    name = a.text().replace("&&", "\0").replace("&", "").replace("\0", "&").split("\t")[0].strip()
+                    if not name or a.isSeparator() or a.icon().isNull() or name in seen:
+                        continue
+                    icon = QtGui.QIcon(a.icon())
+                except RuntimeError:
+                    dead += 1
                     continue
                 seen.add(name)
-                out.append((name, a.icon()))
+                out.append((name, icon))
+            self.log(f"menüparancsok ikonnal: {len(out)}, törölt QAction kihagyva: {dead}")
             self._actions = sorted(out, key=lambda x: x[0].lower())
         return self._actions
 
@@ -113,9 +120,7 @@ class PainterHost(Host):
 
     def actions_raw(self):
         import substance_painter.ui as ui
-        acts = ui.get_main_window().findChildren(QtGui.QAction)
-        self.log(f"menüparancsok ikonnal: {sum(1 for a in acts if not a.icon().isNull())} / {len(acts)}")
-        return acts
+        return ui.get_main_window().findChildren(QtGui.QAction)
 
     def brush_info(self, url):
         name, _, ref = super().brush_info(url)
