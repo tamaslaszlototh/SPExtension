@@ -1,6 +1,6 @@
 # Második mérési kör – ismétlés az otthoni gépen (11.1.0)
 
-Köszönöm az előző kört! A tollas és az opacity mérés rendben lefutott. A brush- és az Assets-mérést viszont a mérőszkript egy hibája miatt meg kell ismételni. Most **csak az otthoni gépen** és **csak egy probe-bal**, kb. 15–20 percben.
+Köszönöm az előző kört! A tollas és az opacity mérés rendben lefutott. A brush- és az Assets-mérést viszont a mérőszkript egy hibája miatt meg kell ismételni. Most **csak az otthoni gépen** és **csak egy probe-bal**, kb. 10 percben.
 
 A probe most **magától kérdez** (Igen / Nem gombokkal), így nem kell semmit külön felírni.
 
@@ -23,30 +23,21 @@ A probe most **magától kérdez** (Igen / Nem gombokkal), így nem kell semmit 
 6. Legyen nyitva az **Assets** ablak (rácsos nézetben) és a **Properties** ablak. Válaszd a **Paint** eszközt (1-es billentyű).
 7. **Python** menü → **spx_assets_probe** bekapcsolása. **Várj 5 másodpercet**, amíg a panel megjelenik (közben a probe egy rövid tesztet futtat, ehhez kell a nyitott Assets ablak). A panel címe: **„SPX Assets Probe v1.1”**.
 
-## 2. `.abr` brush
+## 2. `.abr` brush (kb. 3 perc)
 
-1. Az Assets ablakból húzd az **„Archive Inker”** brusht (vagy más Photoshop/`.abr` brusht) a panel szaggatott mezőjébe.
-2. Megjelenik a brush képe, és jön egy kérdés róla. Válaszolj.
-3. Válassz az Assets ablakban kézzel egy **másik** brusht, hogy most ne az Archive Inker legyen aktív.
-4. Az **állapot** mezőbe írd be: `B`. Nyomd meg az **„M4 csak show_in_ui()”** gombot.
-5. **Ne mozgasd az egeret**, amíg a kérdések nem jönnek. Válaszolj a kérdésekre. Ha a probe azt kéri, fess egy vonást. Ha a probe magától odaugrik az egérrel, az normális.
+1. Az Assets ablakból húzd az **„Archive Inker”** brusht (vagy más Photoshop/`.abr` brusht) a panel szaggatott mezőjébe. Megjelenik a képe, és jön egy kérdés róla: válaszolj.
+2. Válassz az Assets ablakban kézzel egy **másik** brusht, hogy most ne az Archive Inker legyen aktív.
+3. Nyomd meg a **„B: brush aktiválása”** gombot. **Ne mozgasd az egeret**, amíg a kérdések nem jönnek, aztán válaszolj. Ha a probe magától odaugrik az egérrel, az normális.
 
-## 3. Assets ablak megnyitása
+## 3. Assets ablak (kb. 3 perc, magától megy)
 
-1. Húzz be egy **beépített** brusht (pl. „Basic Hard”) a szaggatott mezőbe. Válaszolj a képes kérdésre.
-2. Az alábbi négy állapot mindegyikénél kétszer mérsz:
-   1. Válassz kézzel egy **másik** brusht. Írd be az állapot kódját az állapot mezőbe. Állítsd elő az állapotot, nyomd meg az **M4** gombot, és válaszolj a kérdésekre.
-   2. Válassz megint kézzel egy másik brusht. Állítsd elő **újra** ugyanazt az állapotot, nyomd meg az **M1** gombot, és válaszolj a kérdésekre.
+Itt a probe maga rendezi az ablakokat: fül mögé teszi, bezárja, lebegővé teszi az Assets ablakot, minden lépés után megméri, és a végén visszaállítja az elrendezést.
 
-   | Kód | Állapot |
-   |---|---|
-   | `S1` | Az Assets nyitva van és látszik. |
-   | `S2` | Az Assets egy fülcsoportban van, de **másik fül** van elöl (húzd egy másik ablak fülei közé, és kattints a másik fülre). |
-   | `S3` | Az Assets **be van zárva** (X a sarkában). |
-   | `S4` | Az Assets **lebegő** ablak (húzd ki a fülénél fogva), majd bezárva. |
-
-3. Az **S3** állapotban mérj az **M3** és az **M2** gombbal is (előtte mindig zárd be újra az Assets ablakot, és válassz másik brusht).
-4. Nyomd meg a **Diagnosztika** gombot.
+1. Húzz be egy **beépített** brusht (pl. „Basic Hard”) a szaggatott mezőbe, és válaszolj a képes kérdésre.
+2. Válassz az Assets ablakban kézzel egy **másik** brusht.
+3. Nyomd meg a **„D: automatikus Assets-teszt”** gombot, és **kb. 1 percig ne nyúlj semmihez**. Az ablakok közben ugrálni fognak, ez normális. A panel alján látszik, hol tart.
+4. A végén a probe egyszer valóban rákattint a brushra, és kérdéseket tesz fel. Válaszolj.
+5. Az utolsó kérdés: visszaállt-e az ablakok elrendezése. Ha nem, rendezd vissza kézzel (vagy **Window → Reset UI**), és írd be a megjegyzés mezőbe, mi maradt rossz helyen.
 
 ## 4. Visszaküldés
 

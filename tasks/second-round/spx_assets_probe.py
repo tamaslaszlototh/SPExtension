@@ -17,7 +17,10 @@ v1.1 változások a v1.0-hoz képest:
 - indításkor wrapper-érvénytelenítési teszt (melyik lépés után lesz "already deleted"),
 - behúzáskor ikon-kiolvasás (tooltip-PNG, DecorationRole) és megjelenítés,
 - minden mérés után Igen/Nem kérdések; ha a Qt-kattintás nem aktivált, Windows-egér magától,
-- a megjegyzés Enter nélkül is mentődik (mező elhagyásakor).
+- a megjegyzés Enter nélkül is mentődik (mező elhagyásakor),
+- D automatikus: a probe maga állítja elő az S1-S4 állapotot (saveState/restoreState között), lefuttatja a
+  módszereket kattintás nélkül, majd egy valódi próbát csinál bezárt ablakkal a legjobb módszerrel.
+  Feltétel: a D gomb előtt kézzel egy MÁSIK brush legyen aktív (az automatikus kör nem kattint).
 """
 import base64
 import ctypes
@@ -445,8 +448,8 @@ def save_icon(name, tag):
 class Run:
     """Egy módszer: módszer + show_in_ui(), aszinkron várakozás, kattintás, kérdések."""
 
-    def __init__(self, label, fn, resource, click):
-        self.label, self.fn, self.r, self.click = label, fn, resource, click
+    def __init__(self, label, fn, resource, click, on_done=None):
+        self.label, self.fn, self.r, self.click, self.on_done = label, fn, resource, click, on_done
         self.name = resource.gui_name()
         self.marks, self.last_rect, self.scrolled, self.done = {}, None, False, False
         _RUNS.append(self)
@@ -510,6 +513,9 @@ class Run:
         if not clickable:
             log(f"  NEM lett kattintható {TIMEOUT_MS} ms alatt")
         log("  utána: " + dock_state(assets_dock()))
+        if self.on_done is not None:            # automatikus sorozat: nincs kérdés
+            QtCore.QTimer.singleShot(0, lambda: self.on_done(clickable))
+            return
         if _panel is not None:
             _panel.status.setText(f"Kérdések jönnek: {self.label}")
         QtCore.QTimer.singleShot(300, lambda: self.after(clickable))
@@ -540,6 +546,141 @@ class Run:
         ask_text("Megjegyzés ehhez a méréshez (hol van az Assets ablak, furcsaság) – üresen is mehet:")
         if _panel is not None:
             _panel.status.setText(f"Kész: {self.label}. Jöhet a következő.")
+        if self.after_questions is not None:
+            QtCore.QTimer.singleShot(0, self.after_questions)
+
+    after_questions = None
+
+
+# --------------------------------------------------------------------------- D: automatikus sorozat
+
+METHOD_BY_CODE = {label.split()[0]: (label, fn) for label, fn in METHODS}
+AUTO_CASES = (("S1", "M4"), ("S1", "M1"),
+              ("S2", "M4"), ("S2", "M1"),
+              ("S3", "M4"), ("S3", "M1"), ("S3", "M2"), ("S3", "M3"),
+              ("S4", "M4"), ("S4", "M1"))
+STATE_TEXT = {"S1": "nyitva, látszik", "S2": "fül mögött", "S3": "bezárva", "S4": "lebegő, majd bezárva"}
+SETTLE_MS = 700
+
+
+def other_dock(d):
+    """Egy másik, dokkolt és látható dock, amelyik mögé az Assets fülként betehető (inkább a Layers)."""
+    cands = []
+    for w in live_widgets():
+        if (isinstance(w, QtWidgets.QDockWidget) and ptr(w) != ptr(d) and w.isVisible()
+                and not w.isFloating() and w.objectName() != "spx_assets_probe"):
+            cands.append(w)
+    for w in cands:
+        if "layer" in w.windowTitle().lower():
+            return keep(w)
+    return keep(cands[0]) if cands else None
+
+
+def setup_state(code):
+    """Az Assets ablak állapotának előállítása. Visszaad: leírás a naplóba."""
+    d = assets_dock()
+    mw = main_window()
+    if not valid(d) or mw is None:
+        return "nincs Assets dock / főablak"
+    if code == "S1":
+        d.setFloating(False)
+        d.show()
+        d.raise_()
+    elif code == "S2":
+        d.setFloating(False)
+        d.show()
+        o = other_dock(d)
+        if o is None:
+            return "nincs másik dokkolt ablak a fülcsoporthoz"
+        mw.tabifyDockWidget(o, d)
+        o.raise_()
+    elif code == "S3":
+        d.setFloating(False)
+        d.close()
+    elif code == "S4":
+        d.show()
+        d.setFloating(True)
+        d.close()
+    return "ok"
+
+
+class AutoD:
+    """Végigmegy az AUTO_CASES-en: elrendezés visszaállítása, állapot, módszer, mérés. Kattintás nincs.
+    A végén egy valódi próba (S3 + a legjobb módszer + kattintás + kérdések), majd visszaállítás.
+    Indítás előtt kézzel egy másik brush legyen aktív: a sorozat csak show_in_ui()-t hív, nem kattint."""
+
+    def __init__(self, panel, resource):
+        self.p, self.r = panel, resource
+        self.i, self.results = 0, {}
+        mw = main_window()
+        self.saved = keep(mw).saveState() if mw is not None else None
+        _RUNS.append(self)
+
+    def start(self):
+        log(f"=== D AUTOMATIKUS SOROZAT | brush: {self.r.gui_name()} | {len(AUTO_CASES)} eset")
+        self.p.status.setText("D fut… ne nyúlj semmihez kb. 1 percig.")
+        self.next()
+
+    def restore(self):
+        mw = main_window()
+        if mw is not None and self.saved is not None:
+            mw.restoreState(self.saved)
+        d = assets_dock()
+        if valid(d):
+            d.show()
+
+    def next(self):
+        if self.i >= len(AUTO_CASES):
+            return self.summary()
+        self.restore()
+        QtCore.QTimer.singleShot(SETTLE_MS, self.prepare)
+
+    def prepare(self):
+        state, method = AUTO_CASES[self.i]
+        self.p.status.setText(f"D fut ({self.i + 1}/{len(AUTO_CASES)}): {state} + {method}… ne nyúlj semmihez.")
+        res = setup_state(state)
+        QtCore.QTimer.singleShot(SETTLE_MS, lambda: self.measure(res))
+
+    def measure(self, res):
+        state, method = AUTO_CASES[self.i]
+        label, fn = METHOD_BY_CODE[method]
+        log(f"--- [{state} {STATE_TEXT[state]}] beállítás: {res} | állapot: {dock_state(assets_dock())}")
+        Run(f"[{state} auto] {label}", fn, self.r, False, on_done=self.done).start()
+
+    def done(self, clickable):
+        self.results[AUTO_CASES[self.i]] = clickable
+        self.i += 1
+        QtCore.QTimer.singleShot(0, self.next)
+
+    def summary(self):
+        log("=== D ÖSSZESÍTÉS (kattintható lett-e a brush az Assets ablakban)")
+        for (state, method), ok in self.results.items():
+            log(f"  {state} {STATE_TEXT[state]:<22} {method}: {'IGEN' if ok else 'nem'}")
+        best = next((m for m in ("M4", "M1", "M2", "M3") if self.results.get(("S3", m))), None)
+        log(f"  bezárt ablakra (S3) legjobb módszer: {best}")
+        self.restore()
+        if best is None:
+            ask("A probe bezárt Assets ablaknál egyik módszerrel sem érte el a brusht. "
+                "Látsz valami furcsát (pl. hibaüzenet, ablak rossz helyen)?", ("Nem", "Igen"))
+            return self.finish()
+        self.p.status.setText("D: utolsó, valódi próba (bezárt Assets + kattintás)… ne mozgasd az egeret.")
+        QtCore.QTimer.singleShot(SETTLE_MS, lambda: self.final(best))
+
+    def final(self, best):
+        setup_state("S3")
+        label, fn = METHOD_BY_CODE[best]
+        run = Run(f"[S3 valódi] {label}", fn, self.r, True)
+        run.after_questions = self.finish
+        QtCore.QTimer.singleShot(SETTLE_MS, run.start)
+
+    def finish(self):
+        self.restore()
+        QtCore.QTimer.singleShot(SETTLE_MS, self.ask_layout)
+
+    def ask_layout(self):
+        ask("Visszaállt az ablakok elrendezése úgy, ahogy a D teszt előtt volt?")
+        diagnostics()
+        self.p.status.setText("D kész. Jöhet a visszaküldés.")
 
 
 # --------------------------------------------------------------------------- panel
@@ -561,16 +702,12 @@ class Panel(QtWidgets.QWidget):
         self.icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon.setMinimumHeight(128)
         lay.addWidget(self.icon)
-        self.state = QtWidgets.QLineEdit()
-        self.state.setPlaceholderText("Állapot kódja (B, S1, S2, S3, S4) – a lépések szerint")
-        lay.addWidget(self.state)
-        self.click = QtWidgets.QCheckBox("Utána kattintson is a brushra")
-        self.click.setChecked(True)
-        lay.addWidget(self.click)
-        for label, fn in METHODS:
-            b = QtWidgets.QPushButton(label)
-            b.clicked.connect(lambda _=False, label=label, fn=fn: self.run(label, fn))
-            lay.addWidget(b)
+        b = QtWidgets.QPushButton("B: brush aktiválása (kattintással)")
+        b.clicked.connect(self.run_b)
+        lay.addWidget(b)
+        b = QtWidgets.QPushButton("D: automatikus Assets-teszt (kb. 1 perc)")
+        b.clicked.connect(self.run_d)
+        lay.addWidget(b)
         self.note = QtWidgets.QLineEdit()
         self.note.setPlaceholderText("Megjegyzés (Enter vagy kattints máshova = mentés)")
         self.note.editingFinished.connect(self.save_note)
@@ -633,19 +770,31 @@ class Panel(QtWidgets.QWidget):
                 continue
         return None
 
-    def run(self, label, fn):
+    def current(self):
         self.save_note()
         r = self.resource()
         if r is None:
             self.status.setText("Előbb húzz be egy brusht!")
+        return r
+
+    def run_b(self):
+        r = self.current()
+        if r is None:
             return
-        self.status.setText("Mér…")
-        Run(f"[{self.state.text().strip() or '?'}] {label}", fn, r, self.click.isChecked()).start()
+        self.status.setText("Mér… ne mozgasd az egeret.")
+        label, fn = METHOD_BY_CODE["M4"]
+        Run(f"[B] {label}", fn, r, True).start()
+
+    def run_d(self):
+        r = self.current()
+        if r is None:
+            return
+        AutoD(self, r).start()
 
     def save_note(self):
         text = self.note.text().strip()
         if text:
-            log(f"  MEGJEGYZÉS [{self.state.text().strip()}]: {text}")
+            log(f"  MEGJEGYZÉS: {text}")
             self.note.clear()
 
 
