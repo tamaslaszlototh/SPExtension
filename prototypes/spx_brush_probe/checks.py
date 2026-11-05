@@ -8,6 +8,8 @@
 #   C  Qt/QML UI-automatizálás             – kattintás szimulálása az Assets ablak elemén
 #   T2 thumbnail a preset fájlból / cache-ből
 #   T3 thumbnail képernyőképből / QML Image elemből
+#   T4 thumbnail az Assets nézet modelljéből (DecorationRole) és widget-grabből (v3.5)
+#   T5 a %APPDATA%\...\previews gyorsítótár formátuma (v3.5)
 
 import io, os, re, sys, json, time, zipfile, traceback, importlib
 
@@ -16,7 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import substance_painter.resource as res
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.4"
+PROBE_VERSION = "v3.5"
 REPORT_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_brush_probe")
 OUT = io.StringIO()
 _JS_API = {}        # felderített JS névtér: {"alg.x.y": "function/1", ...}
@@ -389,7 +391,7 @@ def dump_widget_tree(w, depth=0, maxd=12, lines=None, cmap=None):
     if isinstance(w, QtWidgets.QAbstractItemView) and w.model() is not None:
         m = w.model()
         sample = [str(m.index(i, 0).data()) for i in range(min(8, m.rowCount()))]
-        extra += f" MODEL rows={m.rowCount()} cols={m.columnCount()} minta={sample}"
+        extra += f" MODEL rows={m.rowCount()} cols={m.columnCount(QtCore.QModelIndex())} minta={sample}"
     lines.append("  " * depth + f"{w.metaObject().className()} '{w.objectName()}' "
                  f"vis={w.isVisible()} {w.width()}x{w.height()}{extra}")
     sb = _shiboken()
@@ -1032,3 +1034,212 @@ def try_icons(parent, r):
     ask(parent, f"Van a T2_* / T3_* képek között olyan, amelyik a(z) „{r.gui_name()}” brush thumbnailje, "
                 f"és Button ikonnak jó lenne?")
     return flush()
+
+
+# ----------------------------------------------------------------- v3.5: ikon a modellből, previews
+_ROLES = list(range(0, 16)) + list(range(256, 300))
+
+
+def _safe(name):
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", name)[:40]
+
+
+def _model_hits(name):
+    """(nézet, index) párok az Assets ablak widget-nézeteiben, ahol a DisplayRole == name."""
+    d = assets_dock()
+    if d is None:
+        return []
+    out = []
+    for view in live_children(d, QtWidgets.QAbstractItemView):
+        m = view.model()
+        if m is None:
+            continue
+        for idx in m.match(m.index(0, 0), QtCore.Qt.DisplayRole, name, 1,
+                           QtCore.Qt.MatchExactly | QtCore.Qt.MatchRecursive):
+            out.append((view, idx))
+    return out
+
+
+def _save_visual(v, base):
+    if isinstance(v, QtGui.QIcon):
+        sizes = [(s.width(), s.height()) for s in v.availableSizes()]
+        pm = v.pixmap(QtCore.QSize(512, 512))
+        if pm.isNull():
+            return f"QIcon availableSizes={sizes} üres pixmap", None
+        path = base + ".png"
+        pm.save(path)
+        return f"QIcon availableSizes={sizes} pixmap(512) -> {pm.width()}x{pm.height()} -> {path}", path
+    if isinstance(v, (QtGui.QPixmap, QtGui.QImage)):
+        if v.isNull():
+            return f"{type(v).__name__} üres", None
+        path = base + ".png"
+        v.save(path)
+        return f"{type(v).__name__} {v.width()}x{v.height()} -> {path}", path
+    return None, None
+
+
+def icon_from_model(r, tag):
+    """T4: a csempe ikonja közvetlenül a modellből. Visszaad: a mentett képek útvonalai."""
+    name = r.gui_name()
+    hits = _model_hits(name)
+    if not hits:
+        r.show_in_ui()
+        wait(1500)
+        hits = _model_hits(name)
+    log(f"  T4 [{tag}] „{name}”: {len(hits)} találat a modellben")
+    saved = []
+    if not hits:
+        return saved
+    view, idx = hits[0]
+    m = view.model()
+    try:
+        rn = {int(k): bytes(v).decode(errors="replace") for k, v in m.roleNames().items()}
+    except Exception as e:
+        rn = {}
+        log(f"    roleNames hiba: {e}")
+    log(f"    nézet={view.metaObject().className()} modell={m.metaObject().className()} "
+        f"iconSize={view.iconSize().width()}x{view.iconSize().height()} roleNames={rn}")
+    for role in sorted(set(_ROLES) | set(rn)):
+        try:
+            v = idx.data(role)
+        except Exception as e:
+            log(f"    role {role}: hiba {e}")
+            continue
+        if v is None:
+            continue
+        desc, path = _save_visual(v, out_file(f"T4_{tag}_{_safe(name)}_role{role}"))
+        if desc is None:
+            text = repr(v)
+            desc = f"{type(v).__name__} {text[:160]}"
+        elif path:
+            saved.append(path)
+        log(f"    role {role} ({rn.get(role, '')}): {desc}")
+    # a thumbnail lehet, hogy késleltetve töltődik be
+    wait(1500)
+    desc, path = _save_visual(idx.data(QtCore.Qt.DecorationRole), out_file(f"T4_{tag}_{_safe(name)}_late"))
+    log(f"    DecorationRole 1,5 s múlva: {desc}")
+    if path:
+        saved.append(path)
+    # T4c: a csempe kirajzolva a widgetből (nem a képernyőről, így takarás nem zavarja)
+    try:
+        view.scrollTo(idx)
+        rect = view.visualRect(idx)
+        pm = view.viewport().grab(rect)
+        path = out_file(f"T4c_{tag}_{_safe(name)}_grab.png")
+        pm.save(path)
+        log(f"    T4c widget-grab: {rect.width()}x{rect.height()} dpr={pm.devicePixelRatio()} -> {path}")
+    except Exception as e:
+        log(f"    T4c hiba: {e}")
+    return saved
+
+
+def embedded_png_present(r):
+    """Gyors T2: van-e beágyazott PNG a preset fájljában (szövegdump nélkül)."""
+    try:
+        import substance_painter.js as js
+        info = json.loads(js.evaluate(
+            f"JSON.stringify(alg.resources.getResourceInfo({json.dumps(r.identifier().url())}))"))
+        fp = info.get("filePath") or ""
+    except Exception as e:
+        return f"getResourceInfo hiba: {e}"
+    if not fp or not os.path.isfile(fp):
+        return f"nincs fájl ({fp!r})"
+    data = open(fp, "rb").read()
+    i = data.find(b"\x89PNG\r\n\x1a\n")
+    kind = os.path.splitext(fp)[1]
+    return f"{kind} {len(data)} bájt, beágyazott PNG: {'VAN' if i >= 0 else 'NINCS'} ({fp})"
+
+
+def scan_previews(rs):
+    """T5: a %APPDATA%\\Adobe\\Adobe Substance 3D Painter\\previews formátuma, és van-e név szerinti egyezés."""
+    root = os.path.join(os.environ.get("APPDATA", ""), "Adobe", "Adobe Substance 3D Painter", "previews")
+    log(f"  T5 previews: {root} létezik={os.path.isdir(root)}")
+    if not os.path.isdir(root):
+        return
+    files = []
+    for dp, _, fns in os.walk(root):
+        for f in fns:
+            files.append(os.path.join(dp, f))
+    sizes = sorted(os.path.getsize(f) for f in files) or [0]
+    log(f"    {len(files)} fájl, méret min/medián/max: {sizes[0]}/{sizes[len(sizes) // 2]}/{sizes[-1]}")
+    log(f"    minta nevek: {[os.path.relpath(f, root) for f in files[:15]]}")
+    keys = set()
+    for r in rs:
+        rid = r.identifier()
+        keys |= {rid.name.lower(), r.gui_name().lower(), (rid.version or "").split(".")[0].lower()}
+    keys.discard("")
+    matches = [f for f in files if any(k in os.path.relpath(f, root).lower() for k in keys)]
+    log(f"    név/verzió szerinti egyezés ({len(keys)} kulcs): {[os.path.relpath(f, root) for f in matches[:10]]}")
+    newest = sorted(files, key=os.path.getmtime, reverse=True)[:3]
+    for n, f in enumerate(matches[:3] + [x for x in newest if x not in matches]):
+        head = open(f, "rb").read(32)
+        rd = QtGui.QImageReader(f)
+        fmt = bytes(rd.format()).decode() or "-"
+        img = rd.read()
+        log(f"    {os.path.relpath(f, root)}: {os.path.getsize(f)} bájt, eleje={head.hex(' ')}, "
+            f"Qt formátum={fmt}, kép={'nem' if img.isNull() else f'{img.width()}x{img.height()}'}")
+        if not img.isNull():
+            img.save(out_file(f"T5_{n}.png"))
+        elif os.path.getsize(f) < 2_000_000:
+            with open(f, "rb") as a, open(out_file(f"T5_{n}_raw.bin"), "wb") as b:
+                b.write(a.read())
+
+
+def _pick_batch(presets, current):
+    """A kiválasztott + néhány tipikus eset: beépített beágyazott PNG nélkül / vele, BRUSH (alpha), saját preset."""
+    picks, seen = [], set()
+
+    def add(tag, r):
+        if r is None:
+            return
+        u = r.identifier().url()
+        if u not in seen:
+            seen.add(u)
+            picks.append((tag, r))
+
+    add("kivalasztott", current)
+    by_name = {r.gui_name(): r for _, r in presets}
+    for n in ("Basic Hard", "Ivy Branch", "Cracks"):
+        add(_safe(n), by_name.get(n))
+    add("brush_alpha", next((r for label, r in presets if "[BRUSH]" in label
+                             and not r.identifier().url().endswith(".sppr")), None))
+    add("sajat", next((r for _, r in presets if r.identifier().context == "your_assets"), None))
+    return picks
+
+
+def icon_batch(parent, presets, current):
+    section("7. Ikon sorozat (v3.5): T2 beágyazott PNG, T4 modell, T4c widget-grab, T5 previews")
+    picks = _pick_batch(presets, current)
+    log(f"  próbált presetek: {[(t, r.gui_name(), r.identifier().url()) for t, r in picks]}")
+    for tag, r in picks:
+        log(f"  --- {tag}: {r.gui_name()}")
+        log(f"    T2: {guard(embedded_png_present, r)}")
+        guard(icon_from_model, r, tag)
+    guard(scan_previews, [r for _, r in picks])
+    flush()
+    QtWidgets.QMessageBox.information(parent, "SPX Brush Probe",
+                                      "Nyisd meg a riport mappát, és nézd meg a T4_* , T4c_* és T5_* képeket.\n"
+                                      "Utána válaszolj a kérdésekre.")
+    ask(parent, "A T4_… képek (a „role1” és a „late” végűek) mind a saját brushuk tiszta képei, felirat nélkül?")
+    ask(parent, "A T4c_… képek (a „grab” végűek) jók lennének gomb-ikonnak?")
+    ask(parent, "Van a T5_… képek között brush-kép?")
+    ask_text(parent, "Ha valami furcsa volt a képeken (rossz brush, üres, homályos, felirat), írd le pár szóban.")
+    return flush()
+
+
+def icon_for_drop(url, presets):
+    """Behúzáskor: a behúzott resource ikonja a modellből. Visszaad: (Resource vagy None, kép útvonal vagy None)."""
+    base = url.split("?")[0]
+    r = next((r for label, r in presets if base in label), None)
+    if r is None:
+        try:
+            r = (res.Resource.retrieve(res.ResourceID.from_url(url)) or [None])[0]
+        except Exception as e:
+            log(f"  retrieve({url}) hiba: {e}")
+    if r is None:
+        log(f"  behúzott resource nem található: {url}")
+        return None, None
+    section(f"6b. Behúzott brush ikonja – {r.gui_name()}")
+    log(f"    T2: {guard(embedded_png_present, r)}")
+    paths = guard(icon_from_model, r, "drop") or []
+    return r, (paths[0] if paths else None)

@@ -10,7 +10,7 @@ import os, sys, importlib
 from PySide6 import QtWidgets, QtCore, QtGui
 import substance_painter.ui as ui
 
-PROBE_VERSION = "v3.4"
+PROBE_VERSION = "v3.5"
 
 # A „Reload Plugins Folder” csak ezt a modult tölti újra, az almodulokat nem:
 # a régi checks a sys.modules-ban maradna. Ezért kidobjuk, és frissen töltjük be.
@@ -77,6 +77,8 @@ def start_plugin():
     b4.clicked.connect(run("C próba", checks.try_qt_click))
     b5 = QtWidgets.QPushButton("4. Ikon próbák")
     b5.clicked.connect(run("Ikon próba", checks.try_icons))
+    b7 = QtWidgets.QPushButton("5. Ikon sorozat (több brush) – v3.5")
+    b7.clicked.connect(run("Ikon sorozat", lambda parent, r: checks.icon_batch(parent, presets, r)))
     b6 = QtWidgets.QPushButton("Riport mappa megnyitása")
 
     def open_dir():
@@ -105,27 +107,30 @@ def start_plugin():
             urls = checks.guard(checks.log_drop, e.mimeData(), "drop") or []
             path = checks.flush()
             e.acceptProposedAction()
-            hit = None
-            for u in urls:
-                base = u.split("?")[0]
-                for i, (label, _) in enumerate(presets):
-                    if base in label:
-                        hit = i
+            r, icon = (None, None)
+            if urls:
+                r, icon = checks.guard(checks.icon_for_drop, urls[0], presets) or (None, None)
+                path = checks.flush()
+            if r is not None:
+                for i, (_, pr) in enumerate(presets):
+                    if pr.identifier().url() == r.identifier().url():
+                        combo.setCurrentIndex(i)
                         break
-                if hit is not None:
-                    break
-            if hit is not None:
-                combo.setCurrentIndex(hit)
-                self.setText(f"Behúzva és kiválasztva: {presets[hit][0].split('  ')[0]}")
+            pm = QtGui.QPixmap(icon) if icon else QtGui.QPixmap()
+            if not pm.isNull():
+                self.setPixmap(pm.scaled(96, 96, QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                                         QtCore.Qt.TransformationMode.SmoothTransformation))
+                self.setToolTip(f"Behúzva: {r.gui_name()}")
             else:
-                self.setText("Behúzás naplózva (a listában nem találtam).")
+                self.setPixmap(QtGui.QPixmap())
+                self.setText(f"Behúzva: {r.gui_name() if r else '?'} – ikon NEM jött a modellből")
             status.setText(f"Behúzás naplózva: {path}")
 
     drop = DropZone()
     lay.addWidget(b0)
     lay.addWidget(combo)
     lay.addWidget(drop)
-    for b in (b1, b2, b4, b5, b6):
+    for b in (b1, b2, b4, b5, b7, b6):
         lay.addWidget(b)
     lay.addWidget(status)
     lay.addStretch(1)
