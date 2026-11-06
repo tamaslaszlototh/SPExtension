@@ -74,3 +74,14 @@ def trash_icon():
         painter.drawRect(x, 28, 3, 24)  # slats
     painter.end()
     return QtGui.QIcon(pixmap)
+
+
+def plus_icon():
+    """The "+" of a Group row: thick light bars, so it stands out on Painter's dark theme
+    (the font's "+" was hard to see)."""
+    pixmap, painter = _canvas()
+    painter.setBrush(QtGui.QColor("#e6e6e6"))
+    painter.drawRoundedRect(27, 8, 10, 48, 4, 4)
+    painter.drawRoundedRect(8, 27, 48, 10, 4, 4)
+    painter.end()
+    return QtGui.QIcon(pixmap)

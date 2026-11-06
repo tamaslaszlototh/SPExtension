@@ -20,7 +20,7 @@ from shiboken6 import isValid
 from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
 from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
 from ..core.storage import ReadOnlyLayoutError
-from .icons import automatic_icon, panel_icon, trash_icon
+from .icons import automatic_icon, panel_icon, plus_icon, trash_icon
 from .pen_hover import PenHover
 
 log = logging.getLogger("ShelfPlus.app.panel")
@@ -31,7 +31,9 @@ STATUS_MS = 3000
 UNDO_MS = 5000
 SPACING = 4  # between tiles
 GROUP_GAP = 12  # between Groups in the flat row
-TOOL_SIZE = 20  # collapse arrow and "+"
+TOOL_SIZE = 20  # collapse arrow
+PLUS_SIZE = 24  # the "+" of a Group row
+PLUS_ICON_SIZE = 18
 EDGE_SCROLL_PX = 24  # holding a dragged Button this close to an edge scrolls
 EDGE_SCROLL_STEP = 16
 EDGE_SCROLL_MS = 40
@@ -541,8 +543,11 @@ class QtPanelView:
         plus = MenuButton()
         plus.setObjectName("ShelfPlusGroupAdd")
         plus.setAutoRaise(True)
-        plus.setFixedSize(TOOL_SIZE, TOOL_SIZE)
-        plus.setText("+")
+        plus.setFixedSize(PLUS_SIZE, PLUS_SIZE)
+        plus.setText("+")  # not shown; the icon is
+        plus.setIcon(plus_icon())
+        plus.setIconSize(QtCore.QSize(PLUS_ICON_SIZE, PLUS_ICON_SIZE))
+        plus.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonIconOnly)
         plus.setToolTip(f"Add a Button to {group.name}")
         plus.set_popup_menu(self._add_menu(group, plus))
         plus.setEnabled(not self.app.read_only)
