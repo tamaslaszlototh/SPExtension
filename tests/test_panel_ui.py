@@ -326,6 +326,12 @@ def test_overflow_group_names_are_readable_headings(app, qt_app):
 
 
 def test_menu_buttons_show_no_drop_down_arrow(app, qt_app):
-    view = show(app, qt_app, 260, 700)
+    """Qt draws a down arrow on a QToolButton that has a menu set (in a 20 px "+" it
+    hides the "+" itself), so ☰, + and » open their menus themselves instead."""
+    view = show(app, qt_app, 300, 90)
+    plus = view.group_boxes[0].findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
 
-    assert "QToolButton::menu-indicator" in view.widget.styleSheet()
+    for button in (view.panel_menu_tool, plus, view.overflow_tool):
+        assert QtWidgets.QToolButton.menu(button) is None  # nothing for Qt to draw an arrow for
+        assert button.menu().actions()
+    assert plus.text() == "+"

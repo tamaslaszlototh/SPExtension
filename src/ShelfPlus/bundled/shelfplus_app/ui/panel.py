@@ -55,8 +55,28 @@ def button_icon(app, button):
     return icon if not icon.isNull() else automatic_icon(button)
 
 
-# Menu buttons (☰, +, ») show no drop-down arrow next to their own symbol.
-PANEL_STYLE = "QToolButton::menu-indicator { image: none; width: 0px; }"
+class MenuButton(QtWidgets.QToolButton):
+    """A tool button that opens a menu when clicked (☰, +, »).
+
+    The menu is not given to Qt with ``setMenu``: Qt then draws a down arrow on the
+    button, which in Painter hides the button's own symbol (a 20 px "+" showed only
+    the arrow). ``menu()`` still returns it.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._popup = None
+        self.clicked.connect(self._open)
+
+    def set_popup_menu(self, menu):
+        self._popup = menu
+
+    def menu(self):
+        return self._popup
+
+    def _open(self):
+        if self._popup is not None:
+            self._popup.exec(self.mapToGlobal(QtCore.QPoint(0, self.height())))
 
 
 def add_heading(menu, text):
@@ -272,7 +292,6 @@ class QtPanelView:
         widget.setObjectName(OBJECT_NAME)
         widget.setWindowTitle("Shelf+")
         widget.setWindowIcon(panel_icon())
-        widget.setStyleSheet(PANEL_STYLE)
         self.widget = widget
 
         root = QtWidgets.QVBoxLayout(widget)
@@ -300,13 +319,12 @@ class QtPanelView:
         self.trash = Trash(self)
         bar.addWidget(self.trash)
 
-        self.panel_menu_tool = QtWidgets.QToolButton()
+        self.panel_menu_tool = MenuButton()
         self.panel_menu_tool.setObjectName(OBJECT_NAME + "Menu")
         self.panel_menu_tool.setText("☰")
         self.panel_menu_tool.setToolTip("Shelf+ menu")
-        self.panel_menu_tool.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         self.menu = self._build_panel_menu()
-        self.panel_menu_tool.setMenu(self.menu)
+        self.panel_menu_tool.set_popup_menu(self.menu)
         bar.addWidget(self.panel_menu_tool)
         root.addLayout(bar)
 
@@ -486,14 +504,13 @@ class QtPanelView:
         if flat:
             name.setFixedWidth(self._name_width(group.name))
 
-        plus = QtWidgets.QToolButton()
+        plus = MenuButton()
         plus.setObjectName("ShelfPlusGroupAdd")
         plus.setAutoRaise(True)
         plus.setFixedSize(TOOL_SIZE, TOOL_SIZE)
         plus.setText("+")
         plus.setToolTip(f"Add a Button to {group.name}")
-        plus.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-        plus.setMenu(self._add_menu(group, plus))
+        plus.set_popup_menu(self._add_menu(group, plus))
         plus.setEnabled(not self.app.read_only)
         return arrow, name, plus
 
@@ -570,12 +587,11 @@ class QtPanelView:
             row.addWidget(self.overflow_tool, 0, QtCore.Qt.AlignmentFlag.AlignTop)
 
     def _overflow_tool(self, overflow):
-        tool = QtWidgets.QToolButton()
+        tool = MenuButton()
         tool.setObjectName(OBJECT_NAME + "Overflow")
         tool.setText("»")
         tool.setFixedWidth(OVERFLOW_WIDTH)
         tool.setToolTip("More Buttons")
-        tool.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = OverflowMenu(self, tool)
         for group, buttons in overflow:
             if menu.actions():
@@ -588,7 +604,7 @@ class QtPanelView:
                 action.triggered.connect(lambda checked=False, b=button: self.app.run_button(b))
             if not buttons:
                 menu.addAction("(no Buttons)").setEnabled(False)
-        tool.setMenu(menu)
+        tool.set_popup_menu(menu)
         return tool
 
     # -- dragging -------------------------------------------------------------
