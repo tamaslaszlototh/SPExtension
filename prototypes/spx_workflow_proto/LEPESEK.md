@@ -75,7 +75,7 @@ Minden változat elején válassz ki egy layert a Layers ablakban.
 - A **● Folytatás** gombbal tovább rögzíthetsz.
 
 ### B – Lebegő REC-sáv + külön ablak
-- Rögzítéskor egy **kis lebegő sáv** jelenik meg a Painter tetején (arrébb húzható). Rajta van az idő, a Step-ek száma és az utolsó Step.
+- Rögzítéskor egy **kis lebegő sáv** jelenik meg a Painter tetején (arrébb húzható). Rajta van a Step-ek száma és az utolsó Step.
 - Stop után egy **külön szerkesztőablak** nyílik. Két táblázat van benne: **„Layer-rész”** és **„A végén”**, jobbra a kijelölt Step beállításai.
 - A **● Rögzítés folytatása** gombbal tovább rögzíthetsz.
 

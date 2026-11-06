@@ -19,11 +19,6 @@ Qt = QtCore.Qt
 REC_RED = "#c0392b"
 
 
-def fmt_time(s):
-    s = int(s)
-    return "%d:%02d" % (s // 60, s % 60)
-
-
 class Session(QtCore.QObject):
     """Egy Workflow létrehozása/szerkesztése: Step-lista, név, opcionális rögzítés."""
     changed = QtCore.Signal()          # a lista vagy a név változott
@@ -321,7 +316,6 @@ class VariantA(QtWidgets.QWidget):
         bot.addWidget(self.save_btn)
         bot.addWidget(self.cancel_btn)
         lay.addLayout(bot)
-        self.tick = QtCore.QTimer(self, interval=500, timeout=self._tick)
 
     # ---- életciklus
     def begin(self, session, record):
@@ -334,17 +328,10 @@ class VariantA(QtWidgets.QWidget):
         if record:
             session.start_recording()
         self.refresh()
-        self.tick.start()
 
     def end(self):
-        self.tick.stop()
         self.session = None
         self._set_form(None)
-
-    def _tick(self):
-        if self.session and self.session.recording():
-            on = int(self.session.rec.elapsed() * 2) % 2 == 0
-            self.rec_lbl.setText(("● " if on else "○ ") + "Rögzítés  " + fmt_time(self.session.rec.elapsed()))
 
     # ---- megjelenítés
     def refresh(self):
@@ -508,8 +495,6 @@ class RecPill(QtWidgets.QFrame):
         x.clicked.connect(session.cancel)
         lay.addWidget(x)
         self._drag = None
-        self.timer = QtCore.QTimer(self, interval=500, timeout=self.refresh)
-        self.timer.start()
         session.recChanged.connect(self.refresh)
         self.refresh()
         self.adjustSize()
@@ -521,9 +506,7 @@ class RecPill(QtWidgets.QFrame):
         if not s.recording():
             return
         steps = s.live_steps()
-        on = int(s.rec.elapsed() * 2) % 2 == 0
-        self.dot.setStyleSheet("color: %s; font-size: 16px;" % (REC_RED if on else "#555"))
-        self.lbl.setText("REC %s · %d Step" % (fmt_time(s.rec.elapsed()), len(steps)))
+        self.lbl.setText("REC · %d Step" % len(steps))
         newest = [x for x in s.rec.steps()]
         self.last.setText(("· utolsó: " + model.short(newest[-1])) if newest else "· kattintgass a Painterben")
         self.setToolTip("\n".join("%d. %s" % (i, model.label(x)) for i, x in enumerate(steps, 1)) or "még üres")
@@ -772,7 +755,6 @@ class VariantB(QtCore.QObject):
 
     def _rec_finished(self, reason):
         if self.pill is not None:
-            self.pill.timer.stop()
             self.pill.close()
             self.pill.deleteLater()
             self.pill = None
@@ -906,7 +888,7 @@ class VariantC(QtWidgets.QFrame):
         self.name_edit.hide()
         self.name_edit.editingFinished.connect(self._name_done)
         head.addWidget(self.name_edit, 1)
-        self.rec_lbl = QtWidgets.QLabel()
+        self.rec_lbl = QtWidgets.QLabel("● REC")
         self.rec_lbl.setStyleSheet("color: %s; font-weight: bold;" % REC_RED)
         head.addWidget(self.rec_lbl)
         self.stop_btn = QtWidgets.QToolButton(text="■")
@@ -935,7 +917,6 @@ class VariantC(QtWidgets.QFrame):
         fl.addWidget(save)
         fl.addWidget(cancel)
         lay.addWidget(self.foot)
-        self.tick = QtCore.QTimer(self, interval=500, timeout=self._tick)
 
     def begin(self, session, record):
         self.session = session
@@ -948,18 +929,11 @@ class VariantC(QtWidgets.QFrame):
         if record:
             session.start_recording()
         self.refresh()
-        self.tick.start()
 
     def end(self):
-        self.tick.stop()
         self.close_pop()
         self.session = None
         self.panel.show_strip(None)
-
-    def _tick(self):
-        if self.session and self.session.recording():
-            on = int(self.session.rec.elapsed() * 2) % 2 == 0
-            self.rec_lbl.setText(("● " if on else "○ ") + "REC " + fmt_time(self.session.rec.elapsed()))
 
     def refresh(self):
         s = self.session
