@@ -380,3 +380,17 @@ def test_the_slider_shows_the_saved_size_after_a_restart(app, qt_app):
     view.render()
 
     assert view.tile_slider.value() == 72
+
+
+def test_in_a_flat_strip_each_group_name_is_above_its_tiles(app, qt_app):
+    view = show(app, qt_app, 420, 140)
+    assert view.orientation == "flat"
+
+    for box in view.group_boxes:
+        if not box.tiles:
+            continue
+        name = box.findChild(QtWidgets.QLabel, "ShelfPlusGroupName")
+        name_bottom = name.mapTo(box, QPoint(0, name.height())).y()
+        first = box.tiles[0].mapTo(box, QPoint(0, 0))
+        assert name_bottom <= first.y()  # above, not before
+        assert first.x() <= name.mapTo(box, QPoint(0, 0)).x() + 30  # the tiles start under the header

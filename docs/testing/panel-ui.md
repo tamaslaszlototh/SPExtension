@@ -94,8 +94,9 @@ Use the **mouse** for checks A–D, and the **pen** for check E.
    - ✅ The tiles wrap into more rows when the Panel is narrow.
    - ✅ When you make the Panel wider, more tiles fit in each row.
 2. **Flat:** make the Panel float. Drag it out by its title bar, or double-click the title bar.
-3. Resize the floating Panel into a low, wide strip: about one tile high, and at least twice as wide as it is high.
+3. Resize the floating Panel into a low, wide strip: tall enough for one row of tiles with the Group names above them, and at least twice as wide as it is high.
    - ✅ The Groups now sit side by side in one row.
+   - ✅ Each Group's name, with its arrow and **+**, is above its tiles, not to their left.
 4. Make the strip narrower, until not everything fits.
    - ✅ A scrollbar appears at the bottom of the strip, and all Buttons stay in the one row.
    - ✅ There is no **»** button.

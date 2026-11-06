@@ -521,7 +521,7 @@ class QtPanelView:
             self._build_tall(self._plan.columns)
         self.scroll.setWidget(self.content)
 
-    def _header(self, group, flat):
+    def _header(self, group):
         collapsed = self.app.is_collapsed(group.id)
         arrow = QtWidgets.QToolButton()
         arrow.setObjectName("ShelfPlusGroupToggle")
@@ -536,8 +536,7 @@ class QtPanelView:
         name.setToolTip(f"{group.name} (right-click for Group options)")
         name.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         name.customContextMenuRequested.connect(lambda pos: self.group_menu(group, name.mapToGlobal(pos)))
-        if flat:
-            name.setFixedWidth(self._name_width(group.name))
+        name.setMinimumWidth(self._name_width(group.name))
 
         plus = MenuButton()
         plus.setObjectName("ShelfPlusGroupAdd")
@@ -571,7 +570,7 @@ class QtPanelView:
             inner = QtWidgets.QVBoxLayout(box)
             inner.setContentsMargins(0, 0, 0, 0)
             inner.setSpacing(2)
-            arrow, name, plus = self._header(group, flat=False)
+            arrow, name, plus = self._header(group)
             header = QtWidgets.QHBoxLayout()
             header.setSpacing(SPACING)
             header.addWidget(arrow)
@@ -596,19 +595,28 @@ class QtPanelView:
         row.setContentsMargins(MARGIN, 0, MARGIN, 0)
         row.setSpacing(GROUP_GAP)
         for group in self.app.layout.groups:
+            # A small column per Group: its header line on top, its tiles in one row under it.
             box = GroupBox(self, group)
-            inner = QtWidgets.QHBoxLayout(box)
+            inner = QtWidgets.QVBoxLayout(box)
             inner.setContentsMargins(0, 0, 0, 0)
-            inner.setSpacing(SPACING)
-            arrow, name, plus = self._header(group, flat=True)
-            inner.addWidget(arrow)
-            inner.addWidget(name)
-            inner.addWidget(plus)
-            if not self.app.is_collapsed(group.id):
+            inner.setSpacing(2)
+            arrow, name, plus = self._header(group)
+            header = QtWidgets.QHBoxLayout()
+            header.setSpacing(SPACING)
+            header.addWidget(arrow)
+            header.addWidget(name, 1)
+            header.addWidget(plus)
+            inner.addLayout(header)
+            if not self.app.is_collapsed(group.id) and group.buttons:
+                tiles = QtWidgets.QHBoxLayout()
+                tiles.setSpacing(SPACING)
                 for button in group.buttons:
                     tile = self._tile(button)
                     box.tiles.append(tile)
-                    inner.addWidget(tile)
+                    tiles.addWidget(tile)
+                tiles.addStretch(1)
+                inner.addLayout(tiles)
+            inner.addStretch(1)
             row.addWidget(box, 0, QtCore.Qt.AlignmentFlag.AlignTop)
             self.group_boxes.append(box)
         row.addStretch(1)
