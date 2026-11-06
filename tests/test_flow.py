@@ -1,8 +1,8 @@
-"""Pure layout decisions for the Panel (PRD R2.3): tall/flat, grid columns, overflow, drop position."""
+"""Pure layout decisions for the Panel (PRD R2.3): tall/flat, grid columns, drop position, edge scrolling."""
 
 import pytest
 
-from shelfplus_app.core.flow import drop_index, fit_flat_row, grid_columns, orientation
+from shelfplus_app.core.flow import drop_index, edge_scroll, grid_columns, orientation
 
 
 class TestOrientation:
@@ -40,48 +40,27 @@ class TestGridColumns:
         assert grid_columns(10, 48, 4) == 1
 
 
-class TestFitFlatRow:
-    # Row: [header][tiles...] [gap] [header][tiles...] ... [»]
-    # A Group is header + count * (spacing + tile). Groups are separated by `gap`.
+class TestEdgeScroll:
+    """While a Button is dragged, holding it near an edge of the scroll area scrolls it."""
 
-    def test_everything_fits_so_nothing_overflows(self):
-        groups = [(60, 3), (50, 2)]
-        width = (60 + 3 * 44) + 10 + (50 + 2 * 44)
-        assert fit_flat_row(width, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [3, 2]
+    def test_near_the_start_scrolls_back(self):
+        assert edge_scroll(5, 300, edge=24, step=16) == -16
 
-    def test_buttons_that_do_not_fit_leave_room_for_the_overflow_button(self):
-        groups = [(60, 3), (50, 2)]
-        width = (60 + 3 * 44) + 10 + (50 + 2 * 44) - 1
-        # all of it is 340. Without the last tile 296 is used, and the » needs 4 + 24 more: 324 <= 339.
-        assert fit_flat_row(width, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [3, 1]
+    def test_near_the_end_scrolls_forward(self):
+        assert edge_scroll(290, 300, edge=24, step=16) == 16
 
-    def test_the_overflow_button_can_push_out_more_than_one_tile(self):
-        groups = [(60, 4)]
-        # all four: 60 + 176 = 236. Width 230: three tiles = 192, plus » (28) = 220 fits.
-        assert fit_flat_row(230, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [3]
-        # width 215: three tiles + » = 220 is too much, two tiles + » = 176 fits.
-        assert fit_flat_row(215, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [2]
+    def test_in_the_middle_does_nothing(self):
+        assert edge_scroll(150, 300, edge=24, step=16) == 0
+        assert edge_scroll(24, 300, edge=24, step=16) == 0
+        assert edge_scroll(275, 300, edge=24, step=16) == 0
+        assert edge_scroll(276, 300, edge=24, step=16) == 16  # the last 24 px, like 0-23 at the start
 
-    def test_a_group_whose_header_does_not_fit_is_hidden_with_all_later_groups(self):
-        groups = [(60, 1), (50, 2), (50, 0)]
-        # first group 104, gap 10, second header 50 -> 164; plus » 28 = 192
-        assert fit_flat_row(150, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [1, None, None]
+    def test_outside_the_area_does_nothing(self):
+        assert edge_scroll(-1, 300, edge=24, step=16) == 0
+        assert edge_scroll(300, 300, edge=24, step=16) == 0
 
-    def test_a_header_that_fits_with_no_tiles_shows_zero(self):
-        groups = [(60, 1), (50, 2)]
-        # 104 + 10 + 50 = 164, + » 28 = 192
-        assert fit_flat_row(192, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [1, 0]
-
-    def test_after_a_cut_group_later_groups_are_hidden_even_if_their_header_would_fit(self):
-        groups = [(60, 3), (10, 0)]
-        # all: 192 + 10 + 10 = 212. Width 200: budget 172 -> two tiles (148); a 10 px header would fit.
-        assert fit_flat_row(200, groups, tile=40, spacing=4, gap=10, overflow_width=24) == [2, None]
-
-    def test_collapsed_groups_count_as_zero_tiles(self):
-        assert fit_flat_row(100, [(60, 0), (30, 0)], tile=40, spacing=4, gap=10, overflow_width=24) == [0, 0]
-
-    def test_no_groups(self):
-        assert fit_flat_row(100, [], tile=40, spacing=4, gap=10, overflow_width=24) == []
+    def test_an_area_too_small_for_two_edges_does_nothing(self):
+        assert edge_scroll(10, 40, edge=24, step=16) == 0
 
 
 class TestDropIndex:

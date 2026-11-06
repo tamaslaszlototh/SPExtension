@@ -1,7 +1,8 @@
 """The Panel (PRD R2): Groups of icon-only tiles, tall or flat by the Panel's shape.
 
-- Tall: Groups stacked, each a wrapping grid. Flat: Groups in one row, with a »
-  menu for the Buttons that do not fit. The decisions are in ``core/flow.py``.
+- Tall: Groups stacked, each a wrapping grid, scrolling up and down. Flat: Groups in
+  one row that scrolls left and right (the mouse wheel too). The decisions are in
+  ``core/flow.py``.
 - No edit mode: tiles can be dragged at any time, within and between Groups, or onto
   the trash that appears while dragging. A delete can be undone for a few seconds.
 - Right-click menus on tiles and Group names; a "+" in each Group row.
@@ -16,7 +17,7 @@ from typing import NamedTuple
 from PySide6 import QtCore, QtGui, QtWidgets
 from shiboken6 import isValid
 
-from ..core.flow import FLAT, TALL, drop_index, fit_flat_row, grid_columns, orientation
+from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
 from ..core.panel_state import TILE_SIZES
 from ..core.storage import ReadOnlyLayoutError
 from .icons import automatic_icon, panel_icon, trash_icon
@@ -31,7 +32,9 @@ UNDO_MS = 5000
 SPACING = 4  # between tiles
 GROUP_GAP = 12  # between Groups in the flat row
 TOOL_SIZE = 20  # collapse arrow and "+"
-OVERFLOW_WIDTH = 24
+EDGE_SCROLL_PX = 24  # holding a dragged Button this close to an edge scrolls
+EDGE_SCROLL_STEP = 16
+EDGE_SCROLL_MS = 40
 MARGIN = 4
 
 
@@ -45,7 +48,7 @@ class Plan(NamedTuple):
     orientation: str
     tile_size: int
     label_height: int
-    fit: object  # tall: grid columns; flat: visible tiles per Group (see fit_flat_row)
+    columns: object  # tall: tiles per grid row; flat: None (the row scrolls)
 
 
 def button_icon(app, button):
@@ -56,7 +59,7 @@ def button_icon(app, button):
 
 
 class MenuButton(QtWidgets.QToolButton):
-    """A tool button that opens a menu when clicked (☰, +, »).
+    """A tool button that opens a menu when clicked (☰, +).
 
     The menu is not given to Qt with ``setMenu``: Qt then draws a down arrow on the
     button, which in Painter hides the button's own symbol (a 20 px "+" showed only
@@ -260,22 +263,21 @@ class Trash(QtWidgets.QToolButton):
             self.view.delete_button(self.view.dragging)
 
 
-class OverflowMenu(QtWidgets.QMenu):
-    """The » menu. Right-clicking a Button in it opens that Button's own menu."""
+class _SidewaysWheel(QtCore.QObject):
+    """In the flat row, the mouse wheel scrolls left and right."""
 
-    def __init__(self, view, parent):
-        super().__init__(parent)
+    def __init__(self, view):
+        super().__init__(view.widget)
         self.view = view
 
-    def contextMenuEvent(self, event):
-        action = self.actionAt(event.pos())
-        button = action.data() if action is not None else None
-        if button is None:
-            return super().contextMenuEvent(event)
-        event.accept()
-        global_pos = event.globalPos()
-        self.close()
-        self.view.button_menu(button, global_pos)
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Type.Wheel and self.view.orientation == FLAT:
+            delta = event.angleDelta()
+            notches = (delta.y() or delta.x()) / 120
+            bar = self.view.scroll.horizontalScrollBar()
+            bar.setValue(bar.value() - round(notches * 3 * bar.singleStep()))
+            return True
+        return False
 
 
 class QtPanelView:
@@ -342,6 +344,8 @@ class QtPanelView:
         self.scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         root.addWidget(self.scroll, 1)
         self.content = None
+        self._wheel = _SidewaysWheel(self)
+        self.scroll.viewport().installEventFilter(self._wheel)
 
         # Timers are parented to the widget, so none can fire after the Panel is gone.
         self.status_timer = QtCore.QTimer(widget)
@@ -423,14 +427,8 @@ class QtPanelView:
             viewport -= bar.sizeHint().width()
         return max(0, viewport - 2 * MARGIN)
 
-    def _header_width(self, group):
-        return 2 * TOOL_SIZE + self._name_width(group.name) + 2 * SPACING
-
     def _name_width(self, name):
         return self.widget.fontMetrics().horizontalAdvance(name) + 8
-
-    def _visible_count(self, group):
-        return 0 if self.app.is_collapsed(group.id) else len(group.buttons)
 
     def _compute_plan(self):
         self.orientation = orientation(self.widget.width(), self.widget.height(), self.orientation)
@@ -438,9 +436,7 @@ class QtPanelView:
         available = self._available_width()
         if self.orientation == TALL:
             return Plan(TALL, size, label, grid_columns(available, size, SPACING))
-        groups = [(self._header_width(g), self._visible_count(g)) for g in self.app.layout.groups]
-        fit = fit_flat_row(available, groups, size, SPACING, GROUP_GAP, OVERFLOW_WIDTH)
-        return Plan(FLAT, size, label, tuple(fit))
+        return Plan(FLAT, size, label, None)
 
     def schedule_relayout(self):
         if _alive(self.widget):
@@ -472,7 +468,10 @@ class QtPanelView:
         self.content = QtWidgets.QWidget()
         self.content.setObjectName(OBJECT_NAME + "Content")
         self.group_boxes = []
-        self.overflow_tool = None
+        flat = self._plan.orientation == FLAT
+        never, needed = QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff, QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        self.scroll.setHorizontalScrollBarPolicy(needed if flat else never)
+        self.scroll.setVerticalScrollBarPolicy(never if flat else needed)
         if not self.app.layout.groups:
             box = QtWidgets.QVBoxLayout(self.content)
             empty = QtWidgets.QLabel("The Layout is empty. Use ☰ → New Group… to start.")
@@ -480,10 +479,10 @@ class QtPanelView:
             empty.setWordWrap(True)
             box.addWidget(empty)
             box.addStretch(1)
-        elif self._plan.orientation == TALL:
-            self._build_tall(self._plan.fit)
+        elif flat:
+            self._build_flat()
         else:
-            self._build_flat(self._plan.fit)
+            self._build_tall(self._plan.columns)
         self.scroll.setWidget(self.content)
 
     def _header(self, group, flat):
@@ -556,17 +555,11 @@ class QtPanelView:
             self.group_boxes.append(box)
         column.addStretch(1)
 
-    def _build_flat(self, fit):
+    def _build_flat(self):
         row = QtWidgets.QHBoxLayout(self.content)
         row.setContentsMargins(MARGIN, 0, MARGIN, 0)
         row.setSpacing(GROUP_GAP)
-        overflow = []  # (Group, Buttons that did not fit)
-        for group, shown in zip(self.app.layout.groups, fit):
-            if shown is None:  # not even the header fits: the whole Group goes under »
-                overflow.append((group, group.buttons))
-                continue
-            if not self.app.is_collapsed(group.id) and shown < len(group.buttons):
-                overflow.append((group, group.buttons[shown:]))
+        for group in self.app.layout.groups:
             box = GroupBox(self, group)
             inner = QtWidgets.QHBoxLayout(box)
             inner.setContentsMargins(0, 0, 0, 0)
@@ -575,37 +568,14 @@ class QtPanelView:
             inner.addWidget(arrow)
             inner.addWidget(name)
             inner.addWidget(plus)
-            for button in group.buttons[:shown]:
-                tile = self._tile(button)
-                box.tiles.append(tile)
-                inner.addWidget(tile)
+            if not self.app.is_collapsed(group.id):
+                for button in group.buttons:
+                    tile = self._tile(button)
+                    box.tiles.append(tile)
+                    inner.addWidget(tile)
             row.addWidget(box, 0, QtCore.Qt.AlignmentFlag.AlignTop)
             self.group_boxes.append(box)
         row.addStretch(1)
-        if overflow:
-            self.overflow_tool = self._overflow_tool(overflow)
-            row.addWidget(self.overflow_tool, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-
-    def _overflow_tool(self, overflow):
-        tool = MenuButton()
-        tool.setObjectName(OBJECT_NAME + "Overflow")
-        tool.setText("»")
-        tool.setFixedWidth(OVERFLOW_WIDTH)
-        tool.setToolTip("More Buttons")
-        menu = OverflowMenu(self, tool)
-        for group, buttons in overflow:
-            if menu.actions():
-                menu.addSeparator()
-            add_heading(menu, group.name)
-            for button in buttons:
-                action = menu.addAction(button_icon(self.app, button), button.name)
-                action.setToolTip(button.name)
-                action.setData(button)
-                action.triggered.connect(lambda checked=False, b=button: self.app.run_button(b))
-            if not buttons:
-                menu.addAction("(no Buttons)").setEnabled(False)
-        tool.set_popup_menu(menu)
-        return tool
 
     # -- dragging -------------------------------------------------------------
 
@@ -618,10 +588,30 @@ class QtPanelView:
         drag.setMimeData(mime)
         drag.setPixmap(tile.grab())
         drag.setHotSpot(QtCore.QPoint(tile.width() // 2, tile.height() // 2))
+        edge_timer = QtCore.QTimer(self.widget)
+        edge_timer.setInterval(EDGE_SCROLL_MS)
+        viewport = self.scroll.viewport()
+        edge_timer.timeout.connect(lambda: self.edge_scroll_at(viewport.mapFromGlobal(QtGui.QCursor.pos())))
+        edge_timer.start()
         try:
             drag.exec(QtCore.Qt.DropAction.MoveAction)
         finally:
+            edge_timer.stop()
+            edge_timer.deleteLater()
             self.end_drag()
+
+    def edge_scroll_at(self, pos):
+        """Scroll when a dragged Button is held near an edge (``pos`` in viewport coordinates)."""
+        viewport = self.scroll.viewport()
+        width, height = viewport.width(), viewport.height()
+        if 0 <= pos.y() < height:
+            dx = edge_scroll(pos.x(), width, EDGE_SCROLL_PX, EDGE_SCROLL_STEP)
+            bar = self.scroll.horizontalScrollBar()
+            bar.setValue(bar.value() + dx)
+        if 0 <= pos.x() < width:
+            dy = edge_scroll(pos.y(), height, EDGE_SCROLL_PX, EDGE_SCROLL_STEP)
+            bar = self.scroll.verticalScrollBar()
+            bar.setValue(bar.value() + dy)
 
     def end_drag(self):
         self.dragging = None

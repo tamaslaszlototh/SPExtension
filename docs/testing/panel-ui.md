@@ -1,4 +1,4 @@
-# Testing the Panel UI (Shelf+ v0.2.1-rc.1)
+# Testing the Panel UI (Shelf+ v0.2.2-rc.1)
 
 This build adds the real **Panel**: Groups of icon tiles that you can collapse, a layout that adapts to the Panel's shape, drag and drop, delete with Undo, right-click menus, and hover names for the pen.
 
@@ -19,18 +19,18 @@ Neither of these is a failure.
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.2.1-rc.1.zip** from the [v0.2.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.2.1-rc.1).
+2. Download **ShelfPlus-v0.2.2-rc.1.zip** from the [v0.2.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.2.2-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter. If the Shelf+ Panel is not visible, open it from **Window → Views → Shelf+**.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.2.1**.
-   - If it says an older version, or Painter showed "Shelf+ v0.2.1 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.2.2**.
+   - If it says an older version, or Painter showed "Shelf+ v0.2.2 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
-   - If you tried v0.2.0 earlier: it failed on Painter 11.1 and is now marked bad. That is expected. v0.2.1 installs over it.
+   - If you tried v0.2.0 earlier: it failed on Painter 11.1 and is now marked bad. That is expected. v0.2.2 installs over it.
 
 ## 2. Load the test Layout
 
-The default Layout has only two Buttons. That is too few to see the » overflow menu, so load a test Layout with 12 Buttons in 4 Groups. Its Buttons do nothing when clicked, just like the default ones.
+The default Layout has only two Buttons. That is too few to make the flat row scroll, so load a test Layout with 12 Buttons in 4 Groups. Its Buttons do nothing when clicked, just like the default ones.
 
 1. Close Painter.
 2. Open the folder `%APPDATA%\ShelfPlus`: paste that path into the File Explorer address bar.
@@ -96,11 +96,15 @@ Use the **mouse** for checks A–D, and the **pen** for check E.
 3. Resize the floating Panel into a low, wide strip: about one tile high, and at least twice as wide as it is high.
    - ✅ The Groups now sit side by side in one row.
 4. Make the strip narrower, until not everything fits.
-   - ✅ A **»** button appears at the right end.
-   - ✅ Clicking **»** lists the Buttons that did not fit, under their Group names.
-   - ✅ A Group that does not fit at all is also listed there.
-5. Make the strip wide again. With the test Layout, the whole row needs about 1300 px, roughly two-thirds of a Full HD screen.
-   - ✅ The **»** button disappears, and all Buttons are back in the row.
+   - ✅ A scrollbar appears at the bottom of the strip, and all Buttons stay in the one row.
+   - ✅ There is no **»** button.
+   - ✅ You can scroll left and right with the scrollbar.
+   - ✅ The mouse wheel also scrolls the row left and right.
+5. Drag a tile and hold it close to the left or right edge of the strip.
+   - ✅ The row scrolls in that direction while you hold it there.
+   - Drop it in a Group that was out of view: ✅ it lands there.
+6. Make the strip wide again. With the test Layout, the whole row needs about 1300 px, roughly two-thirds of a Full HD screen.
+   - ✅ The scrollbar disappears.
 
 ### C. Drag, delete, Undo
 
@@ -155,7 +159,6 @@ Hold the pen **above** the tablet, not touching it. Rest it over each item below
 | A Group name | *Layers (right-click for Group options)* |
 | The **+** in a Group row | *Add a Button to Layers* |
 | **☰** | *Shelf+ menu* |
-| **»**, when the Panel is flat | *More Buttons* |
 | **Undo**, right after a delete | *Bring back the deleted Button* |
 
 - ✅ **Pass:** every item shows its name after about half a second.
@@ -168,9 +171,9 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.2.1 | | | |
+| 1. Install: ☰ shows v0.2.2 | | | |
 | A. View settings survive a restart | | | |
-| B. Tall and flat layout, » menu | | | |
+| B. Tall and flat layout, scrolling | | | |
 | C. Drag, delete, Undo | | | |
 | D. Groups from the right-click menu | | | |
 | E. Hover names with the pen | | | |

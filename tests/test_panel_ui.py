@@ -9,7 +9,7 @@ import pytest
 
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import QByteArray, QMimeData, QPoint, QPointF, Qt  # noqa: E402
-from PySide6.QtGui import QDropEvent  # noqa: E402
+from PySide6.QtGui import QDropEvent, QWheelEvent  # noqa: E402
 
 from shelfplus_app.adapter.fake import FakeAdapter  # noqa: E402
 from shelfplus_app.app import App  # noqa: E402
@@ -80,22 +80,55 @@ def test_a_tall_panel_stacks_every_group_with_named_icon_tiles(app, qt_app):
     assert tile.toolTip() == "Fill"
     assert tile.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly
     assert not tile.icon().isNull()
-    assert view.overflow_tool is None
 
 
-def test_a_flat_strip_puts_buttons_that_do_not_fit_under_the_overflow_button(app, qt_app):
-    view = show(app, qt_app, 420, 90)
+def test_a_flat_strip_keeps_every_button_in_one_row_and_scrolls_sideways(app, qt_app):
+    view = show(app, qt_app, 420, 120)
 
     assert view.orientation == "flat"
-    assert view.overflow_tool is not None
-    shown = sum(len(names) for names in tile_names(view))
-    hidden = [a.text() for a in view.overflow_tool.menu().actions() if a.data() is not None]
-    assert shown + len(hidden) == 8
-    assert hidden[-1] == "Paint"
-
-    view = show(app, qt_app, 2000, 90)
-    assert view.overflow_tool is None
     assert tile_names(view) == [[f"Button {i}" for i in range(6)], ["Fill", "Paint"], []]
+    tops = {t.mapTo(view.content, QPoint(0, 0)).y() for box in view.group_boxes for t in box.tiles}
+    assert len(tops) == 1  # one row
+    assert view.scroll.horizontalScrollBar().maximum() > 0
+    assert view.scroll.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+
+
+def test_a_tall_panel_scrolls_up_and_down_only(app, qt_app):
+    view = show(app, qt_app, 260, 700)
+
+    assert view.scroll.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    assert view.scroll.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+
+
+def test_the_mouse_wheel_scrolls_a_flat_strip_sideways(app, qt_app):
+    view = show(app, qt_app, 420, 120)
+    bar = view.scroll.horizontalScrollBar()
+    viewport = view.scroll.viewport()
+    centre = QPointF(viewport.rect().center())
+
+    wheel = QWheelEvent(
+        centre, QPointF(viewport.mapToGlobal(centre.toPoint())), QPoint(0, 0), QPoint(0, -120),
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False,
+    )
+    QtWidgets.QApplication.sendEvent(viewport, wheel)
+
+    assert bar.value() > 0
+
+
+def test_holding_a_dragged_button_at_an_edge_scrolls(app, qt_app):
+    view = show(app, qt_app, 420, 120)
+    bar = view.scroll.horizontalScrollBar()
+    viewport = view.scroll.viewport()
+
+    view.edge_scroll_at(QPoint(viewport.width() - 2, viewport.height() // 2))
+    assert bar.value() > 0
+    moved = bar.value()
+
+    view.edge_scroll_at(QPoint(viewport.width() // 2, viewport.height() // 2))
+    assert bar.value() == moved
+
+    view.edge_scroll_at(QPoint(1, viewport.height() // 2))
+    assert bar.value() < moved
 
 
 def test_collapsing_hides_the_tiles_and_is_remembered(app, qt_app):
@@ -251,24 +284,6 @@ def test_the_content_is_not_rebuilt_during_a_drag(app, qt_app):
     assert view.group_boxes[1].tiles[0].width() == 64
 
 
-def test_a_collapsed_group_cut_off_in_the_flat_row_is_still_under_overflow(app, qt_app):
-    app.set_group_collapsed("g2", True)
-    view = show(app, qt_app, 300, 90)
-
-    texts = [a.text() for a in view.overflow_tool.menu().actions()]
-
-    assert "Layers" in texts and "Fill" in texts
-    assert "Empty" in texts and "(no Buttons)" in texts
-
-
-def test_overflow_entries_carry_their_button_for_the_right_click_menu(app, qt_app):
-    view = show(app, qt_app, 300, 90)
-
-    entries = [a for a in view.overflow_tool.menu().actions() if a.data() is not None]
-
-    assert entries and all(a.data().name == a.text() for a in entries)
-
-
 def test_the_panel_never_touches_the_style_object(qt_app, tmp_path, monkeypatch):
     """On Painter 11.1 the Python wrapper of the application style is already deleted
     ("Internal C++ object (QCommonStyle) already deleted"), so ``style()`` must not be used."""
@@ -317,21 +332,13 @@ def test_the_version_heading_is_a_readable_label_not_a_disabled_item(app, qt_app
     assert first.text() == "Shelf+ v0.1.0"
 
 
-def test_overflow_group_names_are_readable_headings(app, qt_app):
-    view = show(app, qt_app, 300, 90)
-
-    headings = [heading_text(a) for a in view.overflow_tool.menu().actions() if heading_text(a)]
-
-    assert "Layers" in headings
-
-
 def test_menu_buttons_show_no_drop_down_arrow(app, qt_app):
     """Qt draws a down arrow on a QToolButton that has a menu set (in a 20 px "+" it
-    hides the "+" itself), so ☰, + and » open their menus themselves instead."""
-    view = show(app, qt_app, 300, 90)
+    hides the "+" itself), so ☰ and + open their menus themselves instead."""
+    view = show(app, qt_app, 260, 700)
     plus = view.group_boxes[0].findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
 
-    for button in (view.panel_menu_tool, plus, view.overflow_tool):
+    for button in (view.panel_menu_tool, plus):
         assert QtWidgets.QToolButton.menu(button) is None  # nothing for Qt to draw an arrow for
         assert button.menu().actions()
     assert plus.text() == "+"
