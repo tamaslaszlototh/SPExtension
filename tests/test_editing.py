@@ -286,6 +286,58 @@ class TestGroups:
         assert store.saved == []
 
 
+class TestAddButton:
+    PNG = b"\x89PNG\r\n\x1a\nicon"
+
+    def brush(self):
+        return {"kind": "brush", "name": "Basic Hard", "resource": "resource://a/Basic Hard"}
+
+    def test_inserts_at_the_position_with_a_fresh_id_and_saves_once(self, store, tmp_path):
+        editor = make(store, tmp_path)
+
+        added = editor.add_button("g1", 1, self.brush())
+
+        assert contents(editor.layout.to_json())[0] == ("General", ["a", added.id, "b", "c"])
+        assert added.valid and added.icon is None and added.raw["icon"] is None
+        assert added.id not in {"a", "b", "c", "d"}
+        assert len(store.saved) == 1
+
+    def test_the_icon_is_written_to_icons_by_the_button_id(self, store, tmp_path):
+        editor = make(store, tmp_path)
+
+        added = editor.add_button("g3", 0, self.brush(), icon_png=self.PNG)
+
+        assert added.icon == f"icons/{added.id}.png"
+        assert (tmp_path / "icons" / f"{added.id}.png").read_bytes() == self.PNG
+        assert store.saved[0]["groups"][2]["buttons"][0]["icon"] == added.icon
+
+    def test_a_position_past_the_end_appends(self, store, tmp_path):
+        editor = make(store, tmp_path)
+
+        added = editor.add_button("g2", 99, self.brush())
+
+        assert contents(editor.layout.to_json())[1] == ("Layers", ["d", added.id])
+
+    def test_an_invalid_button_is_refused(self, store, tmp_path):
+        editor = make(store, tmp_path)
+
+        with pytest.raises(ValueError):
+            editor.add_button("g1", 0, {"kind": "brush", "name": "No resource"})
+        assert store.saved == []
+
+    def test_a_failed_save_removes_the_icon_again(self, tmp_path):
+        def save(layout):
+            raise OSError("disk full")
+
+        editor = LayoutEditor(Layout.from_json(doc()), save, tmp_path)
+
+        with pytest.raises(OSError):
+            editor.add_button("g1", 0, self.brush(), icon_png=self.PNG)
+
+        assert contents(editor.layout.to_json()) == contents(doc())
+        assert list((tmp_path / "icons").iterdir()) == []
+
+
 class TestReadOnly:
     def test_every_change_is_refused_and_nothing_is_saved(self, store, tmp_path):
         editor = make(store, tmp_path, read_only=True)
@@ -299,6 +351,7 @@ class TestReadOnly:
             lambda: editor.rename_group("g1", "X"),
             lambda: editor.move_group("g1", 1),
             lambda: editor.delete_group("g3"),
+            lambda: editor.add_button("g1", 0, {"kind": "brush", "name": "B", "resource": "resource://a/B"}),
         ):
             with pytest.raises(ReadOnlyLayoutError):
                 change()

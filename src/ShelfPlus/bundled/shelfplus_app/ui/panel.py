@@ -6,6 +6,8 @@
 - No edit mode: tiles can be dragged at any time, within and between Groups, or onto
   the trash that appears while dragging. A delete can be undone for a few seconds.
 - Right-click menus on tiles and Group names; a "+" in each Group row.
+- A brush or tool preset dragged from the Assets window onto a Group becomes a Brush
+  button there. A Brush button whose preset is missing carries a warning badge.
 - Every element has a toolTip; ``PenHover`` shows it for the pen too.
 
 The content is rebuilt from the Layout after every change (never during a drag).
@@ -20,14 +22,16 @@ from shiboken6 import isValid
 from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
 from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
 from ..core.storage import ReadOnlyLayoutError
-from .icons import automatic_icon, panel_icon, plus_icon, trash_icon
+from .icons import automatic_icon, panel_icon, plus_icon, trash_icon, with_warning_badge
 from .pen_hover import PenHover
 
 log = logging.getLogger("ShelfPlus.app.panel")
 
 OBJECT_NAME = "ShelfPlusPanel"
 MIME_TYPE = "application/x-shelfplus-button"
+URI_LIST = "text/uri-list"  # what the Assets window drags
 STATUS_MS = 3000
+NOTICE_MS = 8000
 UNDO_MS = 5000
 SPACING = 4  # between tiles
 GROUP_GAP = 12  # between Groups in the flat row
@@ -106,6 +110,15 @@ def carries_button(view, event):
     return event.mimeData().hasFormat(MIME_TYPE) and view.dragging is not None
 
 
+def resource_drop_text(mime):
+    """The ``text/uri-list`` of a drag from the Assets window, or ``""`` if it carries no
+    ``resource://`` URL."""
+    if not mime.hasFormat(URI_LIST):
+        return ""
+    text = bytes(mime.data(URI_LIST)).decode("utf-8", "replace")
+    return text if "resource://" in text else ""
+
+
 class _PanelWidget(QtWidgets.QWidget):
     def __init__(self, view):
         super().__init__()
@@ -125,8 +138,13 @@ class Tile(QtWidgets.QToolButton):
         self.button = button
         self.setObjectName("ShelfPlusTile")
         self.setAutoRaise(True)
-        self.setIcon(button_icon(view.app, button))
+        icon = button_icon(view.app, button)
         tip = button.name if button.valid else f"{button.name} (invalid: {button.problem})"
+        self.missing = view.app.is_missing(button)
+        if self.missing:
+            icon = with_warning_badge(icon)
+            tip = f"{button.name} (not available on this machine)"
+        self.setIcon(icon)
         self.setToolTip(tip)
         label_height = self.fontMetrics().height() if show_label else 0
         self.setFixedSize(size, size + label_height)
@@ -196,7 +214,14 @@ class GroupBox(QtWidgets.QFrame):
     # -- dropping -------------------------------------------------------------
 
     def _accepts(self, event):
-        return carries_button(self.view, event)
+        return carries_button(self.view, event) or bool(resource_drop_text(event.mimeData()))
+
+    def _accept(self, event):
+        if carries_button(self.view, event):
+            event.acceptProposedAction()
+        else:  # a copy: the Assets window keeps its resource
+            event.setDropAction(QtCore.Qt.DropAction.CopyAction)
+            event.accept()
 
     def _index_at(self, pos):
         """(drop position in the Group, the visible tiles' rectangles)."""
@@ -231,12 +256,12 @@ class GroupBox(QtWidgets.QFrame):
 
     def dragEnterEvent(self, event):
         if self._accepts(event):
-            event.acceptProposedAction()
+            self._accept(event)
             self._show_indicator(event.position().toPoint())
 
     def dragMoveEvent(self, event):
         if self._accepts(event):
-            event.acceptProposedAction()
+            self._accept(event)
             self._show_indicator(event.position().toPoint())
 
     def dragLeaveEvent(self, event):
@@ -247,8 +272,11 @@ class GroupBox(QtWidgets.QFrame):
         if not self._accepts(event):
             return
         index, _ = self._index_at(event.position().toPoint())
-        event.acceptProposedAction()
-        self.view.move_button(self.view.dragging, self.group.id, index)
+        self._accept(event)
+        if carries_button(self.view, event):
+            self.view.move_button(self.view.dragging, self.group.id, index)
+        else:
+            self.view.add_brushes(self.group.id, index, resource_drop_text(event.mimeData()))
 
 
 class Trash(QtWidgets.QToolButton):
@@ -354,6 +382,13 @@ class QtPanelView:
         self.messages.hide()
         root.addWidget(self.messages)
 
+        self.notice = QtWidgets.QLabel()
+        self.notice.setObjectName(OBJECT_NAME + "Notice")
+        self.notice.setWordWrap(True)
+        self.notice.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self.notice.hide()
+        root.addWidget(self.notice)
+
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setObjectName(OBJECT_NAME + "Scroll")
         self.scroll.setWidgetResizable(True)
@@ -368,6 +403,10 @@ class QtPanelView:
         self.status_timer = QtCore.QTimer(widget)
         self.status_timer.setSingleShot(True)
         self.status_timer.timeout.connect(self.status.clear)
+        self.notice_timer = QtCore.QTimer(widget)
+        self.notice_timer.setSingleShot(True)
+        self.notice_timer.setInterval(NOTICE_MS)
+        self.notice_timer.timeout.connect(self.notice.hide)
         self.undo_timer = QtCore.QTimer(widget)
         self.undo_timer.setSingleShot(True)
         self.undo_timer.setInterval(UNDO_MS)
@@ -463,6 +502,16 @@ class QtPanelView:
     def show_status(self, text):
         self.status.setText(text)
         self.status_timer.start(STATUS_MS)
+
+    def notify(self, text):
+        """A message from the App (e.g. a brush that could not be activated), shown for a
+        few seconds under the bar, wrapped."""
+        if not _alive(self.widget):
+            return
+        self.notice.setText(text)
+        self.notice.setToolTip(text)
+        self.notice.show()
+        self.notice_timer.start()
 
     # -- layout decisions -----------------------------------------------------
 
@@ -705,6 +754,14 @@ class QtPanelView:
     def move_button(self, button, group_id, index):
         self._edit(lambda: self.app.editor.move_button(button, group_id, index))
 
+    def add_brushes(self, group_id, index, uri_list):
+        """Brush buttons for what was dropped from the Assets window (the App re-renders)."""
+        try:
+            self.app.add_brushes_from_drop(group_id, index, uri_list)
+        except Exception:
+            log.exception("Adding dropped brushes failed")
+            self.notify("The brush could not be added. See the log.")
+
     def delete_button(self, button):
         def change():
             pending = self.app.editor.delete_button(button)
@@ -809,6 +866,6 @@ class QtPanelView:
         widget, self.widget = self.widget, None
         if widget is not None and isValid(widget):
             self.pen_hover.stop()
-            for timer in (self.status_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer):
+            for timer in (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer):
                 timer.stop()
             widget.deleteLater()

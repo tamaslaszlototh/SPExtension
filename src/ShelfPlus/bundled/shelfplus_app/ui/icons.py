@@ -43,8 +43,51 @@ def initials(name):
     return (words[0][0] + words[1][0]).upper()
 
 
+def brush_icon():
+    """The generic Brush button icon (no image could be read from the Assets window):
+    a brush on the Brush button colour."""
+    pixmap, painter = _canvas()
+    painter.setBrush(QtGui.QColor(KIND_COLOURS["brush"]))
+    painter.drawRoundedRect(2, 2, 60, 60, 10, 10)
+    painter.translate(32, 32)
+    painter.rotate(45)
+    painter.setBrush(QtGui.QColor("#f0d9b5"))
+    painter.drawRoundedRect(-4, -4, 8, 26, 3, 3)  # handle
+    painter.setBrush(QtGui.QColor("#c8c8c8"))
+    painter.drawRect(-6, -10, 12, 7)  # ferrule
+    painter.setBrush(QtGui.QColor("#ffffff"))
+    painter.drawRoundedRect(-7, -24, 14, 15, 6, 6)  # bristles
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
+def with_warning_badge(icon):
+    """``icon`` with a small warning triangle in its bottom-right corner (a missing preset)."""
+    pixmap = icon.pixmap(_SIZE, _SIZE)
+    if pixmap.isNull():
+        pixmap = QtGui.QPixmap(_SIZE, _SIZE)
+        pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+    painter = QtGui.QPainter(pixmap)
+    painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+    scale = pixmap.width() / _SIZE
+    painter.scale(scale, scale)
+    triangle = QtGui.QPolygonF([QtCore.QPointF(48, 32), QtCore.QPointF(64, 62), QtCore.QPointF(32, 62)])
+    painter.setPen(QtGui.QPen(QtGui.QColor("#202020"), 2))
+    painter.setBrush(QtGui.QColor("#f2b01e"))
+    painter.drawPolygon(triangle)
+    painter.setPen(QtCore.Qt.PenStyle.NoPen)
+    painter.setBrush(QtGui.QColor("#202020"))
+    painter.drawRect(QtCore.QRectF(46.5, 40, 3, 12))
+    painter.drawRect(QtCore.QRectF(46.5, 55, 3, 3))
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
 def automatic_icon(button):
-    """The icon of a Button whose ``icon`` is ``null``: its kind's colour and its initials."""
+    """The icon of a Button whose ``icon`` is ``null``: its kind's colour and its initials
+    (a Brush button: the generic brush)."""
+    if button.valid and button.kind == "brush":
+        return brush_icon()
     colour = KIND_COLOURS.get(button.kind, INVALID_COLOUR) if button.valid else INVALID_COLOUR
     text = initials(button.name) if button.valid else "!"
     pixmap, painter = _canvas()

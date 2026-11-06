@@ -477,3 +477,98 @@ def test_dropping_on_a_collapsed_group_adds_the_tile_at_its_end(app, qt_app):
 
     assert [b.name for b in app.layout.groups[1].buttons] == ["Fill", "Paint", "Button 0"]
     assert not view.group_boxes[1].drop_highlighted
+
+
+# -- Brush buttons ---------------------------------------------------------------
+
+
+def assets_drop(widget, local_pos, uri_list):
+    """Drop what the Assets window drags (``text/uri-list``) on ``widget``."""
+    mime = QMimeData()
+    mime.setData("text/uri-list", QByteArray(uri_list.encode("utf-8")))
+    event = QDropEvent(
+        QPointF(local_pos), Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
+    )
+    widget.dropEvent(event)
+    return event
+
+
+def test_a_brush_dropped_from_the_assets_window_becomes_a_tile_where_it_was_dropped(app, qt_app):
+    from shelfplus_app.adapter.fake import FakeResource
+
+    app.adapter.add_resource(FakeResource("resource://starter_assets/Basic Hard", "Basic Hard"))
+    view = show(app, qt_app, 260, 700)
+    layers = view.group_boxes[1]
+    paint = layers.tiles[1]
+
+    event = assets_drop(layers, paint.mapTo(layers, QPoint(2, paint.height() // 2)),
+                        "resource://starter_assets/Basic%20Hard?version=abc.resource\r\n")
+
+    assert event.dropAction() == Qt.DropAction.CopyAction
+    assert saved_names(app)[1] == ["Fill", "Basic Hard", "Paint"]
+    assert tile_names(view)[1] == ["Fill", "Basic Hard", "Paint"]
+    assert not view.group_boxes[1].tiles[1].icon().isNull()  # the generic brush icon
+
+
+def test_the_assets_drag_is_accepted_and_highlights_an_empty_group(app, qt_app):
+    from PySide6.QtGui import QDragEnterEvent
+
+    view = show(app, qt_app, 260, 700)
+    empty = view.group_boxes[2]
+    mime = QMimeData()
+    mime.setData("text/uri-list", QByteArray(b"resource://a/B?version=1\r\n"))
+    event = QDragEnterEvent(QPointF(5, 5), Qt.DropAction.CopyAction | Qt.DropAction.MoveAction, mime,
+                            Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+
+    empty.dragEnterEvent(event)
+
+    assert event.isAccepted() and event.dropAction() == Qt.DropAction.CopyAction
+    assert empty.drop_highlighted
+
+
+def test_other_urls_are_not_accepted(app, qt_app):
+    from PySide6.QtGui import QDragEnterEvent
+
+    view = show(app, qt_app, 260, 700)
+    mime = QMimeData()
+    mime.setData("text/uri-list", QByteArray(b"file:///C:/x.png\r\n"))
+    event = QDragEnterEvent(QPointF(5, 5), Qt.DropAction.CopyAction, mime,
+                            Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    event.ignore()
+
+    view.group_boxes[2].dragEnterEvent(event)
+
+    assert not event.isAccepted()
+
+
+def test_a_missing_preset_has_a_badge_and_says_so(qt_app, tmp_path):
+    from shelfplus_app.adapter.fake import FakeResource
+
+    version_dir = tmp_path / "versions" / "0.3.0"
+    version_dir.mkdir(parents=True)
+    shutil.copy(BUNDLED / "default_layout.json", version_dir / "default_layout.json")
+    brush = {"kind": "brush", "icon": None}
+    layout = {"schemaVersion": 1, "groups": [{"id": "g1", "name": "Brushes", "buttons": [
+        dict(brush, id="b1", name="Hard", resource="resource://a/Hard"),
+        dict(brush, id="b2", name="Gone", resource="resource://a/Gone"),
+    ]}]}
+    (tmp_path / "layout.json").write_text(json.dumps(layout), encoding="utf-8")
+    adapter = FakeAdapter()
+    adapter.add_resource(FakeResource("resource://a/Hard", "Hard"))
+    env = {"version": "0.3.0", "version_dir": str(version_dir), "data_dir": str(tmp_path), "loader_version": 1}
+    app = App(env, adapter, QtPanelView)
+    app.start()
+    try:
+        view = show(app, qt_app, 260, 700)
+        hard, gone = view.group_boxes[0].tiles
+
+        assert not hard.missing and hard.toolTip() == "Hard"
+        assert gone.missing and gone.toolTip() == "Gone (not available on this machine)"
+
+        gone.click()
+        assert view.notice.isVisibleTo(view.widget)
+        assert view.notice.text() == "This brush is not available on this machine: resource://a/Gone"
+        assert adapter.assets_calls == []
+    finally:
+        app.close()
+        qt_app.processEvents()

@@ -81,6 +81,40 @@ class LayoutEditor:
 
     # -- Buttons -------------------------------------------------------------
 
+    def _new_button_id(self):
+        taken = {b.id for g in self.layout.groups for b in g.buttons}
+        button_id = new_id()
+        while button_id in taken:
+            button_id = new_id()
+        return button_id
+
+    def add_button(self, group_id, index, raw, icon_png=None):
+        """Insert a new Button before position ``index`` of the Group. ``raw`` is its JSON
+        without ``id`` and ``icon``: the Button gets a fresh id, and ``icon_png`` (if any)
+        is written to ``icons/<id>.png``. Returns the new ``Button``."""
+        self._check_writable()
+        group = self.group(group_id)
+        button_id = self._new_button_id()
+        icon = f"icons/{button_id}.png" if icon_png else None
+        data = {"id": button_id}
+        data.update((k, v) for k, v in raw.items() if k not in ("id", "icon"))
+        data["icon"] = icon
+        button = Button.from_json(data)
+        if not button.valid:
+            raise ValueError(f"the new Button is invalid: {button.problem}")
+        icon_file = self.data_dir / icon if icon else None
+        try:
+            if icon_file is not None:
+                icon_file.parent.mkdir(parents=True, exist_ok=True)
+                icon_file.write_bytes(icon_png)
+            with self._change():
+                group.buttons.insert(max(0, min(index, len(group.buttons))), button)
+        except BaseException:
+            if icon_file is not None:
+                icon_file.unlink(missing_ok=True)
+            raise
+        return button
+
     def move_button(self, button, group_id, index):
         """Move ``button`` so it lands before position ``index`` of the Group as it is now
         (``index`` counts the moved Button too, as a drop position does). Returns whether

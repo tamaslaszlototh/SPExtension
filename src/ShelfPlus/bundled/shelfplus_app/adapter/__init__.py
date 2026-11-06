@@ -8,5 +8,15 @@ with this interface:
 - ``painter_version() -> str``
 - ``qt_version() -> str``
 
+Brush buttons (``core/brush.py``):
+
+- ``resolve_resource(url) -> core.brush.BrushResource | None``: look up a version-less
+  ``resource://`` URL.
+- ``resource_file_path(resource) -> str | None``: the file behind it (e.g. the ``.sppr``).
+- ``assets_icon_sources(resource) -> (tooltip HTML, DecorationRole PNG bytes)``.
+- ``open_assets() -> bool``, ``show_in_ui(resource)``, ``tile_rect(gui_name)`` and
+  ``click_tile(rect)``: the Assets window automation (``assets.AssetsWindow``).
+- ``repeat(interval_ms, callback) -> timer``: a repeating timer with ``stop()``.
+
 ``painter.PainterAdapter`` is the real one; ``fake.FakeAdapter`` is used by tests.
 """
