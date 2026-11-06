@@ -45,7 +45,8 @@ class PenHover(QtCore.QObject):
     def named_element(self, widget):
         """The nearest widget at or above ``widget`` inside the Panel that has a name."""
         root = self.root
-        if widget is None or not (widget is root or root.isAncestorOf(widget)):
+        # widgetAt may return a stale wrapper of a Painter widget (Painter 11.1).
+        if widget is None or not isValid(widget) or not (widget is root or root.isAncestorOf(widget)):
             return None, ""
         while widget is not None:
             text = widget.toolTip()
@@ -64,7 +65,10 @@ class PenHover(QtCore.QObject):
             pos = None
         else:
             pos = QtGui.QCursor.pos()
-            target, text = self.named_element(QtWidgets.QApplication.widgetAt(pos))
+            try:
+                target, text = self.named_element(QtWidgets.QApplication.widgetAt(pos))
+            except RuntimeError:  # a wrapper died under us; try again on the next tick
+                target, text = None, ""
         showing = QtWidgets.QToolTip.isVisible()
         self._apply(self.tracker.tick(self.clock.elapsed(), target, text, showing), pos)
 

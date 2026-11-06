@@ -19,7 +19,7 @@ from shiboken6 import isValid
 from ..core.flow import FLAT, TALL, drop_index, fit_flat_row, grid_columns, orientation
 from ..core.panel_state import TILE_SIZES
 from ..core.storage import ReadOnlyLayoutError
-from .icons import automatic_icon, panel_icon
+from .icons import automatic_icon, panel_icon, trash_icon
 from .pen_hover import PenHover
 
 log = logging.getLogger("ShelfPlus.app.panel")
@@ -199,7 +199,7 @@ class Trash(QtWidgets.QToolButton):
         self.view = view
         self.setObjectName(OBJECT_NAME + "Trash")
         self.setText("Delete")
-        self.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_TrashIcon))
+        self.setIcon(trash_icon())
         self.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.setToolTip("Drop a Button here to delete it")
         self.setAcceptDrops(True)
@@ -381,7 +381,8 @@ class QtPanelView:
         viewport = self.scroll.viewport().width()
         bar = self.scroll.verticalScrollBar()
         if not bar.isVisible():  # leave room for it, so a scrollbar appearing does not re-flow
-            viewport -= self.scroll.style().pixelMetric(QtWidgets.QStyle.PixelMetric.PM_ScrollBarExtent)
+            # (not style().pixelMetric: on Painter 11.1 the style's Python wrapper is already deleted)
+            viewport -= bar.sizeHint().width()
         return max(0, viewport - 2 * MARGIN)
 
     def _header_width(self, group):

@@ -58,3 +58,19 @@ def automatic_icon(button):
     painter.drawText(QtCore.QRect(0, 0, _SIZE, _SIZE), QtCore.Qt.AlignmentFlag.AlignCenter, text)
     painter.end()
     return QtGui.QIcon(pixmap)
+
+
+def trash_icon():
+    """A bin, drawn here: ``style().standardIcon`` cannot be used, because on Painter 11.1
+    the Python wrapper of the application style is already deleted."""
+    pixmap, painter = _canvas()
+    colour = QtGui.QColor("#d0d0d0")
+    painter.setBrush(colour)
+    painter.drawRoundedRect(14, 12, 36, 6, 2, 2)  # lid
+    painter.drawRect(26, 6, 12, 6)  # handle
+    painter.drawRoundedRect(18, 22, 28, 36, 4, 4)  # body
+    painter.setBrush(QtGui.QColor("#5a5a5a"))
+    for x in (25, 31, 37):
+        painter.drawRect(x, 28, 3, 24)  # slats
+    painter.end()
+    return QtGui.QIcon(pixmap)

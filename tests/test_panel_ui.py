@@ -267,3 +267,37 @@ def test_overflow_entries_carry_their_button_for_the_right_click_menu(app, qt_ap
     entries = [a for a in view.overflow_tool.menu().actions() if a.data() is not None]
 
     assert entries and all(a.data().name == a.text() for a in entries)
+
+
+def test_the_panel_never_touches_the_style_object(qt_app, tmp_path, monkeypatch):
+    """On Painter 11.1 the Python wrapper of the application style is already deleted
+    ("Internal C++ object (QCommonStyle) already deleted"), so ``style()`` must not be used."""
+
+    def stale_style(self):
+        raise RuntimeError("Internal C++ object (PySide6.QtWidgets.QCommonStyle) already deleted.")
+
+    monkeypatch.setattr(QtWidgets.QWidget, "style", stale_style)
+    version_dir = tmp_path / "versions" / "0.1.0"
+    version_dir.mkdir(parents=True)
+    shutil.copy(BUNDLED / "default_layout.json", version_dir / "default_layout.json")
+    env = {"version": "0.1.0", "version_dir": str(version_dir), "data_dir": str(tmp_path), "loader_version": 1}
+    app = App(env, FakeAdapter(), QtPanelView)
+    try:
+        app.start()
+        for width, height in [(260, 700), (900, 90)]:
+            view = show(app, qt_app, width, height)
+            view.render()
+        assert not view.trash.icon().isNull()
+    finally:
+        app.close()
+        qt_app.processEvents()
+
+
+def test_the_pen_helper_ignores_a_dead_widget_under_the_cursor(app, qt_app):
+    from shiboken6 import delete
+
+    view = show(app, qt_app, 260, 700)
+    dead = QtWidgets.QWidget()
+    delete(dead)
+
+    assert view.pen_hover.named_element(dead) == (None, "")

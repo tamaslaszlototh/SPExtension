@@ -1,4 +1,4 @@
-# Testing the Panel UI (Shelf+ v0.2.0-rc.1)
+# Testing the Panel UI (Shelf+ v0.2.1-rc.1)
 
 This build adds the real **Panel**: Groups of icon tiles that you can collapse, a layout that adapts to the Panel's shape, drag and drop, delete with Undo, right-click menus, and hover names for the pen.
 
@@ -19,13 +19,14 @@ Neither of these is a failure.
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.2.0-rc.1.zip** from the [v0.2.0-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.2.0-rc.1).
+2. Download **ShelfPlus-v0.2.1-rc.1.zip** from the [v0.2.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.2.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter. If the Shelf+ Panel is not visible, open it from **Window → Views → Shelf+**.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.2.0**.
-   - If it says v0.1.0, or the Panel shows an error, stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.2.1**.
+   - If it says an older version, or Painter showed "Shelf+ v0.2.1 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
+   - If you tried v0.2.0 earlier: it failed on Painter 11.1 and is now marked bad. That is expected. v0.2.1 installs over it.
 
 ## 2. Load the test Layout
 
@@ -167,7 +168,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.2.0 | | | |
+| 1. Install: ☰ shows v0.2.1 | | | |
 | A. View settings survive a restart | | | |
 | B. Tall and flat layout, » menu | | | |
 | C. Drag, delete, Undo | | | |
