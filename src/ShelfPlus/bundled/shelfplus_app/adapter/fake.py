@@ -46,6 +46,16 @@ class FakeAdapter:
         self.loading = False
         self.loaded_callbacks = []
 
+        # Painter's commands (QActions): MenuActions, their icons, and the hooks.
+        self.actions = []
+        self.action_icons = {}  # objectName -> PNG bytes
+        self.action_error = None
+        self.trigger_error = None
+        self.disabled = set()  # objectNames Painter has disabled right now
+        self.triggered = []  # objectNames, in the order they were triggered
+        self.hooks = []  # the callbacks of watch_actions()
+        self.watch_error = None
+
     def add_dock_widget(self, widget):
         if self.fail_on_dock:
             raise RuntimeError("add_dock_widget failed")
@@ -110,6 +120,46 @@ class FakeAdapter:
         if self.click_error is not None:
             raise self.click_error
         self.clicks.append(rect)
+
+    # -- Painter's commands (QActions) ----------------------------------------
+
+    def list_actions(self):
+        if self.action_error is not None:
+            raise self.action_error
+        return list(self.actions)
+
+    def find_action(self, name):
+        if self.action_error is not None:
+            raise self.action_error
+        return next((a for a in self.actions if a.name == name), None)
+
+    def action_icon_png(self, action):
+        return self.action_icons.get(action.name)
+
+    def watch_actions(self, callback):
+        if self.watch_error is not None:
+            raise self.watch_error
+        self.hooks.append(callback)
+        return lambda: self.hooks.remove(callback)
+
+    def click_command(self, action, hook_calls=2):
+        """The user runs ``action`` from Painter's menu: like Qt, every hook reports it
+        (``QAction.triggered`` and ``QMenu.triggered``)."""
+        self.triggered.append(action.name)
+        self._report(action, hook_calls)
+
+    def trigger_action(self, action):
+        if self.trigger_error is not None:
+            raise self.trigger_error
+        if action.name in self.disabled:
+            return False
+        self.click_command(action)
+        return True
+
+    def _report(self, action, hook_calls):
+        for _ in range(hook_calls):
+            for callback in list(self.hooks):
+                callback(action)
 
     # -- timers --------------------------------------------------------------
 

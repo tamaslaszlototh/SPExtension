@@ -22,7 +22,7 @@ VIEW_CLASS = "Alg::ResourceListView"
 ICON_SIZE = 256  # the largest size asked of a DecorationRole icon
 
 
-def _valid(obj):
+def valid(obj):
     try:
         return obj is not None and isValid(obj)
     except Exception:
@@ -52,12 +52,12 @@ class AssetsWindow:
 
     def dock(self):
         """The Assets dock, or ``None``."""
-        if _valid(self._dock):
+        if valid(self._dock):
             return self._dock
         self._dock = self._view = self._viewport = self._model = None
         for widget in self._all_widgets():
             try:
-                if isinstance(widget, QtWidgets.QDockWidget) and _valid(widget) and widget.objectName() == self.dock_name:
+                if isinstance(widget, QtWidgets.QDockWidget) and valid(widget) and widget.objectName() == self.dock_name:
                     self._dock = widget
                     break
             except RuntimeError:
@@ -71,12 +71,12 @@ class AssetsWindow:
         dock = self.dock()
         if dock is None:
             return None
-        if _valid(self._view) and _valid(self._viewport) and self._view.isVisible():
+        if valid(self._view) and valid(self._viewport) and self._view.isVisible():
             return self._view
         found = None
         for widget in self._all_widgets():
             try:
-                if not (isinstance(widget, QtWidgets.QAbstractItemView) and _valid(widget)):
+                if not (isinstance(widget, QtWidgets.QAbstractItemView) and valid(widget)):
                     continue
                 if widget.metaObject().className() != self.view_class or not dock.isAncestorOf(widget):
                     continue
@@ -129,7 +129,7 @@ class AssetsWindow:
         """A left click (press and release) at the centre of ``rect``, sent as Qt events to
         the view's viewport. ``rect`` belongs to that viewport: if it is gone, nothing is
         clicked (a view found again could have its tiles elsewhere)."""
-        if not _valid(self._viewport):
+        if not valid(self._viewport):
             raise RuntimeError("the Assets view is gone")
         viewport = self._viewport
         centre = QtCore.QRect(*rect).center()
@@ -153,11 +153,11 @@ class AssetsWindow:
             log.info("No Assets tile named %r for the icon", gui_name)
             return None, None
         tooltip = index.data(QtCore.Qt.ItemDataRole.ToolTipRole)
-        decoration = _png_bytes(index.data(QtCore.Qt.ItemDataRole.DecorationRole))
+        decoration = png_bytes(index.data(QtCore.Qt.ItemDataRole.DecorationRole))
         return (tooltip if isinstance(tooltip, str) else None), decoration
 
 
-def _png_bytes(value):
+def png_bytes(value):
     """A ``QIcon``/``QPixmap``/``QImage`` as PNG bytes, or ``None``."""
     if isinstance(value, QtGui.QIcon):
         sizes = value.availableSizes()

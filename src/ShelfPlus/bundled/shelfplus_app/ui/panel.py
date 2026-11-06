@@ -8,6 +8,11 @@
 - Right-click menus on tiles and Group names; a "+" in each Group row.
 - A brush or tool preset dragged from the Assets window onto a Group becomes a Brush
   button there. A Brush button whose preset is missing carries a warning badge.
+- "+ → Menu button" shows the capture bar: the next command clicked in Painter's menu
+  becomes a Menu button. "Choose from list…" opens ``ActionPicker`` instead; Esc or
+  Cancel ends capture mode. A Menu button whose command is missing carries the badge.
+- Every menu of the Panel has an objectName starting with ``ShelfPlus``, so the hooks
+  on Painter's commands never take the Panel's own entries for Painter's.
 - Every element has a toolTip; ``PenHover`` shows it for the pen too.
 
 The content is rebuilt from the Layout after every change (never during a drag).
@@ -20,9 +25,10 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from shiboken6 import isValid
 
 from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
+from ..core.menu import search_actions
 from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
 from ..core.storage import ReadOnlyLayoutError
-from .icons import automatic_icon, panel_icon, plus_icon, trash_icon, with_warning_badge
+from .icons import automatic_icon, menu_icon, panel_icon, plus_icon, trash_icon, with_warning_badge
 from .pen_hover import PenHover
 
 log = logging.getLogger("ShelfPlus.app.panel")
@@ -89,6 +95,14 @@ class MenuButton(QtWidgets.QToolButton):
             self._popup.exec(self.mapToGlobal(QtCore.QPoint(0, self.height())))
 
 
+def own_menu(parent, name):
+    """A QMenu of the Panel. Its objectName marks it as the plugin's own, so the hooks on
+    Painter's commands skip it."""
+    menu = QtWidgets.QMenu(parent)
+    menu.setObjectName(OBJECT_NAME + name)
+    return menu
+
+
 def add_heading(menu, text):
     """A bold, normally coloured title line in a menu. A disabled item would be greyed out,
     which is hard to read in Painter's dark theme."""
@@ -143,7 +157,8 @@ class Tile(QtWidgets.QToolButton):
         self.missing = view.app.is_missing(button)
         if self.missing:
             icon = with_warning_badge(icon)
-            tip = f"{button.name} (not available on this machine)"
+            where = "in this Painter version" if button.kind == "menu" else "on this machine"
+            tip = f"{button.name} (not available {where})"
         self.setIcon(icon)
         self.setToolTip(tip)
         label_height = self.fontMetrics().height() if show_label else 0
@@ -339,6 +354,113 @@ class _SidewaysWheel(QtCore.QObject):
         return False
 
 
+class _EscapeFilter(QtCore.QObject):
+    """In capture mode, Esc anywhere in Painter ends it. Installed on the application only
+    while capturing. An Esc that closes an open menu or dialog is left to it. The key is
+    never eaten."""
+
+    def __init__(self, cancel):
+        super().__init__()
+        self.cancel = cancel
+        self.installed = False
+
+    def install(self):
+        if not self.installed:
+            QtWidgets.QApplication.instance().installEventFilter(self)
+            self.installed = True
+
+    def remove(self):
+        if self.installed:
+            self.installed = False
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                app.removeEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        try:
+            if (
+                event.type() == QtCore.QEvent.Type.KeyPress
+                and event.key() == QtCore.Qt.Key.Key_Escape
+                and QtWidgets.QApplication.activePopupWidget() is None
+                and QtWidgets.QApplication.activeModalWidget() is None
+            ):
+                QtCore.QTimer.singleShot(0, self.cancel)
+        except Exception:
+            log.exception("The Esc filter failed")
+        return False
+
+
+class ActionPicker(QtWidgets.QDialog):
+    """The searchable list of Painter's commands (the fallback of capture mode, and on
+    11.1 the only way to add a command from a submenu)."""
+
+    def __init__(self, app, group, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.setObjectName(OBJECT_NAME + "ActionPicker")
+        self.setWindowTitle(f"Add a Menu button to {group.name}")
+        self.resize(420, 480)
+        column = QtWidgets.QVBoxLayout(self)
+        self.search = QtWidgets.QLineEdit()
+        self.search.setObjectName(OBJECT_NAME + "ActionSearch")
+        self.search.setPlaceholderText("Search by name, menu or objectName")
+        self.search.setClearButtonEnabled(False)  # its clear action would be one more QAction
+        self.search.textChanged.connect(self._fill)
+        column.addWidget(self.search)
+        self.list = QtWidgets.QListWidget()
+        self.list.setObjectName(OBJECT_NAME + "ActionList")
+        self.list.itemDoubleClicked.connect(lambda item: self.accept())
+        self.list.currentRowChanged.connect(self._sync_ok)
+        column.addWidget(self.list, 1)
+        self.empty_label = QtWidgets.QLabel()
+        self.empty_label.setObjectName(OBJECT_NAME + "ActionListEmpty")
+        self.empty_label.hide()
+        column.addWidget(self.empty_label)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+        self.ok_button = buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Ok)
+        self.ok_button.setText("Add")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        column.addWidget(buttons)
+        self._actions = []
+        self._all = app.menu_actions("")  # Painter is scanned once; typing only filters
+        self._fill("")
+
+    def _fill(self, query):
+        self._actions = search_actions(self._all, query)
+        self.list.clear()
+        fallback = None
+        for action in self._actions:
+            place = " › ".join(action.path)
+            text = f"{action.label} — {place}" if place else action.label
+            item = QtWidgets.QListWidgetItem(f"{text}   [{action.name}]")
+            icon = action.icon if isinstance(action.icon, QtGui.QIcon) and not action.icon.isNull() else None
+            if icon is None:
+                fallback = fallback or menu_icon()
+                icon = fallback
+            item.setIcon(icon)
+            item.setToolTip(action.name)
+            self.list.addItem(item)
+        if self._actions:
+            self.list.setCurrentRow(0)
+        query = query.strip()
+        self.empty_label.setText(f"No command matches “{query}”." if query else "Painter's commands could not be found.")
+        self.empty_label.setVisible(not self._actions)
+        self._sync_ok()
+
+    def _sync_ok(self, *args):
+        self.ok_button.setEnabled(self.chosen() is not None)
+
+    def rows(self):
+        return [self.list.item(i).text() for i in range(self.list.count())]
+
+    def chosen(self):
+        row = self.list.currentRow()
+        return self._actions[row] if 0 <= row < len(self._actions) else None
+
+
 class QtPanelView:
     """The Panel widget over ``app`` (see ``app.App``)."""
 
@@ -403,6 +525,9 @@ class QtPanelView:
         self.notice.hide()
         root.addWidget(self.notice)
 
+        root.addWidget(self._build_capture_bar())
+        self.escape_filter = _EscapeFilter(self.app.cancel_menu_capture)
+
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setObjectName(OBJECT_NAME + "Scroll")
         self.scroll.setWidgetResizable(True)
@@ -432,10 +557,68 @@ class QtPanelView:
 
         self.pen_hover = PenHover(widget, paused=lambda: self.dragging is not None)
 
+    # -- capture mode (Menu buttons) -------------------------------------------
+
+    def _build_capture_bar(self):
+        bar = QtWidgets.QFrame()
+        bar.setObjectName(OBJECT_NAME + "Capture")
+        bar.setStyleSheet(f"QFrame#{OBJECT_NAME}Capture {{ border: 1px solid #8a63c9; border-radius: 4px; }}")
+        column = QtWidgets.QVBoxLayout(bar)
+        column.setContentsMargins(6, 4, 6, 4)
+        column.setSpacing(4)
+        self.capture_text = QtWidgets.QLabel()
+        self.capture_text.setObjectName(OBJECT_NAME + "CaptureText")
+        self.capture_text.setWordWrap(True)
+        self.capture_text.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        column.addWidget(self.capture_text)
+        row = QtWidgets.QHBoxLayout()
+        row.setSpacing(MARGIN)
+        self.capture_list = QtWidgets.QPushButton("Choose from list…")
+        self.capture_list.setObjectName(OBJECT_NAME + "CaptureList")
+        self.capture_list.setToolTip("Pick the command from a searchable list (also for commands in submenus)")
+        self.capture_list.clicked.connect(self.choose_from_list)
+        row.addWidget(self.capture_list)
+        self.capture_cancel = QtWidgets.QPushButton("Cancel")
+        self.capture_cancel.setObjectName(OBJECT_NAME + "CaptureCancel")
+        self.capture_cancel.setToolTip("Stop waiting for a command (Esc)")
+        self.capture_cancel.clicked.connect(self.app.cancel_menu_capture)
+        row.addWidget(self.capture_cancel)
+        row.addStretch(1)
+        column.addLayout(row)
+        bar.hide()
+        self.capture_bar = bar
+        return bar
+
+    def _sync_capture_bar(self):
+        group = self.app.capturing
+        if group is None:
+            self.capture_bar.hide()
+            self.escape_filter.remove()
+            return
+        self.capture_text.setText(
+            f"Click a command in Painter's menu to add it to “{group.name}”. Esc cancels."
+        )
+        self.capture_bar.show()
+        self.escape_filter.install()
+
+    def choose_from_list(self):
+        """The searchable list of Painter's commands, for the Group being captured into."""
+        group = self.app.capturing
+        if group is None:
+            return
+        picker = ActionPicker(self.app, group, self.widget)
+        try:
+            if picker.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                action = picker.chosen()
+                if action is not None and self.app.capturing is group:
+                    self.app.add_menu_button(group.id, action)
+        finally:
+            picker.deleteLater()
+
     # -- Panel menu -----------------------------------------------------------
 
     def _build_panel_menu(self):
-        menu = QtWidgets.QMenu(self.panel_menu_tool)
+        menu = own_menu(self.panel_menu_tool, "Menu")
         add_heading(menu, f"Shelf+ v{self.app.version}")
         menu.addSeparator()
 
@@ -575,6 +758,7 @@ class QtPanelView:
         self._sync_panel_menu()
         self.messages.setText("\n".join(self.app.messages))
         self.messages.setVisible(bool(self.app.messages))
+        self._sync_capture_bar()
 
         self._plan = self._compute_plan()
         old = self.scroll.takeWidget()
@@ -631,12 +815,16 @@ class QtPanelView:
         return arrow, name, plus
 
     def _add_menu(self, group, parent):
-        menu = QtWidgets.QMenu(parent)
+        menu = own_menu(parent, "AddMenu")
         for label, handler in self.app.add_button_kinds:
             action = menu.addAction(label if handler else f"{label} (coming soon)")
             action.setEnabled(handler is not None)
             if handler is not None:
-                action.triggered.connect(lambda checked=False, h=handler: h(group))
+                # After the menu has closed: the handler may rebuild the Panel, and with
+                # it this menu and its "+" button.
+                action.triggered.connect(
+                    lambda checked=False, h=handler: QtCore.QTimer.singleShot(0, lambda: h(group))
+                )
         return menu
 
     def _tile(self, button):
@@ -853,7 +1041,7 @@ class QtPanelView:
         ]
 
     def _popup(self, entries, global_pos):
-        menu = QtWidgets.QMenu(self.widget)
+        menu = own_menu(self.widget, "ContextMenu")
         self._fill_menu(menu, entries)
         menu.exec(global_pos)
         menu.deleteLater()
@@ -862,6 +1050,7 @@ class QtPanelView:
         for text, enabled, target in entries:
             if isinstance(target, list):
                 sub = menu.addMenu(text)
+                sub.setObjectName(OBJECT_NAME + "SubMenu")
                 sub.setEnabled(enabled)
                 self._fill_menu(sub, target)
             else:
@@ -879,6 +1068,7 @@ class QtPanelView:
 
     def dispose(self):
         widget, self.widget = self.widget, None
+        self.escape_filter.remove()
         if widget is not None and isValid(widget):
             self.pen_hover.stop()
             for timer in (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer):

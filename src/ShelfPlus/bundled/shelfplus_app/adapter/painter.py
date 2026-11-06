@@ -8,6 +8,7 @@ import substance_painter.application
 import substance_painter.ui
 
 from ..core.brush import BrushResource, versionless_url
+from .actions import PainterActions
 from .assets import AssetsWindow
 
 log = logging.getLogger("ShelfPlus.app.adapter")
@@ -16,6 +17,7 @@ log = logging.getLogger("ShelfPlus.app.adapter")
 class PainterAdapter:
     def __init__(self):
         self.assets = AssetsWindow()
+        self.actions = PainterActions()
 
     def add_dock_widget(self, widget):
         ui = substance_painter.ui
@@ -104,6 +106,23 @@ class PainterAdapter:
 
     def click_tile(self, rect):
         self.assets.click(rect)
+
+    # -- Painter's commands (QActions) ----------------------------------------
+
+    def list_actions(self):
+        return self.actions.all()
+
+    def find_action(self, name):
+        return self.actions.find(name)
+
+    def action_icon_png(self, action):
+        return self.actions.icon_png(action)
+
+    def watch_actions(self, callback):
+        return self.actions.watch(callback)
+
+    def trigger_action(self, action):
+        return self.actions.trigger(action)
 
     # -- timers --------------------------------------------------------------
 

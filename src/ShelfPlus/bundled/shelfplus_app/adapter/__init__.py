@@ -20,5 +20,14 @@ Brush buttons (``core/brush.py``):
   ``click_tile(rect)``: the Assets window automation (``assets.AssetsWindow``).
 - ``repeat(interval_ms, callback) -> timer``: a repeating timer with ``stop()``.
 
+Menu buttons (``core/menu.py``), Painter's commands as ``core.menu.MenuAction``:
+
+- ``list_actions() -> [MenuAction]``: every command found (``actions.PainterActions``).
+- ``find_action(name) -> MenuAction | None``: the command with that ``objectName``.
+- ``action_icon_png(action) -> bytes | None``: its icon, or ``None`` if it has none.
+- ``trigger_action(action) -> bool``: run it; ``False`` if Painter has disabled it.
+- ``watch_actions(callback) -> stop``: ``callback(action)`` for every hook call
+  (``QAction.triggered``, ``QMenu.triggered``) until ``stop()``; duplicates included.
+
 ``painter.PainterAdapter`` is the real one; ``fake.FakeAdapter`` is used by tests.
 """

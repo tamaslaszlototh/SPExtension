@@ -6,10 +6,12 @@ so tests drive it with ``FakeAdapter`` and a fake view.
 
 import logging
 import platform
+from functools import partial
 from pathlib import Path
 
 from .core.brush import MISSING, brush_button, brush_icon, resolve, resource_urls_from_drop, select_brush
 from .core.diagnostics import build_diagnostics, tail_log
+from .core.menu import ActionWatcher, capture_problem, menu_button, run_action, search_actions
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
@@ -34,15 +36,20 @@ SETTLE_CHECKS = 15
 LOADING_CHECKS = 60
 LOADING_MESSAGE = "Painter is still loading its brushes. Try again in a moment."
 
-# The UI Steps the App can run so far: Step type -> function(adapter, step, done).
-UI_STEPS = {"select_brush": select_brush}
+# Some of Painter's commands exist only once a project is open, so a Menu button with the
+# "unavailable" badge is looked up again this often until its command is found.
+MENU_CHECK_MS = 10000
+WATCH_FAILED_MESSAGE = "Painter's menu cannot be watched. Use “Choose from list…” instead."
+LIST_FAILED_MESSAGE = "Painter's commands could not be read. See the log."
 
 
 def button_steps(button):
-    """The Steps a Button runs. A Brush button is a one-Step Workflow. ``None``: this
-    Button kind cannot run yet."""
+    """The Steps a Button runs. A Brush or Menu button is a one-Step Workflow. ``None``:
+    this Button kind cannot run yet."""
     if button.kind == "brush":
         return [{"type": "select_brush", "resource": button.raw["resource"]}]
+    if button.kind == "menu":
+        return [{"type": "run_action", "action": button.raw["action"]}]
     return None
 
 
@@ -61,9 +68,19 @@ class App:
         self.editor = None
         self.panel_state = None
         self._panel_state_unsaved = False
-        handlers = {"Brush button": self.explain_brush_drop}
+        handlers = {"Brush button": self.explain_brush_drop, "Menu button": self.start_menu_capture}
         self.add_button_kinds = [(label, handlers.get(label, handler)) for label, handler in ADD_BUTTON_KINDS]
-        self.missing = set()  # ids of Brush buttons whose preset is not on this machine
+        # ids of Brush buttons whose preset is not on this machine, and of Menu buttons
+        # whose command is not in this Painter version
+        self.missing = set()
+        # Every hook call on Painter's commands goes through it; it also hides the
+        # plugin's own trigger() calls (run_action).
+        self.action_watcher = ActionWatcher(self._command_run)
+        # The UI Steps the App can run so far: Step type -> function(adapter, step, done).
+        self.ui_steps = {"select_brush": select_brush, "run_action": partial(run_action, watcher=self.action_watcher)}
+        self._capture_group_id = None  # capture mode: the Group a captured command goes to
+        self._stop_watching = None  # disconnects the hooks on Painter's commands
+        self._menu_timer = None  # looks for missing commands again
         self._running = None  # the Step in progress (its handle has ``cancel()``)
         self._stop_listening = None  # disconnects from Painter's "resources loaded" event
         self._loading_timer = None
@@ -87,6 +104,7 @@ class App:
         except Exception:
             log.exception("Could not listen for Painter loading its resources")
         self.check_brushes()
+        self.check_menu_buttons()
 
         self.view = self.view_factory(self)
         self.view.render()
@@ -176,18 +194,19 @@ class App:
         self._settled = True
         self.check_brushes()
 
+    def _buttons_of_kind(self, kind):
+        return [b for g in self.layout.groups for b in g.buttons if b.valid and b.kind == kind]
+
     def check_brushes(self):
         """Clear the badge of every Brush button whose preset is found, and badge the
         others once that is certain (see ``_can_confirm_missing``); until then the check
         runs again on a timer and whenever Painter reports a shelf loaded."""
         not_found = []
-        for group in self.layout.groups:
-            for button in group.buttons:
-                if button.valid and button.kind == "brush":
-                    if resolve(self.adapter, button.raw["resource"]) is None:
-                        not_found.append(button)
-                    else:
-                        self._set_missing(button, False)
+        for button in self._buttons_of_kind("brush"):
+            if resolve(self.adapter, button.raw["resource"]) is None:
+                not_found.append(button)
+            else:
+                self._set_missing(button, False)
         if not not_found:  # every preset is there, so Painter has loaded them
             self._settled = True
             self._stop_loading_timer()
@@ -245,6 +264,143 @@ class App:
             self.view.render()
         return added
 
+    # -- Menu buttons ------------------------------------------------------------
+
+    def check_menu_buttons(self):
+        """Badge every Menu button whose command is not in this Painter, and clear the
+        badge of those found. While any is badged, the check runs again on a slow timer:
+        some commands appear only once a project is open."""
+        buttons = self._buttons_of_kind("menu")
+        if not buttons:
+            self._stop_menu_timer()
+            return
+        try:  # one look at Painter's commands for every Button
+            names = {action.name for action in self.adapter.list_actions()}
+        except Exception:
+            log.exception("Could not list Painter's commands")
+            return
+        unavailable = 0
+        for button in buttons:
+            found = button.raw["action"] in names
+            self._set_missing(button, not found)
+            unavailable += not found
+        if unavailable and self._menu_timer is None:
+            log.info("%d Menu button(s) have no command in this Painter (yet)", unavailable)
+            self._menu_timer = self.adapter.repeat(MENU_CHECK_MS, self.check_menu_buttons)
+        elif not unavailable and self._menu_timer is not None:
+            self._stop_menu_timer()
+
+    def _stop_menu_timer(self):
+        timer, self._menu_timer = self._menu_timer, None
+        if timer is not None:
+            timer.stop()
+
+    @property
+    def capturing(self):
+        """In capture mode: the Group a captured command goes to; else ``None``."""
+        if self._capture_group_id is None:
+            return None
+        try:
+            return self.editor.group(self._capture_group_id)
+        except KeyError:
+            return None
+
+    def start_menu_capture(self, group):
+        """Capture mode: the next command the user runs from Painter's menu becomes a Menu
+        button at the end of ``group``. Starting again moves it to another Group."""
+        if self.view is None:  # closed meanwhile (the "+" menu starts it a moment later)
+            return
+        if self.read_only:
+            self.notify(READ_ONLY_MESSAGE)
+            return
+        self._stop_capture_hooks()
+        self._capture_group_id = None
+        try:
+            self._stop_watching = self.adapter.watch_actions(self.action_watcher.notify)
+        except Exception:
+            log.exception("Could not hook Painter's commands")
+            self.notify(WATCH_FAILED_MESSAGE)
+            self._render()
+            return
+        self._capture_group_id = group.id
+        log.info("Capture mode for Group %r", group.name)
+        self._render()
+
+    def cancel_menu_capture(self):
+        """End capture mode without adding anything (Esc, or the Cancel control)."""
+        if self._capture_group_id is None and self._stop_watching is None:
+            return
+        log.info("Capture mode ended")
+        self._end_capture()
+
+    def _end_capture(self):
+        self._stop_capture_hooks()
+        self._capture_group_id = None
+        self._render()
+
+    def _stop_capture_hooks(self):
+        stop, self._stop_watching = self._stop_watching, None
+        if stop is not None:
+            try:
+                stop()
+            except Exception:
+                log.exception("Could not unhook Painter's commands")
+
+    def _command_run(self, action):
+        """A command the user ran in Painter (duplicates and own triggers already dropped)."""
+        if self._capture_group_id is None:
+            return
+        group = self.capturing
+        if group is None:  # the Group was deleted meanwhile
+            self._end_capture()
+            return
+        problem = capture_problem(action)
+        if problem:
+            self.notify(problem)
+            return
+        self.add_menu_button(group.id, action)
+
+    def menu_actions(self, query):
+        """Painter's commands for the searchable list, filtered by ``query``."""
+        try:
+            actions = self.adapter.list_actions()
+        except Exception:
+            log.exception("Could not list Painter's commands")
+            self.notify(LIST_FAILED_MESSAGE)
+            return []
+        return search_actions(actions, query)
+
+    def add_menu_button(self, group_id, action):
+        """A Menu button for ``action`` at the end of the Group; ends capture mode.
+        Returns the new Button, or ``None``."""
+        self._capture_group_id = None
+        self._stop_capture_hooks()
+        if self.read_only:
+            self.notify(READ_ONLY_MESSAGE)
+            return None
+        try:
+            png = self.adapter.action_icon_png(action)
+        except Exception:
+            log.exception("Could not read the icon of %r", action.name)
+            png = None
+        try:
+            group = self.editor.group(group_id)
+            button = self.editor.add_button(group_id, len(group.buttons), menu_button(action), icon_png=png)
+        except (ReadOnlyLayoutError, ValueError, KeyError, OSError):
+            log.exception("Adding a Menu button for %r failed", action.name)
+            self.notify(f"“{action.label}” could not be added. See the log.")
+            self._render()
+            return None
+        log.info("Added Menu button %r (%s), icon: %s", button.name, action.name, button.icon or "generic")
+        self.notify(f"Added “{button.name}” to “{group.name}”.")
+        self.check_menu_buttons()
+        self._render()
+        return button
+
+    def _render(self):
+        if self.view is not None:
+            self.view.render()
+
     # -- running ---------------------------------------------------------------
 
     def run_button(self, button):
@@ -264,16 +420,18 @@ class App:
         def done(result):  # a cancelled Step never calls it, so it is always the running one
             reported.append(result)
             self._running = None
-            if result.state == MISSING and not self._can_confirm_missing():
+            if result.state == MISSING and button.kind == "brush" and not self._can_confirm_missing():
                 self.notify(LOADING_MESSAGE)
                 return
             if result.state == MISSING:
                 self._set_missing(button, True)
+                if button.kind == "menu":
+                    self.check_menu_buttons()  # starts looking for it again
             if not result.ok:
                 self.notify(result.message)
 
         # The handle is None when ``done`` was already called.
-        self._running = UI_STEPS[step["type"]](self.adapter, step, done)
+        self._running = self.ui_steps[step["type"]](self.adapter, step, done)
         if not any(r.state == MISSING for r in reported):
             self._set_missing(button, False)  # it was found this time
 
@@ -285,6 +443,9 @@ class App:
     def close(self):
         self._cancel_running()
         self._stop_loading_timer()
+        self._stop_menu_timer()
+        self._capture_group_id = None
+        self._stop_capture_hooks()
         stop, self._stop_listening = self._stop_listening, None
         if stop is not None:
             try:

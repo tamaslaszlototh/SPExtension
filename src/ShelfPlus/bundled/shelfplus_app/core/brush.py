@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlencode
 
+from .steps import DONE, FAILED, MISSING, TIMED_OUT, WAITING, StepResult  # noqa: F401 (re-exported)
+
 log = logging.getLogger("ShelfPlus.app.brush")
 
 RESOURCE_SCHEME = "resource://"
@@ -162,12 +164,6 @@ def brush_icon(adapter, resource):
 
 # -- activating -----------------------------------------------------------------
 
-WAITING = "waiting"
-DONE = "done"
-TIMED_OUT = "timed out"
-FAILED = "failed"
-MISSING = "missing"
-
 POLL_MS = 30
 TIMEOUT_MS = 4000
 
@@ -241,16 +237,6 @@ class BrushActivation:
             return self._end(FAILED, f"“{self.resource.gui_name}” could not be clicked in the Assets window.")
         log.info("Activated %r", self.resource.url)
         return self._end(DONE)
-
-
-@dataclass(frozen=True)
-class StepResult:
-    state: str  # DONE, TIMED_OUT, FAILED or MISSING
-    message: str = None
-
-    @property
-    def ok(self):
-        return self.state == DONE
 
 
 def missing_message(url):

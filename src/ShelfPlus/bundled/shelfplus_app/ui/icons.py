@@ -61,6 +61,25 @@ def brush_icon():
     return QtGui.QIcon(pixmap)
 
 
+def menu_icon():
+    """The generic Menu button icon (the command has no icon of its own): a drop-down
+    menu with a highlighted line, on the Menu button colour."""
+    pixmap, painter = _canvas()
+    painter.setBrush(QtGui.QColor(KIND_COLOURS["menu"]))
+    painter.drawRoundedRect(2, 2, 60, 60, 10, 10)
+    painter.setBrush(QtGui.QColor("#ffffff"))
+    painter.drawRoundedRect(12, 10, 40, 10, 3, 3)  # the menu title
+    painter.setBrush(QtGui.QColor("#e6dcf5"))
+    painter.drawRect(16, 22, 32, 32)  # the open menu
+    painter.setBrush(QtGui.QColor("#5b3d91"))
+    for y in (27, 43):
+        painter.drawRect(20, y, 24, 4)
+    painter.setBrush(QtGui.QColor("#d9822b"))
+    painter.drawRect(18, 34, 28, 7)  # the line being clicked
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
 def with_warning_badge(icon):
     """``icon`` with a small warning triangle in its bottom-right corner (a missing preset)."""
     pixmap = icon.pixmap(_SIZE, _SIZE)
@@ -85,9 +104,11 @@ def with_warning_badge(icon):
 
 def automatic_icon(button):
     """The icon of a Button whose ``icon`` is ``null``: its kind's colour and its initials
-    (a Brush button: the generic brush)."""
+    (a Brush or Menu button: the generic brush or menu icon)."""
     if button.valid and button.kind == "brush":
         return brush_icon()
+    if button.valid and button.kind == "menu":
+        return menu_icon()
     colour = KIND_COLOURS.get(button.kind, INVALID_COLOUR) if button.valid else INVALID_COLOUR
     text = initials(button.name) if button.valid else "!"
     pixmap, painter = _canvas()
