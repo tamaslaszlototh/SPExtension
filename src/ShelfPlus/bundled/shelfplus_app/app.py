@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .core.brush import MISSING, brush_button, brush_icon, resolve, resource_urls_from_drop, select_brush
 from .core.diagnostics import build_diagnostics, tail_log
-from .core.menu import ActionWatcher, capture_problem, menu_button, run_action, search_actions
+from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, run_action, search_actions
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
@@ -79,6 +79,7 @@ class App:
         # The UI Steps the App can run so far: Step type -> function(adapter, step, done).
         self.ui_steps = {"select_brush": select_brush, "run_action": partial(run_action, watcher=self.action_watcher)}
         self._capture_group_id = None  # capture mode: the Group a captured command goes to
+        self.capture_note = None  # why the last command clicked in capture mode was refused
         self._stop_watching = None  # disconnects the hooks on Painter's commands
         self._menu_timer = None  # looks for missing commands again
         self._running = None  # the Step in progress (its handle has ``cancel()``)
@@ -275,7 +276,7 @@ class App:
             self._stop_menu_timer()
             return
         try:  # one look at Painter's commands for every Button
-            names = {action.name for action in self.adapter.list_actions()}
+            names = {action_id(action) for action in self.adapter.list_actions()}
         except Exception:
             log.exception("Could not list Painter's commands")
             return
@@ -315,6 +316,7 @@ class App:
             return
         self._stop_capture_hooks()
         self._capture_group_id = None
+        self.capture_note = None
         try:
             self._stop_watching = self.adapter.watch_actions(self.action_watcher.notify)
         except Exception:
@@ -336,6 +338,7 @@ class App:
     def _end_capture(self):
         self._stop_capture_hooks()
         self._capture_group_id = None
+        self.capture_note = None
         self._render()
 
     def _stop_capture_hooks(self):
@@ -355,8 +358,10 @@ class App:
             self._end_capture()
             return
         problem = capture_problem(action)
+        self.capture_note = problem
         if problem:
             self.notify(problem)
+            self._render()  # the capture bar shows it until the next command
             return
         self.add_menu_button(group.id, action)
 
@@ -374,6 +379,7 @@ class App:
         """A Menu button for ``action`` at the end of the Group; ends capture mode.
         Returns the new Button, or ``None``."""
         self._capture_group_id = None
+        self.capture_note = None
         self._stop_capture_hooks()
         if self.read_only:
             self.notify(READ_ONLY_MESSAGE)
@@ -387,11 +393,11 @@ class App:
             group = self.editor.group(group_id)
             button = self.editor.add_button(group_id, len(group.buttons), menu_button(action), icon_png=png)
         except (ReadOnlyLayoutError, ValueError, KeyError, OSError):
-            log.exception("Adding a Menu button for %r failed", action.name)
+            log.exception("Adding a Menu button for %r failed", action_id(action))
             self.notify(f"“{action.label}” could not be added. See the log.")
             self._render()
             return None
-        log.info("Added Menu button %r (%s), icon: %s", button.name, action.name, button.icon or "generic")
+        log.info("Added Menu button %r (%s), icon: %s", button.name, button.raw["action"], button.icon or "generic")
         self.notify(f"Added “{button.name}” to “{group.name}”.")
         self.check_menu_buttons()
         self._render()

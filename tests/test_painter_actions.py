@@ -109,6 +109,14 @@ class TestRunning:
 
         assert PainterActions().find("SAVE_PROJECT").handle is second
 
+    def test_a_command_without_an_object_name_is_found_by_its_place_in_the_menu(self, painter):
+        unnamed = painter.window.menuBar().addMenu("Window").addMenu("Views").addAction("Log")
+
+        found = PainterActions().find("menu:Window › Views › Log")
+
+        assert found.handle is unnamed and found.path == ("Window", "Views")
+        assert PainterActions().find("menu:Window › Views › Nope") is None
+
     def test_triggering_runs_the_command(self, painter):
         seen = []
         painter.save.triggered.connect(lambda: seen.append("save"))
@@ -163,6 +171,15 @@ class TestWatching:
         stop()
 
         assert seen == []
+
+    def test_a_command_run_is_reported_with_its_place_in_the_menu(self, painter):
+        seen = []
+        stop = PainterActions().watch(seen.append)
+
+        painter.recent.trigger()
+        stop()
+
+        assert {a.path for a in seen} == {("File", "Recent")}
 
     def test_menus_created_after_watching_started_are_hooked_on_the_next_rescan(self, painter):
         seen = []

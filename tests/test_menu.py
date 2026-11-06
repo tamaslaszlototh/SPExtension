@@ -7,6 +7,7 @@ from shelfplus_app.core.menu import (
     DEDUPE_MS,
     ActionWatcher,
     MenuAction,
+    action_id,
     action_label,
     capture_problem,
     menu_button,
@@ -49,6 +50,19 @@ class TestNaming:
 
     def test_a_menu_button_stores_the_object_name_and_the_label(self):
         assert menu_button(SAVE) == {"kind": "menu", "name": "Save", "action": "SAVE_PROJECT"}
+
+    def test_a_command_without_an_object_name_is_stored_by_its_place_in_the_menu(self):
+        # On Painter 11.1 most menu commands have no objectName (Log, Export, Settings...).
+        log = MenuAction("", "Log", ("Window", "Views"))
+
+        assert action_id(log) == "menu:Window › Views › Log"
+        assert menu_button(log) == {"kind": "menu", "name": "Log", "action": "menu:Window › Views › Log"}
+
+    def test_an_object_name_wins_over_the_place(self):
+        assert action_id(SAVE) == "SAVE_PROJECT"
+
+    def test_a_command_with_neither_has_no_id(self):
+        assert action_id(ADD_LAYER) == ""
 
     def test_a_command_without_text_is_named_after_its_object_name(self):
         assert menu_button(MenuAction("export_textures", ""))["name"] == "export_textures"
@@ -173,9 +187,12 @@ class TestCaptureProblem:
     def test_a_named_command_can_be_captured(self):
         assert capture_problem(SAVE) is None
 
-    def test_a_command_without_an_object_name_cannot_be_found_again(self):
+    def test_a_command_in_a_menu_without_an_object_name_can_be_captured(self):
+        assert capture_problem(MenuAction("", "Log", ("Window", "Views"))) is None
+
+    def test_a_command_with_neither_object_name_nor_menu_cannot_be_found_again(self):
         assert capture_problem(ADD_LAYER) == (
-            "“Add layer” cannot be a Menu button: Painter gives it no name to find it by. Try another command."
+            "“Add layer” cannot be a Menu button: it is in none of Painter's menus. Try another command."
         )
 
 
@@ -189,6 +206,7 @@ ACTIONS = [
     MenuAction("ShelfPlusCopyDiagnostics", "Copy diagnostics"),
     MenuAction("export_textures", "Export textures...", ("File",)),
     MenuAction("SAVE_PROJECT", "Save", ("Toolbar",)),  # the same command in another place
+    MenuAction("", "Shader settings", ("Window", "Views")),
 ]
 
 
@@ -201,14 +219,17 @@ class TestSearch:
             ("SAVE_PROJECT", ("File",)),
             ("SAVE_PROJECT_AS", ("File",)),
             ("show_log", ("Window", "Views")),
+            ("", ("Window", "Views")),
         ]
+        assert found[-1].label == "Shader settings"
 
     def test_every_word_must_match_the_label_the_object_name_or_the_place(self):
         assert [a.name for a in search_actions(ACTIONS, "save")] == ["SAVE_PROJECT", "SAVE_PROJECT_AS"]
         assert [a.name for a in search_actions(ACTIONS, "file AS")] == ["SAVE_PROJECT_AS"]
-        assert [a.name for a in search_actions(ACTIONS, "views")] == ["show_log"]
+        assert [a.label for a in search_actions(ACTIONS, "views")] == ["Log", "Shader settings"]
         assert [a.name for a in search_actions(ACTIONS, "show_log")] == ["show_log"]
         assert search_actions(ACTIONS, "bake") == []
+        assert [a.label for a in search_actions(ACTIONS, "shader")] == ["Shader settings"]
 
     def test_mnemonic_ampersands_do_not_stop_a_match(self):
         assert [a.name for a in search_actions(ACTIONS, "save as")] == ["SAVE_PROJECT_AS"]

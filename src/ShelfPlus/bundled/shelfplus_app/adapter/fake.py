@@ -1,6 +1,7 @@
 """An in-memory adapter for tests. Records what the App asked Painter to do."""
 
 from ..core.brush import BrushResource
+from ..core.menu import action_id
 
 
 def FakeResource(url, gui_name, is_brush=True):
@@ -131,7 +132,7 @@ class FakeAdapter:
     def find_action(self, name):
         if self.action_error is not None:
             raise self.action_error
-        return next((a for a in self.actions if a.name == name), None)
+        return next((a for a in self.actions if action_id(a) == name), None)
 
     def action_icon_png(self, action):
         return self.action_icons.get(action.name)

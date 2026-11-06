@@ -20,7 +20,7 @@ import logging
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..core.menu import OWN_PREFIX, MenuAction
+from ..core.menu import MENU_PREFIX, OWN_PREFIX, MenuAction, action_id
 from .assets import png_bytes, valid
 
 log = logging.getLogger("ShelfPlus.app.actions")
@@ -102,6 +102,7 @@ class _Watch:
     def __init__(self, callback, keep):
         self.callback = callback
         self._keep = keep
+        self._paths = {}  # id(command) -> the titles of the menu it sits in
         self._hooked = {}  # id(obj) -> (obj, signal name, slot); also keeps obj alive
         self._timer = QtCore.QTimer()
         self._timer.setInterval(RESCAN_MS)
@@ -116,25 +117,37 @@ class _Watch:
         self._hooked[id(obj)] = (obj, signal, slot)
 
     def rescan(self):
+        before = len(self._hooked)
         scan = _Scan(self._keep)
         for action, widget in scan.entries:
             if _is_own(action) or not isinstance(widget, QtWidgets.QMenu):
                 continue
             try:
-                self._connect(action, "triggered", lambda checked=False, a=action: self._report(a))
+                path = scan.path(widget)
+                self._paths.setdefault(id(action), path)
+                self._connect(action, "triggered", lambda checked=False, a=action, p=path: self._report(a, p))
             except RuntimeError:
                 continue
         for menu in scan.menus:
             try:
-                self._connect(menu, "triggered", self._report)
+                # Qt reports a submenu's command through every parent menu too, so its
+                # place is where it sits, not the menu reporting it.
+                path = scan.path(menu)
+                self._connect(menu, "triggered", lambda a, p=path: self._report(a, self._paths.get(id(a), p)))
             except RuntimeError:
                 continue
+        if len(self._hooked) != before:
+            log.info(
+                "Watching Painter's menus: %d hooks (%d new; %d widgets, %d menus)",
+                len(self._hooked), len(self._hooked) - before, len(scan.widgets), len(scan.menus),
+            )
 
-    def _report(self, action):
+    def _report(self, action, path):
+        """``path``: the titles of the menu the command was run from."""
         if not valid(action):
             return
         try:
-            described = describe(action)
+            described = describe(action, path)
         except RuntimeError:
             return
         self.callback(described)
@@ -173,22 +186,32 @@ class PainterActions:
         return found
 
     def find(self, name):
-        """The command whose objectName is ``name`` (an enabled one if there are
-        several), or ``None``."""
+        """The command whose ``core.menu.action_id`` is ``name``: its objectName, or
+        ``menu:`` + its place in the menu. An enabled one if there are several; ``None``
+        if there is none."""
         if not name:
             return None
+        by_place = name.startswith(MENU_PREFIX)
         scan = self._scan()
         first = None
         for action, widget in scan.entries:
             try:
-                if action.objectName() != name:
+                if by_place:
+                    if action.objectName() or not isinstance(widget, QtWidgets.QMenu):
+                        continue
+                    found = describe(action, scan.path(widget))
+                    if action_id(found) != name:
+                        continue
+                elif action.objectName() == name:
+                    found = describe(action, scan.path(widget))
+                else:
                     continue
                 if action.isEnabled():
-                    return describe(action, scan.path(widget))
+                    return found
             except RuntimeError:
                 continue
-            first = first or (action, widget)
-        return describe(first[0], scan.path(first[1])) if first else None
+            first = first or found
+        return first
 
     def trigger(self, action):
         """Run the command. ``False`` if Painter has disabled it (nothing is run)."""

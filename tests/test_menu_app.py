@@ -138,9 +138,33 @@ class TestCapture:
 
         assert saved(env)["groups"][1]["buttons"] == []
         assert app.capturing is group(app, "g2")
-        assert "Painter gives it no name to find it by" in app.view.notes[-1]
+        assert "is in none of Painter's menus" in app.view.notes[-1]
         adapter.click_command(EXPORT)
         assert [b["action"] for b in saved(env)["groups"][1]["buttons"]] == ["export_textures"]
+
+    def test_a_command_without_an_object_name_is_stored_by_its_menu_place_and_runs(self, env, adapter):
+        settings = MenuAction("", "Settings...", ("Edit",))
+        adapter.actions.append(settings)
+        app = start(env, adapter)
+        app.start_menu_capture(group(app, "g2"))
+
+        adapter.click_command(settings)
+        (raw,) = saved(env)["groups"][1]["buttons"]
+        adapter.triggered.clear()
+        app.run_button(group(app, "g2").buttons[0])
+
+        assert raw["action"] == "menu:Edit › Settings..." and raw["name"] == "Settings..."
+        assert adapter.triggered == [""] and not app.is_missing(group(app, "g2").buttons[0])
+
+    def test_a_refusal_is_shown_in_the_capture_bar_until_the_next_command(self, env, adapter):
+        app = start(env, adapter)
+        app.start_menu_capture(group(app, "g2"))
+
+        adapter.click_command(ADD_LAYER)
+        assert "is in none of Painter's menus" in app.capture_note
+        adapter.click_command(LOG)
+
+        assert app.capture_note is None
 
     def test_cancelling_ends_capture_mode_without_adding_anything(self, env, adapter):
         app = start(env, adapter)

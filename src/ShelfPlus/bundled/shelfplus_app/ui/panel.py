@@ -435,13 +435,13 @@ class ActionPicker(QtWidgets.QDialog):
         for action in self._actions:
             place = " › ".join(action.path)
             text = f"{action.label} — {place}" if place else action.label
-            item = QtWidgets.QListWidgetItem(f"{text}   [{action.name}]")
+            item = QtWidgets.QListWidgetItem(f"{text}   [{action.name}]" if action.name else text)
             icon = action.icon if isinstance(action.icon, QtGui.QIcon) and not action.icon.isNull() else None
             if icon is None:
                 fallback = fallback or menu_icon()
                 icon = fallback
             item.setIcon(icon)
-            item.setToolTip(action.name)
+            item.setToolTip(action.name or "No objectName: found by its place in the menu")
             self.list.addItem(item)
         if self._actions:
             self.list.setCurrentRow(0)
@@ -595,9 +595,10 @@ class QtPanelView:
             self.capture_bar.hide()
             self.escape_filter.remove()
             return
-        self.capture_text.setText(
-            f"Click a command in Painter's menu to add it to “{group.name}”. Esc cancels."
-        )
+        text = f"Click a command in Painter's menu to add it to “{group.name}”. Esc cancels."
+        if self.app.capture_note:
+            text = f"{self.app.capture_note}\n\n{text}"
+        self.capture_text.setText(text)
         self.capture_bar.show()
         self.escape_filter.install()
 

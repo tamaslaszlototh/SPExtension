@@ -6,9 +6,10 @@
   ``trigger()`` calls, then hands the command to its listener.
 - Creating, fallback: ``search_actions`` filters the commands of the main window for
   the searchable list (on 11.1 the only way to add submenu commands).
-- A Menu button stores the QAction's ``objectName`` (``menu_button``). Commands with
-  an empty ``objectName`` (e.g. the layer stack's) cannot be found again, so they
-  cannot become Buttons (``capture_problem``).
+- A Menu button stores the QAction's ``objectName`` (``menu_button``). On Painter 11.1
+  most menu commands have none (Log, Export, Settings...), so those are stored by their
+  place in the menu instead: ``menu:Window › Views › Log`` (``action_id``). A command
+  with neither (e.g. the layer stack's) cannot be found again (``capture_problem``).
 - ``run_action`` is the ``run_action`` Step: the Workflow runner calls it too.
 """
 
@@ -22,6 +23,11 @@ from dataclasses import dataclass
 from .steps import DONE, FAILED, MISSING, StepResult
 
 log = logging.getLogger("ShelfPlus.app.menu")
+
+# The ``action`` of a Menu button whose command has no objectName: this prefix, then the
+# menu titles and the command's label joined by MENU_SEPARATOR.
+MENU_PREFIX = "menu:"
+MENU_SEPARATOR = " › "
 
 # The plugin's own QMenus and QActions have objectNames with this prefix; they are never
 # captured or listed.
@@ -77,18 +83,28 @@ def action_label(text):
     return " ".join(first.split())
 
 
+def action_id(action):
+    """What a Menu button stores to find the command again: its objectName, or else
+    ``menu:`` + its place in the menu (``menu:Window › Views › Log``); ``""`` if it has
+    neither."""
+    if action.name:
+        return action.name
+    label = action_label(action.text)
+    if not action.path or not label:
+        return ""
+    return MENU_PREFIX + MENU_SEPARATOR.join((*action.path, label))
+
+
 def menu_button(action):
     """The Layout's JSON for a new Menu button, without ``id`` and ``icon`` (see
     ``LayoutEditor.add_button``)."""
-    return {"kind": "menu", "name": action.label, "action": action.name}
+    return {"kind": "menu", "name": action.label, "action": action_id(action)}
 
 
 def capture_problem(action):
     """Why this command cannot become a Menu button, or ``None`` if it can."""
-    if not action.name:
-        return (
-            f"“{action.label}” cannot be a Menu button: Painter gives it no name to find it by. Try another command."
-        )
+    if not action_id(action):
+        return f"“{action.label}” cannot be a Menu button: it is in none of Painter's menus. Try another command."
     return None
 
 
@@ -150,22 +166,22 @@ class ActionWatcher:
 
 
 def _usable(action):
-    return bool(action.name) and not action.own and bool(action_label(action.text))
+    return not action.own and bool(action_label(action.text)) and bool(action_id(action))
 
 
 def search_actions(actions, query):
-    """The commands for the searchable list: those with an objectName and a text, each
-    objectName once (the first place it was found), sorted by menu path and label.
+    """The commands for the searchable list: those with a text and an ``action_id``,
+    each id once (the first place it was found), sorted by menu path and label.
     Every word of ``query`` must appear (ignoring case) in the label, the objectName
     or the menu path."""
     words = query.lower().split()
     found = {}
     for action in actions:
-        if not _usable(action) or action.name in found:
+        if not _usable(action) or action_id(action) in found:
             continue
         haystack = " ".join((action.label, action.name, *action.path)).lower()
         if all(word in haystack for word in words):
-            found[action.name] = action
+            found[action_id(action)] = action
     return sorted(found.values(), key=lambda a: ([p.lower() for p in a.path], a.label.lower(), a.name))
 
 
