@@ -18,12 +18,12 @@ class FakeView:
     def __init__(self, app):
         self.app = app
         self.widget = object()
-        self.shown = None
+        self.renders = 0
         self.disposed = False
         FakeView.instances.append(self)
 
-    def show_layout(self, lines, read_only, messages):
-        self.shown = (lines, read_only, messages)
+    def render(self):
+        self.renders += 1
 
     def dispose(self):
         self.disposed = True
@@ -59,24 +59,30 @@ def test_first_start_creates_layout_and_panel_files(env):
     assert json.loads((data / "panel.json").read_text(encoding="utf-8"))["tileSize"] == 48
 
 
-def test_start_docks_the_panel_and_lists_the_layout(env):
+def test_start_docks_the_panel_and_shows_the_layout(env):
     adapter = FakeAdapter()
-    make_app(env, adapter).start()
+    app = make_app(env, adapter)
+    app.start()
 
     view = FakeView.instances[0]
     assert adapter.docks == [view.widget]
-    assert view.shown == (["General", "    Save", "    Fill layer + Black mask"], False, [])
+    assert view.renders == 1
+    assert [(g.name, [b.name for b in g.buttons]) for g in app.layout.groups] == [
+        ("General", ["Save", "Fill layer + Black mask"])
+    ]
+    assert app.editor.layout is app.layout
+    assert not app.read_only and app.messages == []
 
 
 def test_read_only_layout_is_passed_to_the_panel(env):
     data = Path(env["data_dir"])
     (data / "layout.json").write_text(json.dumps({"schemaVersion": 99, "groups": []}), encoding="utf-8")
 
-    make_app(env).start()
+    app = make_app(env)
+    app.start()
 
-    _, read_only, messages = FakeView.instances[0].shown
-    assert read_only
-    assert "Update Shelf+ to edit this Layout." in messages[0]
+    assert app.read_only and app.editor.read_only
+    assert "Update Shelf+ to edit this Layout." in app.messages[0]
 
 
 def test_close_removes_every_ui_element(env):
@@ -123,3 +129,85 @@ def test_diagnostics_survive_a_failing_version_query(env):
     app = make_app(env, adapter)
 
     assert "Painter version: unknown" in app.diagnostics_text()
+
+
+def panel_json(env):
+    return json.loads((Path(env["data_dir"]) / "panel.json").read_text(encoding="utf-8"))
+
+
+class TestViewState:
+    def test_collapsing_a_group_is_saved_in_panel_json(self, env):
+        app = make_app(env)
+        app.start()
+        group_id = app.layout.groups[0].id
+
+        app.set_group_collapsed(group_id, True)
+        assert app.is_collapsed(group_id)
+        assert panel_json(env)["collapsedGroups"] == [group_id]
+
+        app.set_group_collapsed(group_id, False)
+        assert not app.is_collapsed(group_id)
+        assert panel_json(env)["collapsedGroups"] == []
+
+    def test_tile_size_and_labels_are_saved_in_panel_json(self, env):
+        app = make_app(env)
+        app.start()
+
+        app.set_tile_size(64)
+        app.set_show_labels(True)
+
+        assert panel_json(env)["tileSize"] == 64
+        assert panel_json(env)["showLabels"] is True
+
+    def test_an_unknown_tile_size_is_refused(self, env):
+        app = make_app(env)
+        app.start()
+
+        with pytest.raises(ValueError):
+            app.set_tile_size(41)
+        assert panel_json(env)["tileSize"] == 48
+
+    def test_view_state_survives_a_restart(self, env):
+        app = make_app(env)
+        app.start()
+        group_id = app.layout.groups[0].id
+        app.set_group_collapsed(group_id, True)
+        app.set_tile_size(40)
+        app.set_show_labels(True)
+        app.close()
+
+        again = make_app(env)
+        again.start()
+
+        assert again.is_collapsed(group_id)
+        assert again.panel_state["tileSize"] == 40
+        assert again.panel_state["showLabels"] is True
+
+
+def test_close_ends_a_pending_undo_and_deletes_the_icon(env):
+    data = Path(env["data_dir"])
+    app = make_app(env)
+    app.start()
+    button = app.layout.groups[0].buttons[0]
+    button.raw["icon"] = "icons/x.png"
+    (data / "icons").mkdir()
+    (data / "icons" / "x.png").write_bytes(b"png")
+    app.editor.delete_button(button)
+
+    app.close()
+
+    assert not (data / "icons" / "x.png").exists()
+
+
+def test_icon_path_is_the_file_in_the_data_folder_or_none(env):
+    data = Path(env["data_dir"])
+    app = make_app(env)
+    app.start()
+    button = app.layout.groups[0].buttons[0]
+    assert app.icon_path(button) is None
+
+    button.raw["icon"] = "icons/x.png"
+    assert app.icon_path(button) is None  # missing file: the automatic icon is used
+    (data / "icons").mkdir()
+    (data / "icons" / "x.png").write_bytes(b"png")
+    assert app.icon_path(button) == data / "icons" / "x.png"

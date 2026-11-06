@@ -147,6 +147,12 @@ class Button:
         name = self._get("name")
         return name if _text(name) else "(invalid)"
 
+    @property
+    def icon(self):
+        """The relative path of the Button's own icon file, or ``None`` (automatic icon)."""
+        icon = self._get("icon")
+        return icon if _text(icon) else None
+
 
 @dataclass
 class Group:
@@ -199,12 +205,3 @@ class Layout:
         data["groups"] = [g.to_json() for g in self.groups]
         return data
 
-
-def layout_lines(layout):
-    """Plain-text listing of the Layout for the first Panel slice."""
-    lines = []
-    for group in layout.groups:
-        lines.append(group.name)
-        for button in group.buttons:
-            lines.append("    " + button.name + ("" if button.valid else "  (invalid)"))
-    return lines

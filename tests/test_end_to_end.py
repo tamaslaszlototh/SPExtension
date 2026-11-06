@@ -76,8 +76,10 @@ def test_loader_installs_starts_and_closes_the_bundled_app(painter, tmp_path):
         assert widget.objectName() == "ShelfPlusPanel"
         assert ui_modes == FakePainterUi.UIMode.Edition
         assert not widget.windowIcon().isNull()
-        listing = widget.findChild(QtWidgets.QLabel, "ShelfPlusPanelLayout").text()
-        assert listing.splitlines() == ["General", "    Save", "    Fill layer + Black mask"]
+        names = [t.toolTip() for t in widget.findChildren(QtWidgets.QToolButton, "ShelfPlusTile")]
+        assert names == ["Save", "Fill layer + Black mask"]
+        group = widget.findChild(QtWidgets.QLabel, "ShelfPlusGroupName")
+        assert group.text() == "General"
 
         menu = widget.findChild(QtWidgets.QToolButton, "ShelfPlusPanelMenu").menu()
         texts = [a.text() for a in menu.actions() if not a.isSeparator()]
