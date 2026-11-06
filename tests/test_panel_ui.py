@@ -418,3 +418,62 @@ def test_the_groups_do_not_touch_the_top_of_their_container(app, qt_app, width, 
 
     assert CONTENT_TOP_PADDING > 0
     assert toggle.mapTo(view.content, QPoint(0, 0)).y() >= CONTENT_TOP_PADDING
+
+
+@pytest.mark.parametrize("width, height", [(260, 700), (900, 140)])  # tall, flat
+def test_the_plus_comes_right_after_the_collapse_arrow_before_the_name(app, qt_app, width, height):
+    view = show(app, qt_app, width, height)
+
+    for box in view.group_boxes:
+        arrow = box.findChild(QtWidgets.QToolButton, "ShelfPlusGroupToggle")
+        plus = box.findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
+        name = box.findChild(QtWidgets.QLabel, "ShelfPlusGroupName")
+        xs = [w.mapTo(box, QPoint(0, 0)).x() for w in (arrow, plus, name)]
+        assert xs == sorted(xs) and len(set(xs)) == 3
+
+
+def drag_event(cls, box, pos, view, button):
+    from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent
+
+    view.dragging = button
+    mime = QMimeData()
+    mime.setData("application/x-shelfplus-button", QByteArray(b"button"))
+    kind = {"enter": QDragEnterEvent, "move": QDragMoveEvent}[cls]
+    event = kind(QPointF(pos), Qt.DropAction.MoveAction, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    event.keep_mime_alive = mime  # the event does not own it; freeing it crashes Qt
+    return event
+
+
+def test_dragging_over_a_collapsed_group_name_highlights_that_group(app, qt_app):
+    app.set_group_collapsed("g2", True)
+    view = show(app, qt_app, 260, 700)
+    layers = view.group_boxes[1]
+    name = layers.findChild(QtWidgets.QLabel, "ShelfPlusGroupName")
+    over_name = name.mapTo(layers, name.rect().center())
+    button = app.layout.groups[0].buttons[0]
+
+    assert not layers.drop_highlighted
+    layers.dragEnterEvent(drag_event("enter", layers, over_name, view, button))
+    layers.dragMoveEvent(drag_event("move", layers, over_name, view, button))
+    assert layers.drop_highlighted
+    assert "border" in layers.styleSheet()
+
+    from PySide6.QtGui import QDragLeaveEvent
+
+    layers.dragLeaveEvent(QDragLeaveEvent())
+    assert not layers.drop_highlighted
+    assert layers.styleSheet() == ""
+    view.end_drag()
+
+
+def test_dropping_on_a_collapsed_group_adds_the_tile_at_its_end(app, qt_app):
+    app.set_group_collapsed("g2", True)
+    view = show(app, qt_app, 260, 700)
+    layers = view.group_boxes[1]
+    name = layers.findChild(QtWidgets.QLabel, "ShelfPlusGroupName")
+    button = app.layout.groups[0].buttons[0]
+
+    drop_on(layers, view, button, name.mapTo(layers, name.rect().center()))
+
+    assert [b.name for b in app.layout.groups[1].buttons] == ["Fill", "Paint", "Button 0"]
+    assert not view.group_boxes[1].drop_highlighted

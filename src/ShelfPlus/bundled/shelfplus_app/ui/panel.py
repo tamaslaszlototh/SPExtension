@@ -165,6 +165,13 @@ class Tile(QtWidgets.QToolButton):
         super().mouseReleaseEvent(event)
 
 
+# A collapsed or empty Group a tile is dragged over: orange border and a light tint.
+DROP_HIGHLIGHT = (
+    "QFrame#ShelfPlusGroup { border: 2px solid #d9822b; border-radius: 4px;"
+    " background: rgba(217, 130, 43, 48); }"
+)
+
+
 class GroupBox(QtWidgets.QFrame):
     """A Group: header (collapse arrow, name, "+") and its tiles. Accepts dropped tiles."""
 
@@ -179,6 +186,12 @@ class GroupBox(QtWidgets.QFrame):
         self.indicator.setObjectName("ShelfPlusDropIndicator")
         self.indicator.setStyleSheet("background: #d9822b;")
         self.indicator.hide()
+        self.drop_highlighted = False
+
+    def _set_highlight(self, on):
+        if on != self.drop_highlighted:
+            self.drop_highlighted = on
+            self.setStyleSheet(DROP_HIGHLIGHT if on else "")
 
     # -- dropping -------------------------------------------------------------
 
@@ -197,10 +210,11 @@ class GroupBox(QtWidgets.QFrame):
 
     def _show_indicator(self, pos):
         index, rects = self._index_at(pos)
-        if not rects:
+        if not rects:  # no tiles to drop between: the whole Group is the target
             self.indicator.hide()
-            self.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
+            self._set_highlight(True)
             return
+        self._set_highlight(False)
         if index < len(rects):
             x, y, _, h = rects[index]
             x -= 3
@@ -213,7 +227,7 @@ class GroupBox(QtWidgets.QFrame):
 
     def _clear_indicator(self):
         self.indicator.hide()
-        self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self._set_highlight(False)
 
     def dragEnterEvent(self, event):
         if self._accepts(event):
@@ -579,8 +593,8 @@ class QtPanelView:
             header = QtWidgets.QHBoxLayout()
             header.setSpacing(SPACING)
             header.addWidget(arrow)
-            header.addWidget(name, 1)
             header.addWidget(plus)
+            header.addWidget(name, 1)
             inner.addLayout(header)
             if not self.app.is_collapsed(group.id) and group.buttons:
                 grid = QtWidgets.QGridLayout()
@@ -609,8 +623,8 @@ class QtPanelView:
             header = QtWidgets.QHBoxLayout()
             header.setSpacing(SPACING)
             header.addWidget(arrow)
-            header.addWidget(name, 1)
             header.addWidget(plus)
+            header.addWidget(name, 1)
             inner.addLayout(header)
             if not self.app.is_collapsed(group.id) and group.buttons:
                 tiles = QtWidgets.QHBoxLayout()
