@@ -55,6 +55,26 @@ def button_icon(app, button):
     return icon if not icon.isNull() else automatic_icon(button)
 
 
+# Menu buttons (☰, +, ») show no drop-down arrow next to their own symbol.
+PANEL_STYLE = "QToolButton::menu-indicator { image: none; width: 0px; }"
+
+
+def add_heading(menu, text):
+    """A bold, normally coloured title line in a menu. A disabled item would be greyed out,
+    which is hard to read in Painter's dark theme."""
+    label = QtWidgets.QLabel(text)
+    label.setObjectName("ShelfPlusMenuHeading")
+    font = label.font()
+    font.setBold(True)
+    label.setFont(font)
+    label.setContentsMargins(8, 4, 8, 4)
+    action = QtWidgets.QWidgetAction(menu)
+    action.setText(text)
+    action.setDefaultWidget(label)
+    menu.addAction(action)
+    return action
+
+
 def carries_button(view, event):
     """Whether a drag event is one of this Panel's tiles being dragged."""
     return event.mimeData().hasFormat(MIME_TYPE) and view.dragging is not None
@@ -252,6 +272,7 @@ class QtPanelView:
         widget.setObjectName(OBJECT_NAME)
         widget.setWindowTitle("Shelf+")
         widget.setWindowIcon(panel_icon())
+        widget.setStyleSheet(PANEL_STYLE)
         self.widget = widget
 
         root = QtWidgets.QVBoxLayout(widget)
@@ -323,8 +344,7 @@ class QtPanelView:
 
     def _build_panel_menu(self):
         menu = QtWidgets.QMenu(self.panel_menu_tool)
-        version_action = menu.addAction(f"Shelf+ v{self.app.version}")
-        version_action.setEnabled(False)
+        add_heading(menu, f"Shelf+ v{self.app.version}")
         menu.addSeparator()
 
         sizes = menu.addMenu("Tile size")
@@ -558,7 +578,9 @@ class QtPanelView:
         tool.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = OverflowMenu(self, tool)
         for group, buttons in overflow:
-            menu.addSection(group.name)
+            if menu.actions():
+                menu.addSeparator()
+            add_heading(menu, group.name)
             for button in buttons:
                 action = menu.addAction(button_icon(self.app, button), button.name)
                 action.setToolTip(button.name)

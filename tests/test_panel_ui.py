@@ -301,3 +301,31 @@ def test_the_pen_helper_ignores_a_dead_widget_under_the_cursor(app, qt_app):
     delete(dead)
 
     assert view.pen_hover.named_element(dead) == (None, "")
+
+
+def heading_text(action):
+    widget = action.defaultWidget() if isinstance(action, QtWidgets.QWidgetAction) else None
+    return widget.text() if isinstance(widget, QtWidgets.QLabel) and widget.isEnabled() else None
+
+
+def test_the_version_heading_is_a_readable_label_not_a_disabled_item(app, qt_app):
+    view = show(app, qt_app, 260, 700)
+
+    first = view.menu.actions()[0]
+
+    assert heading_text(first) == "Shelf+ v0.1.0"
+    assert first.text() == "Shelf+ v0.1.0"
+
+
+def test_overflow_group_names_are_readable_headings(app, qt_app):
+    view = show(app, qt_app, 300, 90)
+
+    headings = [heading_text(a) for a in view.overflow_tool.menu().actions() if heading_text(a)]
+
+    assert "Layers" in headings
+
+
+def test_menu_buttons_show_no_drop_down_arrow(app, qt_app):
+    view = show(app, qt_app, 260, 700)
+
+    assert "QToolButton::menu-indicator" in view.widget.styleSheet()
