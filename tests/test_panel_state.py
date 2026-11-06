@@ -51,8 +51,16 @@ def test_wrong_or_missing_values_fall_back_one_by_one(path):
     assert state["updater"] == {"lastCheck": None, "skippedVersion": "0.3.0"}
 
 
-def test_unknown_tile_size_falls_back(path):
-    path.write_text(json.dumps({"tileSize": 41}), encoding="utf-8")
+@pytest.mark.parametrize("size", [40, 52, 80])
+def test_any_whole_tile_size_from_40_to_80_is_kept(path, size):
+    path.write_text(json.dumps({"tileSize": size}), encoding="utf-8")
+
+    assert PanelStateStore(path).load()["tileSize"] == size
+
+
+@pytest.mark.parametrize("size", [39, 81, 52.5, True, "52", None])
+def test_a_tile_size_outside_40_to_80_falls_back(path, size):
+    path.write_text(json.dumps({"tileSize": size}), encoding="utf-8")
 
     assert PanelStateStore(path).load()["tileSize"] == 48
 

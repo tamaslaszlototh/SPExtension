@@ -159,13 +159,33 @@ class TestViewState:
         assert panel_json(env)["tileSize"] == 64
         assert panel_json(env)["showLabels"] is True
 
-    def test_an_unknown_tile_size_is_refused(self, env):
+    def test_any_whole_tile_size_from_40_to_80_is_accepted(self, env):
+        app = make_app(env)
+        app.start()
+
+        app.set_tile_size(52)
+
+        assert panel_json(env)["tileSize"] == 52
+
+    @pytest.mark.parametrize("size", [39, 81, 52.5])
+    def test_a_tile_size_outside_40_to_80_is_refused(self, env, size):
         app = make_app(env)
         app.start()
 
         with pytest.raises(ValueError):
-            app.set_tile_size(41)
+            app.set_tile_size(size)
         assert panel_json(env)["tileSize"] == 48
+
+    def test_a_tile_size_not_saved_yet_is_saved_on_close(self, env):
+        app = make_app(env)
+        app.start()
+
+        app.set_tile_size(60, save=False)
+        assert app.panel_state["tileSize"] == 60
+        assert panel_json(env)["tileSize"] == 48
+
+        app.close()
+        assert panel_json(env)["tileSize"] == 60
 
     def test_view_state_survives_a_restart(self, env):
         app = make_app(env)

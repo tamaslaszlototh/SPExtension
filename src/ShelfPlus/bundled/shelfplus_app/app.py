@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .core.diagnostics import build_diagnostics, tail_log
 from .core.editing import LayoutEditor
-from .core.panel_state import TILE_SIZES, PanelStateStore
+from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import LayoutStore
 
 log = logging.getLogger("ShelfPlus.app")
@@ -38,6 +38,7 @@ class App:
         self.messages = []
         self.editor = None
         self.panel_state = None
+        self._panel_state_unsaved = False
         self.add_button_kinds = list(ADD_BUTTON_KINDS)
         self.view = None
         self._dock = None
@@ -67,19 +68,25 @@ class App:
         if collapsed:
             groups.append(group_id)
         self.panel_state["collapsedGroups"] = groups
-        self._save_panel_state()
+        self.save_panel_state()
 
-    def set_tile_size(self, size):
-        if size not in TILE_SIZES:
-            raise ValueError(f"tile size must be one of {TILE_SIZES}")
+    def set_tile_size(self, size, save=True):
+        """``save=False`` while the slider moves: the size is saved later with
+        ``save_panel_state()``, or on close."""
+        if not valid_tile_size(size):
+            raise ValueError(f"tile size must be a whole number from {TILE_SIZE_MIN} to {TILE_SIZE_MAX}")
         self.panel_state["tileSize"] = size
-        self._save_panel_state()
+        if save:
+            self.save_panel_state()
+        else:
+            self._panel_state_unsaved = True
 
     def set_show_labels(self, show):
         self.panel_state["showLabels"] = bool(show)
-        self._save_panel_state()
+        self.save_panel_state()
 
-    def _save_panel_state(self):
+    def save_panel_state(self):
+        self._panel_state_unsaved = False
         try:
             self.panel_state_store.save(self.panel_state)
         except OSError:
@@ -99,6 +106,8 @@ class App:
         log.info("Clicked %r (%s); running Buttons is not available yet", button.name, button.kind)
 
     def close(self):
+        if self._panel_state_unsaved:
+            self.save_panel_state()
         if self.editor is not None:
             try:
                 self.editor.expire_delete()

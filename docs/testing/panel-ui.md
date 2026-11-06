@@ -77,13 +77,14 @@ Use the **mouse** for checks A–D, and the **pen** for check E.
 ### A. View settings survive a restart
 
 1. Click the small arrow left of **Masks**. Its tiles disappear and the arrow points right.
-2. Click **☰ → Tile size → 64 px**. The tiles get bigger.
+2. Click **☰** and drag the **Tile size** slider to **64 px** (the number shows above the slider).
+   - ✅ The tiles grow while you drag, from 40 px at the left end to 80 px at the right end.
 3. Click **☰ → Show labels**. Names appear under the tiles.
 4. Close Painter completely and start it again.
-5. ✅ **Pass:** Masks is still collapsed, the tiles are still 64 px, and the labels are still on.
+5. ✅ **Pass:** Masks is still collapsed, the slider still shows 64 px, and the labels are still on.
 6. Put it back for the next checks:
    - Expand Masks.
-   - Set **☰ → Tile size → 48 px**.
+   - Set the **Tile size** slider back to **48 px**.
    - Turn **Show labels** off.
 
 ### B. Tall and flat layout

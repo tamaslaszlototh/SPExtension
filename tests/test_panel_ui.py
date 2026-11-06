@@ -342,3 +342,41 @@ def test_menu_buttons_show_no_drop_down_arrow(app, qt_app):
         assert QtWidgets.QToolButton.menu(button) is None  # nothing for Qt to draw an arrow for
         assert button.menu().actions()
     assert plus.text() == "+"
+
+
+def test_the_tile_size_is_a_slider_from_40_to_80_in_the_panel_menu(app, qt_app):
+    view = show(app, qt_app, 260, 700)
+    sliders = [
+        a.defaultWidget().findChild(QtWidgets.QSlider)
+        for a in view.menu.actions()
+        if isinstance(a, QtWidgets.QWidgetAction) and a.defaultWidget().findChild(QtWidgets.QSlider)
+    ]
+
+    assert len(sliders) == 1
+    slider = sliders[0]
+    assert (slider.minimum(), slider.maximum(), slider.value()) == (40, 80, 48)
+    assert slider.orientation() == Qt.Orientation.Horizontal
+
+
+def test_moving_the_slider_resizes_the_tiles_at_once_and_saves_when_it_stops(app, qt_app):
+    view = show(app, qt_app, 260, 700)
+
+    view.tile_slider.setValue(60)
+
+    assert view.group_boxes[1].tiles[0].width() == 60
+    assert "60 px" in view.tile_size_label.text()
+    saved = json.loads((app.data_dir / "panel.json").read_text(encoding="utf-8"))
+    assert saved["tileSize"] == 48  # not on every step of the slider
+    assert view.tile_save_timer.isActive()
+
+    view.tile_save_timer.timeout.emit()
+    saved = json.loads((app.data_dir / "panel.json").read_text(encoding="utf-8"))
+    assert saved["tileSize"] == 60
+
+
+def test_the_slider_shows_the_saved_size_after_a_restart(app, qt_app):
+    app.set_tile_size(72)
+    view = show(app, qt_app, 260, 700)
+    view.render()
+
+    assert view.tile_slider.value() == 72

@@ -12,7 +12,13 @@ from . import jsonio
 
 log = logging.getLogger("ShelfPlus.app.panel_state")
 
-TILE_SIZES = (40, 48, 64, 80)
+# The tile size slider: any whole number of pixels in this range.
+TILE_SIZE_MIN = 40
+TILE_SIZE_MAX = 80
+
+
+def valid_tile_size(value):
+    return isinstance(value, int) and not isinstance(value, bool) and TILE_SIZE_MIN <= value <= TILE_SIZE_MAX
 
 DEFAULTS = {
     "collapsedGroups": [],
@@ -40,7 +46,7 @@ def _normalise(data):
     groups = data.get("collapsedGroups")
     if isinstance(groups, list):
         state["collapsedGroups"] = [g for g in groups if isinstance(g, str)]
-    if data.get("tileSize") in TILE_SIZES:
+    if valid_tile_size(data.get("tileSize")):
         state["tileSize"] = data["tileSize"]
     if isinstance(data.get("showLabels"), bool):
         state["showLabels"] = data["showLabels"]

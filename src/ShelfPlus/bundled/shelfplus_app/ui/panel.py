@@ -18,7 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from shiboken6 import isValid
 
 from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
-from ..core.panel_state import TILE_SIZES
+from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
 from ..core.storage import ReadOnlyLayoutError
 from .icons import automatic_icon, panel_icon, trash_icon
 from .pen_hover import PenHover
@@ -36,6 +36,7 @@ EDGE_SCROLL_PX = 24  # holding a dragged Button this close to an edge scrolls
 EDGE_SCROLL_STEP = 16
 EDGE_SCROLL_MS = 40
 MARGIN = 4
+TILE_SIZE_SAVE_MS = 400  # the slider's value is saved once it stops moving
 
 
 def _alive(widget):
@@ -369,14 +370,7 @@ class QtPanelView:
         add_heading(menu, f"Shelf+ v{self.app.version}")
         menu.addSeparator()
 
-        sizes = menu.addMenu("Tile size")
-        self.tile_size_actions = QtGui.QActionGroup(sizes)
-        for size in TILE_SIZES:
-            action = sizes.addAction(f"{size} px")
-            action.setCheckable(True)
-            action.setData(size)
-            action.triggered.connect(lambda checked=False, s=size: self.set_tile_size(s))
-            self.tile_size_actions.addAction(action)
+        menu.addAction(self._tile_size_slider(menu))
         self.labels_action = menu.addAction("Show labels")
         self.labels_action.setCheckable(True)
         self.labels_action.triggered.connect(self.set_show_labels)
@@ -389,10 +383,52 @@ class QtPanelView:
 
     def _sync_panel_menu(self):
         state = self.app.panel_state
-        for action in self.tile_size_actions.actions():
-            action.setChecked(action.data() == state["tileSize"])
+        self.tile_slider.blockSignals(True)
+        self.tile_slider.setValue(state["tileSize"])
+        self.tile_slider.blockSignals(False)
+        self._show_tile_size(state["tileSize"])
         self.labels_action.setChecked(state["showLabels"])
         self.new_group_action.setEnabled(not self.app.read_only)
+
+    def _tile_size_slider(self, menu):
+        """"Tile size: 48 px" over a slider from 40 to 80 px, inside the ☰ menu."""
+        box = QtWidgets.QWidget()
+        box.setObjectName(OBJECT_NAME + "TileSize")
+        column = QtWidgets.QVBoxLayout(box)
+        column.setContentsMargins(8, 4, 8, 4)
+        column.setSpacing(2)
+        self.tile_size_label = QtWidgets.QLabel()
+        column.addWidget(self.tile_size_label)
+        slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        slider.setObjectName(OBJECT_NAME + "TileSizeSlider")
+        slider.setRange(TILE_SIZE_MIN, TILE_SIZE_MAX)
+        slider.setSingleStep(4)
+        slider.setPageStep(8)
+        slider.setMinimumWidth(160)
+        slider.setToolTip(f"Tile size, {TILE_SIZE_MIN} to {TILE_SIZE_MAX} px")
+        slider.valueChanged.connect(self._tile_slider_moved)
+        column.addWidget(slider)
+        self.tile_slider = slider
+
+        # Parented to the Panel widget like the other timers, so it cannot fire after it is gone.
+        self.tile_save_timer = QtCore.QTimer(self.widget)
+        self.tile_save_timer.setSingleShot(True)
+        self.tile_save_timer.setInterval(TILE_SIZE_SAVE_MS)
+        self.tile_save_timer.timeout.connect(self.app.save_panel_state)
+
+        action = QtWidgets.QWidgetAction(menu)
+        action.setText("Tile size")
+        action.setDefaultWidget(box)
+        return action
+
+    def _show_tile_size(self, size):
+        self.tile_size_label.setText(f"Tile size: {size} px")
+
+    def _tile_slider_moved(self, size):
+        self.app.set_tile_size(size, save=False)
+        self._show_tile_size(size)
+        self.tile_save_timer.start()
+        self.render()
 
     def set_tile_size(self, size):
         self.app.set_tile_size(size)
@@ -746,6 +782,6 @@ class QtPanelView:
         widget, self.widget = self.widget, None
         if widget is not None and isValid(widget):
             self.pen_hover.stop()
-            for timer in (self.status_timer, self.undo_timer, self.relayout_timer):
+            for timer in (self.status_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer):
                 timer.stop()
             widget.deleteLater()
