@@ -10,9 +10,13 @@ Widget rules (see ``assets.py`` and ``docs/probes/``):
   holds them; dead ones are let go), and checked with ``shiboken6.isValid`` before use.
 - The plugin's own menus (objectName ``ShelfPlus…``) are never listed or hooked.
 
-Hooks: ``QAction.triggered`` on every command in a menu, plus ``QMenu.triggered`` on
-every menu (it fires on 12.2, also for submenus). Toolbar buttons and window-wide
-hotkeys are not hooked: capture mode is for commands clicked in Painter's menus. One click is usually reported more than once;
+Hooks: ``QAction.triggered`` on every command of every widget, plus ``QMenu.triggered``
+on every menu (it fires on 12.2, also for submenus). Painter 11.1's main menu commands
+are in no QMenu that ``allWidgets()`` lists, so hooking only menu commands misses them.
+
+Where a command is: its first menu, else the first widget with an objectName that has
+it, else the first widget. Every widget that has a reported command is logged, so the
+log shows where Painter keeps it. One click is usually reported more than once;
 ``core.menu.ActionWatcher`` drops the duplicates.
 """
 
@@ -20,7 +24,7 @@ import logging
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..core.menu import MENU_PREFIX, OWN_PREFIX, MenuAction, action_id
+from ..core.menu import MENU_PREFIX, OWN_PREFIX, WIDGET_PREFIX, MenuAction, action_id
 from .assets import png_bytes, valid
 
 log = logging.getLogger("ShelfPlus.app.actions")
@@ -48,7 +52,8 @@ class _Scan:
             self.widgets = []
         self.menus = []
         self.parents = {}  # id(submenu) -> the menu it opens from
-        self.entries = []  # [QAction, where it sits]: its first menu, else the first widget
+        self.entries = []  # [QAction, where it sits]: see _better_place
+        self.holders = {}  # id(QAction) -> every widget that has it
         for obj in list(keep.values()):  # let go of the dead ones only
             if not valid(obj):
                 keep.pop(id(obj), None)
@@ -74,17 +79,40 @@ class _Scan:
                         continue
                 except RuntimeError:
                     continue
+                self.holders.setdefault(id(action), []).append(widget)
                 entry = seen.get(id(action))
                 if entry is not None:
                     # Painter adds menu commands to the main window too (for their
-                    # shortcuts), and allWidgets() may list it first: the menu wins.
-                    if in_menu and not isinstance(entry[1], QtWidgets.QMenu):
+                    # shortcuts), and allWidgets() may list it first.
+                    if _better_place(widget, entry[1]):
                         entry[1] = widget
                     continue
                 entry = [action, widget]
                 seen[id(action)] = entry
                 keep[id(action)] = action
                 self.entries.append(entry)
+
+    def owner(self, widget):
+        """The objectName of a widget that is not a menu (``""`` for a menu)."""
+        if isinstance(widget, QtWidgets.QMenu):
+            return ""
+        try:
+            return widget.objectName()
+        except RuntimeError:
+            return ""
+
+    def describe(self, action, widget):
+        return describe(action, self.path(widget), self.owner(widget))
+
+    def where(self, action):
+        """Every widget that has ``action``, for the log: ``QMainWindow#MainWindow, …``."""
+        names = []
+        for widget in self.holders.get(id(action), []):
+            try:
+                names.append(f"{widget.metaObject().className()}#{widget.objectName()}")
+            except RuntimeError:
+                continue
+        return ", ".join(names) or "no widget"
 
     def path(self, widget):
         """The titles of the menus ``widget`` sits in, outermost first (``()`` if not a menu)."""
@@ -100,9 +128,22 @@ class _Scan:
         return tuple(reversed(titles))
 
 
-def describe(action, path=()):
+def _better_place(widget, current):
+    """Whether ``widget`` says more about where a command is than ``current``: a menu
+    beats any other widget, and a named widget beats an unnamed one."""
+    if isinstance(current, QtWidgets.QMenu):
+        return False
+    if isinstance(widget, QtWidgets.QMenu):
+        return True
+    try:
+        return bool(widget.objectName()) and not current.objectName()
+    except RuntimeError:
+        return False
+
+
+def describe(action, path=(), owner=""):
     """A ``MenuAction`` for a QAction (``handle`` is the QAction, ``icon`` its QIcon)."""
-    return MenuAction(action.objectName(), action.text(), path, QtGui.QIcon(action.icon()), action)
+    return MenuAction(action.objectName(), action.text(), path, QtGui.QIcon(action.icon()), action, owner)
 
 
 class _Watch:
@@ -111,7 +152,7 @@ class _Watch:
     def __init__(self, callback, keep):
         self.callback = callback
         self._keep = keep
-        self._paths = {}  # id(command) -> the titles of the menu it sits in
+        self._places = {}  # id(command) -> (menu titles, owner, where for the log)
         self._hooked = {}  # id(obj) -> (obj, signal name, slot); also keeps obj alive
         self._timer = QtCore.QTimer()
         self._timer.setInterval(RESCAN_MS)
@@ -129,20 +170,19 @@ class _Watch:
         before = len(self._hooked)
         scan = _Scan(self._keep)
         for action, widget in scan.entries:
-            if _is_own(action) or not isinstance(widget, QtWidgets.QMenu):
+            if _is_own(action):
                 continue
             try:
-                path = scan.path(widget)
-                self._paths.setdefault(id(action), path)
-                self._connect(action, "triggered", lambda checked=False, a=action, p=path: self._report(a, p))
+                self._places[id(action)] = (scan.path(widget), scan.owner(widget), scan.where(action))
+                self._connect(action, "triggered", lambda checked=False, a=action: self._report(a))
             except RuntimeError:
                 continue
         for menu in scan.menus:
             try:
                 # Qt reports a submenu's command through every parent menu too, so its
                 # place is where it sits, not the menu reporting it.
-                path = scan.path(menu)
-                self._connect(menu, "triggered", lambda a, p=path: self._report(a, self._paths.get(id(a), p)))
+                fallback = (scan.path(menu), "", f"QMenu {scan.path(menu)}")
+                self._connect(menu, "triggered", lambda a, f=fallback: self._report(a, f))
             except RuntimeError:
                 continue
         if len(self._hooked) != before:
@@ -151,14 +191,21 @@ class _Watch:
                 len(self._hooked), len(self._hooked) - before, len(scan.widgets), len(scan.menus),
             )
 
-    def _report(self, action, path):
-        """``path``: the titles of the menu the command was run from."""
+    def _report(self, action, fallback=((), "", "unknown")):
+        """``fallback``: where the command is if this watch has not found it itself."""
         if not valid(action):
             return
+        path, owner, where = self._places.get(id(action), fallback)
         try:
-            described = describe(action, path)
+            described = describe(action, path, owner)
+            parent = action.parent()
+            parent = f"{parent.metaObject().className()}#{parent.objectName()}" if parent is not None else "none"
         except RuntimeError:
             return
+        log.debug(
+            "Hook: %r objectName=%r id=%r on %s; parent %s",
+            described.label, described.name, action_id(described), where, parent,
+        )
         self.callback(described)
 
     def __call__(self):
@@ -189,7 +236,7 @@ class PainterActions:
         found = []
         for action, widget in scan.entries:
             try:
-                found.append(describe(action, scan.path(widget)))
+                found.append(scan.describe(action, widget))
             except RuntimeError:
                 continue
         return found
@@ -200,19 +247,19 @@ class PainterActions:
         if there is none."""
         if not name:
             return None
-        by_place = name.startswith(MENU_PREFIX)
+        by_place = name.startswith((MENU_PREFIX, WIDGET_PREFIX))
         scan = self._scan()
         first = None
         for action, widget in scan.entries:
             try:
                 if by_place:
-                    if action.objectName() or not isinstance(widget, QtWidgets.QMenu):
+                    if action.objectName():
                         continue
-                    found = describe(action, scan.path(widget))
+                    found = scan.describe(action, widget)
                     if action_id(found) != name:
                         continue
                 elif action.objectName() == name:
-                    found = describe(action, scan.path(widget))
+                    found = scan.describe(action, widget)
                 else:
                     continue
                 if action.isEnabled():

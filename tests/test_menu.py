@@ -61,7 +61,17 @@ class TestNaming:
     def test_an_object_name_wins_over_the_place(self):
         assert action_id(SAVE) == "SAVE_PROJECT"
 
-    def test_a_command_with_neither_has_no_id(self):
+    def test_a_command_in_no_menu_is_stored_by_the_named_widget_it_is_on(self):
+        log = MenuAction("", "Log", owner="MainWindow")
+
+        assert action_id(log) == "widget:MainWindow › Log"
+
+    def test_a_menu_place_wins_over_the_widget(self):
+        log = MenuAction("", "Log", ("Window", "Views"), owner="MainWindow")
+
+        assert action_id(log) == "menu:Window › Views › Log"
+
+    def test_a_command_with_none_of_these_has_no_id(self):
         assert action_id(ADD_LAYER) == ""
 
     def test_a_command_without_text_is_named_after_its_object_name(self):
@@ -192,7 +202,7 @@ class TestCaptureProblem:
 
     def test_a_command_with_neither_object_name_nor_menu_cannot_be_found_again(self):
         assert capture_problem(ADD_LAYER) == (
-            "“Add layer” cannot be a Menu button: it is in none of Painter's menus. Try another command."
+            "“Add layer” cannot be a Menu button: Painter gives it nothing to find it by. Try another command."
         )
 
 

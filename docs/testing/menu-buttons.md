@@ -1,4 +1,4 @@
-# Testing Menu buttons (Shelf+ v0.4.2-rc.1)
+# Testing Menu buttons (Shelf+ v0.4.3-rc.1)
 
 This build adds **Menu buttons**. A Menu button runs one of Painter's own menu commands (for example *File → Save*) with one click on its tile.
 
@@ -18,18 +18,18 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 
 - Clicking a Workflow button (for example *Save* in the *General* Group) does nothing.
 - In the **+** menu, *Workflow button* says *(coming soon)* and is greyed out.
-- Commands that are not in any of Painter's menus (for example the buttons of the Layers window) cannot become a Menu button. The box at the top of the Panel then says *"… cannot be a Menu button: it is in none of Painter's menus."* Write down which commands you tried, but this does not count as a failure.
+- Commands that are not in any of Painter's menus (for example the buttons of the Layers window) cannot become a Menu button. The box at the top of the Panel then says *"… cannot be a Menu button: Painter gives it nothing to find it by."* Write down which commands you tried, but this does not count as a failure.
 - If you rename or move a Painter menu command by changing Painter's language, Buttons for commands that have no internal name stop working. Painter in English is fine.
 
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.4.2-rc.1.zip** from the [v0.4.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.4.2-rc.1).
+2. Download **ShelfPlus-v0.4.3-rc.1.zip** from the [v0.4.3-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.4.3-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.4.2**.
-   - If it says an older version, or Painter showed "Shelf+ v0.4.2 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.4.3**.
+   - If it says an older version, or Painter showed "Shelf+ v0.4.3 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
 
 ## 2. The checks
@@ -99,7 +99,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.4.2 | | | |
+| 1. Install: ☰ shows v0.4.3 | | | |
 | A. Capture from the menu | | | |
 | A4. Capture from a submenu | — | | |
 | B. Cancel (button, Esc, Esc in a menu) | | | |

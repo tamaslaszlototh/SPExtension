@@ -138,7 +138,7 @@ class TestCapture:
 
         assert saved(env)["groups"][1]["buttons"] == []
         assert app.capturing is group(app, "g2")
-        assert "is in none of Painter's menus" in app.view.notes[-1]
+        assert "Painter gives it nothing to find it by" in app.view.notes[-1]
         adapter.click_command(EXPORT)
         assert [b["action"] for b in saved(env)["groups"][1]["buttons"]] == ["export_textures"]
 
@@ -161,7 +161,7 @@ class TestCapture:
         app.start_menu_capture(group(app, "g2"))
 
         adapter.click_command(ADD_LAYER)
-        assert "is in none of Painter's menus" in app.capture_note
+        assert "Painter gives it nothing to find it by" in app.capture_note
         adapter.click_command(LOG)
 
         assert app.capture_note is None

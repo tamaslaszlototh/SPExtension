@@ -152,7 +152,9 @@ class TestWatching:
         assert names and set(names) == {"recent_1"}
         assert len(seen) == len(names)
 
-    def test_only_commands_in_menus_are_reported_not_toolbars_or_hotkeys(self, painter):
+    def test_commands_on_any_widget_are_reported(self, painter):
+        # Painter 11.1's main menu commands are in no QMenu that allWidgets() lists:
+        # they were caught only by hooking the actions of every widget.
         seen = []
         stop = PainterActions().watch(seen.append)
 
@@ -161,7 +163,20 @@ class TestWatching:
         painter.save.trigger()
         stop()
 
-        assert {a.name for a in seen} == {"SAVE_PROJECT"}
+        assert {a.name for a in seen} == {"swap_views", "paint_tool", "SAVE_PROJECT"}
+
+    def test_a_command_in_no_menu_is_reported_with_the_named_widget_it_is_on(self, painter):
+        painter.window.setObjectName("MainWindow")
+        log = QtGui.QAction("Log", painter.window)
+        painter.window.addAction(log)
+        seen = []
+        stop = PainterActions().watch(seen.append)
+
+        log.trigger()
+        stop()
+
+        assert {(a.label, a.path, a.owner) for a in seen} == {("Log", (), "MainWindow")}
+        assert PainterActions().find("widget:MainWindow › Log").handle is log
 
     def test_the_panels_own_commands_are_not_reported(self, painter):
         seen = []
