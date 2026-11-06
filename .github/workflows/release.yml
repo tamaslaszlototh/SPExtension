@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -r requirements-dev.txt
+      - env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the tag object (for its message)
+        run: git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build zip and SHA256SUMS
+        run: python tools/build_release.py "$TAG" --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShelfPlus-${{ github.ref_name }}
+          path: dist/*
+      - name: Publish the GitHub Release
+        run: |
+          args=(--title "Shelf+ $TAG" --verify-tag)
+          # Notes come from an annotated tag's message (without any signature);
+          # a lightweight tag gets GitHub's generated notes instead.
+          if [ "$(git cat-file -t "$TAG")" = "tag" ]; then
+            git tag -l --format='%(contents:subject)%0a%0a%(contents:body)' "$TAG" > notes.md
+            args+=(--notes-file notes.md)
+          else
+            args+=(--generate-notes)
+          fi
+          case "$TAG" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$TAG" dist/* "${args[@]}"

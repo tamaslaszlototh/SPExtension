@@ -1,0 +1,4 @@
+# Dev tooling only. Shelf+ has no runtime dependencies beyond what ships inside Painter.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "src/ShelfPlus/bundled"]

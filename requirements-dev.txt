@@ -1,0 +1,3 @@
+# Dev and CI only. Never shipped in the release zip.
+pytest
+PySide6-Essentials

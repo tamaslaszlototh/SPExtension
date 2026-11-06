@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "id": "g7c1e2a9",
+      "name": "General",
+      "buttons": [
+        {
+          "id": "b3f80d16",
+          "kind": "workflow",
+          "name": "Save",
+          "icon": null,
+          "steps": [
+            { "type": "save" }
+          ]
+        },
+        {
+          "id": "b5a92c4e",
+          "kind": "workflow",
+          "name": "Fill layer + Black mask",
+          "icon": null,
+          "steps": [
+            { "type": "add_layer", "layer": "fill" },
+            { "type": "add_mask", "background": "black" }
+          ]
+        }
+      ]
+    }
+  ]
+}
