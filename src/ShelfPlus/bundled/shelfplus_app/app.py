@@ -24,6 +24,13 @@ ADD_BUTTON_KINDS = [
     ("Workflow button", None),
 ]
 
+# While Painter is still loading its resources at start-up, the Brush buttons are checked
+# again on every finished shelf, and every LOADING_CHECK_MS as a fallback. After
+# LOADING_CHECKS checks the App stops waiting and checks for good.
+LOADING_CHECK_MS = 2000
+LOADING_CHECKS = 60
+LOADING_MESSAGE = "Painter is still loading its brushes. Try again in a moment."
+
 # The UI Steps the App can run so far: Step type -> function(adapter, step, done).
 UI_STEPS = {"select_brush": select_brush}
 
@@ -55,6 +62,9 @@ class App:
         self.add_button_kinds = [(label, handlers.get(label, handler)) for label, handler in ADD_BUTTON_KINDS]
         self.missing = set()  # ids of Brush buttons whose preset is not on this machine
         self._running = None  # the Step in progress (its handle has ``cancel()``)
+        self._stop_listening = None  # disconnects from Painter's "resources loaded" event
+        self._loading_timer = None
+        self._loading_checks = 0
         self.view = None
         self._dock = None
 
@@ -68,6 +78,10 @@ class App:
         self.messages = list(result.messages)
         self.editor = LayoutEditor(self.layout, self.layout_store.save, self.data_dir, self.read_only)
         self.panel_state = self.panel_state_store.load()
+        try:
+            self._stop_listening = self.adapter.on_resources_loaded(self.check_brushes)
+        except Exception:
+            log.exception("Could not listen for Painter loading its resources")
         self.check_brushes()
 
         self.view = self.view_factory(self)
@@ -139,14 +153,37 @@ class App:
         if self.view is not None:
             self.view.render()
 
+    def _resources_loading(self):
+        try:
+            return bool(self.adapter.resources_loading())
+        except Exception:
+            log.exception("Could not ask whether Painter is loading its resources")
+            return False
+
     def check_brushes(self):
-        """Mark every Brush button whose preset cannot be found (at load)."""
+        """Mark every Brush button whose preset cannot be found. While Painter is still
+        loading its resources nothing is marked: the check runs again when it is done."""
+        if self._resources_loading() and self._loading_checks < LOADING_CHECKS:
+            log.info("Painter is still loading its resources; Brush buttons are checked later")
+            if self._loading_timer is None:
+                self._loading_timer = self.adapter.repeat(LOADING_CHECK_MS, self._loading_tick)
+            return
+        self._stop_loading_timer()
         for group in self.layout.groups:
             for button in group.buttons:
                 if button.valid and button.kind == "brush":
                     self._set_missing(button, resolve(self.adapter, button.raw["resource"]) is None)
         if self.missing:
             log.info("%d Brush button(s) have no preset on this machine", len(self.missing))
+
+    def _loading_tick(self):
+        self._loading_checks += 1
+        self.check_brushes()
+
+    def _stop_loading_timer(self):
+        timer, self._loading_timer = self._loading_timer, None
+        if timer is not None:
+            timer.stop()
 
     def explain_brush_drop(self, group):
         self.notify(f"Drag a brush or tool preset from the Assets window onto “{group.name}”.")
@@ -201,6 +238,9 @@ class App:
         def done(result):  # a cancelled Step never calls it, so it is always the running one
             reported.append(result)
             self._running = None
+            if result.state == MISSING and self._resources_loading():
+                self.notify(LOADING_MESSAGE)
+                return
             if result.state == MISSING:
                 self._set_missing(button, True)
             if not result.ok:
@@ -218,6 +258,13 @@ class App:
 
     def close(self):
         self._cancel_running()
+        self._stop_loading_timer()
+        stop, self._stop_listening = self._stop_listening, None
+        if stop is not None:
+            try:
+                stop()
+            except Exception:
+                log.exception("Could not stop listening for Painter loading its resources")
         if self._panel_state_unsaved:
             self.save_panel_state()
         if self.editor is not None:

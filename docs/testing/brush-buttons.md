@@ -1,4 +1,4 @@
-# Testing Brush buttons (Shelf+ v0.3.0-rc.1)
+# Testing Brush buttons (Shelf+ v0.3.1-rc.1)
 
 This build adds **Brush buttons**. Drag a brush from the Assets window onto the Panel, and from then on one click on its tile makes it the active brush.
 
@@ -19,12 +19,12 @@ Neither of these is a failure.
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.3.0-rc.1.zip** from the [v0.3.0-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.3.0-rc.1).
+2. Download **ShelfPlus-v0.3.1-rc.1.zip** from the [v0.3.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.3.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project (any project with a mesh you can paint on).
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.3.0**.
-   - If it says an older version, or Painter showed "Shelf+ v0.3.0 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.3.1**.
+   - If it says an older version, or Painter showed "Shelf+ v0.3.1 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
 
 ## 2. The checks
@@ -66,8 +66,10 @@ Do this for **each** of the three Brush buttons, in each of the four Assets wind
 
 ### C. After a restart
 
-1. Restart Painter and open a project again.
-2. Click each Brush button once, with the Assets window closed.
+1. Restart Painter. Watch the Panel while Painter starts up.
+   - ✅ No Brush button shows the yellow warning triangle, not even for a moment.
+2. Open a project again.
+3. Click each Brush button once, with the Assets window closed.
    - ✅ Each one still works, as in check B.
 
 ### D. A missing brush
@@ -97,7 +99,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.3.0 | | | |
+| 1. Install: ☰ shows v0.3.1 | | | |
 | A. Drag brushes in, sharp pictures | | | |
 | B. Click: Assets open | | | |
 | B. Click: Assets closed | | | |

@@ -42,6 +42,10 @@ class FakeAdapter:
 
         self.timers = []
 
+        # Painter loading its resources (shelf crawling).
+        self.loading = False
+        self.loaded_callbacks = []
+
     def add_dock_widget(self, widget):
         if self.fail_on_dock:
             raise RuntimeError("add_dock_widget failed")
@@ -69,6 +73,18 @@ class FakeAdapter:
         if self.resource_error is not None:
             raise self.resource_error
         return self.resources.get(url)
+
+    def resources_loading(self):
+        return self.loading
+
+    def on_resources_loaded(self, callback):
+        self.loaded_callbacks.append(callback)
+        return lambda: self.loaded_callbacks.remove(callback)
+
+    def finish_loading(self):
+        self.loading = False
+        for callback in list(self.loaded_callbacks):
+            callback()
 
     def assets_icon_sources(self, resource):
         return self.tooltips.get(resource.url), self.decorations.get(resource.url)

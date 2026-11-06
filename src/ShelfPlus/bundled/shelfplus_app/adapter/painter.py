@@ -58,6 +58,28 @@ class PainterAdapter:
                 )
         return None
 
+    def resources_loading(self):
+        """Whether Painter is still loading resources: a shelf is crawling, or its resource
+        service has not started yet (``Shelves.all()`` raises)."""
+        import substance_painter.resource as res
+
+        try:
+            return any(shelf.is_crawling() for shelf in res.Shelves.all())
+        except Exception:
+            log.info("Shelves are not available yet", exc_info=True)
+            return True
+
+    def on_resources_loaded(self, callback):
+        """Call ``callback()`` whenever a shelf finishes loading its resources. Returns a
+        function that disconnects it."""
+        import substance_painter.event as event
+
+        def handler(_event):
+            callback()
+
+        event.DISPATCHER.connect(event.ShelfCrawlingEnded, handler)
+        return lambda: event.DISPATCHER.disconnect(event.ShelfCrawlingEnded, handler)
+
     def resource_file_path(self, resource):
         """The file behind a resource (e.g. the ``.sppr``), from the legacy JavaScript API."""
         import substance_painter.js
