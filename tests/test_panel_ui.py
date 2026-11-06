@@ -579,6 +579,7 @@ def test_a_missing_preset_has_a_badge_and_says_so(qt_app, tmp_path):
     env = {"version": "0.3.0", "version_dir": str(version_dir), "data_dir": str(tmp_path), "loader_version": 1}
     app = App(env, adapter, QtPanelView)
     app.start()
+    adapter.finish_loading()  # Painter reports its resources loaded: now "Gone" is missing
     try:
         view = show(app, qt_app, 260, 700)
         hard, gone = view.group_boxes[0].tiles

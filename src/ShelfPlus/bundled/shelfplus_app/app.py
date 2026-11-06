@@ -24,10 +24,13 @@ ADD_BUTTON_KINDS = [
     ("Workflow button", None),
 ]
 
-# While Painter is still loading its resources at start-up, the Brush buttons are checked
-# again on every finished shelf, and every LOADING_CHECK_MS as a fallback. After
-# LOADING_CHECKS checks the App stops waiting and checks for good.
+# When the plugin starts, Painter may not even have begun loading its resources, so a
+# brush not found yet is not confirmed missing (no badge) until Painter reports a shelf
+# loaded with none still loading, or SETTLE_CHECKS quiet checks have passed (for when
+# everything was loaded before the plugin started). The checks run every
+# LOADING_CHECK_MS; after LOADING_CHECKS the App stops waiting, even if Painter is busy.
 LOADING_CHECK_MS = 2000
+SETTLE_CHECKS = 15
 LOADING_CHECKS = 60
 LOADING_MESSAGE = "Painter is still loading its brushes. Try again in a moment."
 
@@ -65,6 +68,7 @@ class App:
         self._stop_listening = None  # disconnects from Painter's "resources loaded" event
         self._loading_timer = None
         self._loading_checks = 0
+        self._settled = False  # a brush not found can be trusted to be missing
         self.view = None
         self._dock = None
 
@@ -79,7 +83,7 @@ class App:
         self.editor = LayoutEditor(self.layout, self.layout_store.save, self.data_dir, self.read_only)
         self.panel_state = self.panel_state_store.load()
         try:
-            self._stop_listening = self.adapter.on_resources_loaded(self.check_brushes)
+            self._stop_listening = self.adapter.on_resources_loaded(self._resources_loaded)
         except Exception:
             log.exception("Could not listen for Painter loading its resources")
         self.check_brushes()
@@ -160,21 +164,43 @@ class App:
             log.exception("Could not ask whether Painter is loading its resources")
             return False
 
+    def _can_confirm_missing(self):
+        """Whether a brush not found now is really missing, not just not loaded yet."""
+        if self._loading_checks >= LOADING_CHECKS:
+            return True
+        if self._resources_loading():
+            return False
+        return self._settled or self._loading_checks >= SETTLE_CHECKS
+
+    def _resources_loaded(self):
+        self._settled = True
+        self.check_brushes()
+
     def check_brushes(self):
-        """Mark every Brush button whose preset cannot be found. While Painter is still
-        loading its resources nothing is marked: the check runs again when it is done."""
-        if self._resources_loading() and self._loading_checks < LOADING_CHECKS:
-            log.info("Painter is still loading its resources; Brush buttons are checked later")
+        """Clear the badge of every Brush button whose preset is found, and badge the
+        others once that is certain (see ``_can_confirm_missing``); until then the check
+        runs again on a timer and whenever Painter reports a shelf loaded."""
+        not_found = []
+        for group in self.layout.groups:
+            for button in group.buttons:
+                if button.valid and button.kind == "brush":
+                    if resolve(self.adapter, button.raw["resource"]) is None:
+                        not_found.append(button)
+                    else:
+                        self._set_missing(button, False)
+        if not not_found:  # every preset is there, so Painter has loaded them
+            self._settled = True
+            self._stop_loading_timer()
+            return
+        if not self._can_confirm_missing():
+            log.info("%d Brush button(s) not found yet; checking again once Painter has loaded", len(not_found))
             if self._loading_timer is None:
                 self._loading_timer = self.adapter.repeat(LOADING_CHECK_MS, self._loading_tick)
             return
         self._stop_loading_timer()
-        for group in self.layout.groups:
-            for button in group.buttons:
-                if button.valid and button.kind == "brush":
-                    self._set_missing(button, resolve(self.adapter, button.raw["resource"]) is None)
-        if self.missing:
-            log.info("%d Brush button(s) have no preset on this machine", len(self.missing))
+        for button in not_found:
+            self._set_missing(button, True)
+        log.info("%d Brush button(s) have no preset on this machine", len(not_found))
 
     def _loading_tick(self):
         self._loading_checks += 1
@@ -238,7 +264,7 @@ class App:
         def done(result):  # a cancelled Step never calls it, so it is always the running one
             reported.append(result)
             self._running = None
-            if result.state == MISSING and self._resources_loading():
+            if result.state == MISSING and not self._can_confirm_missing():
                 self.notify(LOADING_MESSAGE)
                 return
             if result.state == MISSING:

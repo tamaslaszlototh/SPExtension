@@ -68,9 +68,13 @@ def env(tmp_path):
     return {"version": "0.3.0", "version_dir": str(version_dir), "data_dir": str(tmp_path), "loader_version": 1}
 
 
-def start(env, adapter):
+def start(env, adapter, loaded=True):
+    """Start the App. ``loaded``: Painter then reports its resources loaded, which is when
+    a Brush button not found is confirmed missing."""
     app = App(env, adapter, FakeView)
     app.start()
+    if loaded:
+        adapter.finish_loading()
     return app
 
 
@@ -146,7 +150,7 @@ class TestDropping:
 
 
 class TestMissingPreset:
-    def test_checked_at_load(self, env, adapter):
+    def test_checked_once_painter_has_loaded(self, env, adapter):
         app = start(env, adapter)
         hard, gone = app.layout.groups[0].buttons
 
@@ -192,12 +196,12 @@ class TestMissingPreset:
 
 
 class TestWhilePainterIsLoading:
-    """At start-up Painter may still be loading its resources: no badge until it is done."""
+    """When the plugin starts, Painter may not even have begun loading its resources, so a
+    brush not found yet is not missing yet: no badge until Painter has loaded them."""
 
-    def test_no_badge_while_loading_then_checked_when_loading_ends(self, env, adapter):
-        adapter.loading = True
-        del adapter.resources[HARD.url]  # not loaded yet
-        app = start(env, adapter)
+    def test_no_badge_before_painter_starts_loading(self, env, adapter):
+        del adapter.resources[HARD.url]  # Painter has not loaded it yet, and is not loading
+        app = start(env, adapter, loaded=False)
         hard, gone = app.layout.groups[0].buttons
 
         assert not app.is_missing(hard) and not app.is_missing(gone)
@@ -208,47 +212,96 @@ class TestWhilePainterIsLoading:
         assert not app.is_missing(hard)
         assert app.is_missing(gone)
 
-    def test_another_shelf_still_loading_keeps_waiting(self, env, adapter):
+    def test_no_badge_while_loading(self, env, adapter):
         adapter.loading = True
-        app = start(env, adapter)
-
-        for callback in adapter.loaded_callbacks:
-            callback()  # one shelf finished; Painter still loading others
+        app = start(env, adapter, loaded=False)
 
         assert not app.is_missing(app.layout.groups[0].buttons[1])
 
-    def test_a_timer_checks_again_if_no_event_comes(self, env, adapter):
+    def test_another_shelf_still_loading_keeps_waiting(self, env, adapter):
         adapter.loading = True
-        app = start(env, adapter)
+        app = start(env, adapter, loaded=False)
+
+        for callback in adapter.loaded_callbacks:
+            callback()  # one shelf finished; Painter is still loading others
+
+        assert not app.is_missing(app.layout.groups[0].buttons[1])
+
+    def test_without_any_event_the_badge_comes_after_a_quiet_while(self, env, adapter):
+        from shelfplus_app.app import SETTLE_CHECKS
+
+        app = start(env, adapter, loaded=False)  # e.g. everything was loaded before the plugin
+        gone = app.layout.groups[0].buttons[1]
         (timer,) = adapter.timers
 
-        adapter.fire_timers()
-        assert timer.active and not app.is_missing(app.layout.groups[0].buttons[1])
+        for _ in range(SETTLE_CHECKS - 1):
+            adapter.fire_timers()
+        assert timer.active and not app.is_missing(gone)
 
-        adapter.loading = False
         adapter.fire_timers()
-        assert not timer.active
-        assert app.is_missing(app.layout.groups[0].buttons[1])
+        assert not timer.active and app.is_missing(gone)
 
-    def test_the_timer_gives_up_waiting_after_a_while(self, env, adapter):
+    def test_while_loading_the_quiet_while_does_not_count(self, env, adapter):
+        from shelfplus_app.app import SETTLE_CHECKS
+
+        adapter.loading = True
+        app = start(env, adapter, loaded=False)
+        for _ in range(SETTLE_CHECKS):
+            adapter.fire_timers()
+
+        assert adapter.timers[0].active
+        assert not app.is_missing(app.layout.groups[0].buttons[1])
+
+    def test_waiting_ends_after_a_while_even_if_painter_stays_busy(self, env, adapter):
         from shelfplus_app.app import LOADING_CHECKS
 
         adapter.loading = True
-        app = start(env, adapter)
+        app = start(env, adapter, loaded=False)
         for _ in range(LOADING_CHECKS):
             adapter.fire_timers()
 
         assert not adapter.timers[0].active
         assert app.is_missing(app.layout.groups[0].buttons[1])
 
-    def test_a_click_while_loading_says_so_without_a_badge(self, env, adapter):
-        adapter.loading = True
-        app = start(env, adapter)
+    def test_no_timer_when_every_brush_is_found(self, env, adapter):
+        data = json.loads(json.dumps(LAYOUT))
+        data["groups"][0]["buttons"].pop()
+        (Path(env["data_dir"]) / "layout.json").write_text(json.dumps(data), encoding="utf-8")
+
+        start(env, adapter, loaded=False)
+
+        assert adapter.timers == []
+
+    def test_when_every_brush_was_found_a_later_miss_is_real(self, env, adapter):
+        data = json.loads(json.dumps(LAYOUT))
+        data["groups"][0]["buttons"].pop()
+        (Path(env["data_dir"]) / "layout.json").write_text(json.dumps(data), encoding="utf-8")
+        app = start(env, adapter, loaded=False)
+        hard = app.layout.groups[0].buttons[0]
+        del adapter.resources[HARD.url]
+
+        app.run_button(hard)
+
+        assert app.is_missing(hard)
+
+    def test_a_click_before_painter_has_loaded_says_so_without_a_badge(self, env, adapter):
+        app = start(env, adapter, loaded=False)
         gone = app.layout.groups[0].buttons[1]
 
         app.run_button(gone)
 
         assert not app.is_missing(gone)
+        assert app.view.notes == ["Painter is still loading its brushes. Try again in a moment."]
+
+    def test_a_click_while_loading_again_later_says_so(self, env, adapter):
+        app = start(env, adapter)
+        hard = app.layout.groups[0].buttons[0]
+        adapter.loading = True
+        del adapter.resources[HARD.url]
+
+        app.run_button(hard)
+
+        assert not app.is_missing(hard)
         assert app.view.notes == ["Painter is still loading its brushes. Try again in a moment."]
 
     def test_a_later_reload_checks_again(self, env, adapter):
@@ -262,8 +315,7 @@ class TestWhilePainterIsLoading:
         assert not app.is_missing(gone)
 
     def test_close_stops_listening(self, env, adapter):
-        adapter.loading = True
-        app = start(env, adapter)
+        app = start(env, adapter, loaded=False)
 
         app.close()
 
@@ -282,7 +334,7 @@ class TestClicking:
         adapter.fire_timers()
 
         assert adapter.assets_calls == ["open", f"show_in_ui {HARD.url}"]
-        assert adapter.timers[0].interval_ms == POLL_MS
+        assert adapter.timers[-1].interval_ms == POLL_MS
         assert adapter.clicks == [(0, 0, 70, 70)]
         assert app.view.notes == []
 
@@ -304,7 +356,7 @@ class TestClicking:
         app.run_button(hard)
         app.run_button(hard)
 
-        assert [t.active for t in adapter.timers] == [False, True]
+        assert [t.active for t in adapter.timers[-2:]] == [False, True]
 
     def test_close_stops_an_activation_in_progress(self, env, adapter):
         app = start(env, adapter)
@@ -312,7 +364,7 @@ class TestClicking:
 
         app.close()
 
-        assert not adapter.timers[0].active
+        assert not adapter.timers[-1].active
 
     def test_an_invalid_button_does_not_run(self, env, adapter):
         data = json.loads(json.dumps(LAYOUT))

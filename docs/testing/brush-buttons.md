@@ -1,4 +1,4 @@
-# Testing Brush buttons (Shelf+ v0.3.1-rc.1)
+# Testing Brush buttons (Shelf+ v0.3.2-rc.1)
 
 This build adds **Brush buttons**. Drag a brush from the Assets window onto the Panel, and from then on one click on its tile makes it the active brush.
 
@@ -19,12 +19,12 @@ Neither of these is a failure.
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.3.1-rc.1.zip** from the [v0.3.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.3.1-rc.1).
+2. Download **ShelfPlus-v0.3.2-rc.1.zip** from the [v0.3.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.3.2-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project (any project with a mesh you can paint on).
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.3.1**.
-   - If it says an older version, or Painter showed "Shelf+ v0.3.1 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.3.2**.
+   - If it says an older version, or Painter showed "Shelf+ v0.3.2 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
 
 ## 2. The checks
@@ -80,7 +80,7 @@ Do this for **each** of the three Brush buttons, in each of the four Assets wind
    `"resource": "resource://starter_assets/Basic Hard",`
 4. Add `XYZ` to the end of the name inside the quotes, so it reads `"resource://starter_assets/Basic Hard XYZ",`. Save the file.
 5. Start Painter.
-   - ✅ That tile has a small yellow warning triangle in its corner. Hovering over it says *(not available on this machine)*.
+   - ✅ Once Painter has finished loading its brushes (this can take up to half a minute after start-up), that tile has a small yellow warning triangle in its corner. Hovering over it says *(not available on this machine)*.
    - ✅ Clicking it only shows a message: *This brush is not available on this machine: …*. The active brush does not change.
    - ✅ The other Brush buttons still work.
 6. To clean up, delete that tile: drag it onto **Delete**.
@@ -100,7 +100,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.3.1 | | | |
+| 1. Install: ☰ shows v0.3.2 | | | |
 | A. Drag brushes in, sharp pictures | | | |
 | B. Click: Assets open | | | |
 | B. Click: Assets closed | | | |
