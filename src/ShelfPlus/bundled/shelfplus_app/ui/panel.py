@@ -279,8 +279,15 @@ class GroupBox(QtWidgets.QFrame):
             self.view.add_brushes(self.group.id, index, resource_drop_text(event.mimeData()))
 
 
+# The trash with a tile over it: the same orange as a Group drop target.
+TRASH_HIGHLIGHT = (
+    f"QToolButton#{OBJECT_NAME}Trash {{ border: 2px solid #d9822b; border-radius: 4px;"
+    " background: rgba(217, 130, 43, 48); }"
+)
+
+
 class Trash(QtWidgets.QToolButton):
-    """Shown only while a tile is being dragged."""
+    """Shown only while a tile is being dragged. Lights up orange while a tile is over it."""
 
     def __init__(self, view):
         super().__init__()
@@ -291,18 +298,25 @@ class Trash(QtWidgets.QToolButton):
         self.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.setToolTip("Drop a Button here to delete it")
         self.setAcceptDrops(True)
+        self.drop_highlighted = False
         self.hide()
+
+    def set_highlight(self, on):
+        if on != self.drop_highlighted:
+            self.drop_highlighted = on
+            self.setStyleSheet(TRASH_HIGHLIGHT if on else "")
+        self.setDown(on)
 
     def dragEnterEvent(self, event):
         if carries_button(self.view, event):
             event.acceptProposedAction()
-            self.setDown(True)
+            self.set_highlight(True)
 
     def dragLeaveEvent(self, event):
-        self.setDown(False)
+        self.set_highlight(False)
 
     def dropEvent(self, event):
-        self.setDown(False)
+        self.set_highlight(False)
         if carries_button(self.view, event):
             event.acceptProposedAction()
             self.view.delete_button(self.view.dragging)
@@ -728,6 +742,7 @@ class QtPanelView:
     def end_drag(self):
         self.dragging = None
         if _alive(self.trash):
+            self.trash.set_highlight(False)
             self.trash.hide()
         if self._render_after_drag:
             self._render_after_drag = False

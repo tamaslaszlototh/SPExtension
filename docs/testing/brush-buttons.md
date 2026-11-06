@@ -84,6 +84,7 @@ Do this for **each** of the three Brush buttons, in each of the four Assets wind
    - ✅ Clicking it only shows a message: *This brush is not available on this machine: …*. The active brush does not change.
    - ✅ The other Brush buttons still work.
 6. To clean up, delete that tile: drag it onto **Delete**.
+   - ✅ While the tile is over **Delete**, it lights up with an orange border, like a Group you drop a tile on.
 
 ### E. Smaller pictures (Home, 11.1 only)
 

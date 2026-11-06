@@ -271,6 +271,27 @@ def test_dropping_on_the_trash_deletes_with_undo(app, qt_app):
     assert not view.trash.isVisibleTo(view.widget)
 
 
+def test_hovering_a_dragged_tile_over_the_trash_highlights_it(app, qt_app):
+    from PySide6.QtGui import QDragLeaveEvent
+
+    view = show(app, qt_app, 260, 700)
+    trash = view.trash
+    fill = app.layout.groups[1].buttons[0]
+    centre = trash.rect().center()
+
+    assert not trash.drop_highlighted
+    trash.dragEnterEvent(drag_event("enter", trash, centre, view, fill))
+    assert trash.drop_highlighted
+    assert "#d9822b" in trash.styleSheet()
+
+    trash.dragLeaveEvent(QDragLeaveEvent())
+    assert not trash.drop_highlighted and trash.styleSheet() == ""
+
+    trash.dragEnterEvent(drag_event("enter", trash, centre, view, fill))
+    drop_on(trash, view, fill, centre)
+    assert not trash.drop_highlighted and trash.styleSheet() == ""
+
+
 def test_the_content_is_not_rebuilt_during_a_drag(app, qt_app):
     view = show(app, qt_app, 260, 700)
     tile = view.group_boxes[1].tiles[0]
