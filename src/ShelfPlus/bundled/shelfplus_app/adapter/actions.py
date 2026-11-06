@@ -48,17 +48,18 @@ class _Scan:
             self.widgets = []
         self.menus = []
         self.parents = {}  # id(submenu) -> the menu it opens from
-        self.entries = []  # (QAction, the widget it was found in)
+        self.entries = []  # [QAction, where it sits]: its first menu, else the first widget
         for obj in list(keep.values()):  # let go of the dead ones only
             if not valid(obj):
                 keep.pop(id(obj), None)
         keep.update((id(w), w) for w in self.widgets)
-        seen = set()
+        seen = {}  # id(QAction) -> its entry
         for widget in self.widgets:
             try:
                 if not valid(widget) or _is_own(widget):
                     continue
-                if isinstance(widget, QtWidgets.QMenu):
+                in_menu = isinstance(widget, QtWidgets.QMenu)
+                if in_menu:
                     self.menus.append(widget)
                 actions = widget.actions()
             except RuntimeError:
@@ -69,13 +70,21 @@ class _Scan:
                     if submenu is not None:
                         self.parents.setdefault(id(submenu), widget)
                         continue
-                    if action.isSeparator() or isinstance(action, QtWidgets.QWidgetAction) or id(action) in seen:
+                    if action.isSeparator() or isinstance(action, QtWidgets.QWidgetAction):
                         continue
                 except RuntimeError:
                     continue
-                seen.add(id(action))
+                entry = seen.get(id(action))
+                if entry is not None:
+                    # Painter adds menu commands to the main window too (for their
+                    # shortcuts), and allWidgets() may list it first: the menu wins.
+                    if in_menu and not isinstance(entry[1], QtWidgets.QMenu):
+                        entry[1] = widget
+                    continue
+                entry = [action, widget]
+                seen[id(action)] = entry
                 keep[id(action)] = action
-                self.entries.append((action, widget))
+                self.entries.append(entry)
 
     def path(self, widget):
         """The titles of the menus ``widget`` sits in, outermost first (``()`` if not a menu)."""

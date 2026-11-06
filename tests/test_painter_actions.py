@@ -172,6 +172,22 @@ class TestWatching:
 
         assert seen == []
 
+    def test_a_menu_command_also_on_the_main_window_is_hooked_with_its_menu_place(self, painter):
+        # Painter 11.1 adds its menu commands to the main window too (for the shortcuts),
+        # and allWidgets() lists the main window before the menus.
+        log = QtGui.QAction("Log", painter.window)
+        painter.window.addAction(log)
+        painter.window.menuBar().addMenu("Window").addMenu("Views").addAction(log)
+        seen = []
+        stop = PainterActions().watch(seen.append)
+
+        log.trigger()
+        stop()
+
+        # one report per hook (the action's, and each menu's); the core drops the duplicates
+        assert {(a.label, a.path) for a in seen} == {("Log", ("Window", "Views"))}
+        assert PainterActions().find("menu:Window › Views › Log").handle is log
+
     def test_a_command_run_is_reported_with_its_place_in_the_menu(self, painter):
         seen = []
         stop = PainterActions().watch(seen.append)
