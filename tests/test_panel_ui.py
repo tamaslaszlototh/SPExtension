@@ -396,11 +396,13 @@ def test_in_a_flat_strip_each_group_name_is_above_its_tiles(app, qt_app):
         assert first.x() <= name.mapTo(box, QPoint(0, 0)).x() + 30  # the tiles start under the header
 
 
-def test_the_plus_next_to_a_group_name_is_a_large_drawn_icon(app, qt_app):
+def test_the_plus_is_a_drawn_icon_the_same_size_as_the_collapse_arrow(app, qt_app):
     view = show(app, qt_app, 260, 700)
-    plus = view.group_boxes[0].findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
+    box = view.group_boxes[0]
+    plus = box.findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
+    arrow = box.findChild(QtWidgets.QToolButton, "ShelfPlusGroupToggle")
 
+    assert plus.size() == arrow.size()
     assert not plus.icon().isNull()
     assert plus.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly
-    assert plus.iconSize().width() >= 18
-    assert plus.width() >= 24 and plus.height() >= 24
+    assert plus.iconSize().width() < plus.width()  # a little room around the cross

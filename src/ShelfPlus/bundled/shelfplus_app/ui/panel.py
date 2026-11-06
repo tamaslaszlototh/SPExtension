@@ -31,9 +31,8 @@ STATUS_MS = 3000
 UNDO_MS = 5000
 SPACING = 4  # between tiles
 GROUP_GAP = 12  # between Groups in the flat row
-TOOL_SIZE = 20  # collapse arrow
-PLUS_SIZE = 24  # the "+" of a Group row
-PLUS_ICON_SIZE = 18
+TOOL_SIZE = 20  # the collapse arrow and the "+" of a Group row
+PLUS_ICON_SIZE = 14  # the drawn cross inside the "+"
 EDGE_SCROLL_PX = 24  # holding a dragged Button this close to an edge scrolls
 EDGE_SCROLL_STEP = 16
 EDGE_SCROLL_MS = 40
@@ -543,7 +542,7 @@ class QtPanelView:
         plus = MenuButton()
         plus.setObjectName("ShelfPlusGroupAdd")
         plus.setAutoRaise(True)
-        plus.setFixedSize(PLUS_SIZE, PLUS_SIZE)
+        plus.setFixedSize(TOOL_SIZE, TOOL_SIZE)
         plus.setText("+")  # not shown; the icon is
         plus.setIcon(plus_icon())
         plus.setIconSize(QtCore.QSize(PLUS_ICON_SIZE, PLUS_ICON_SIZE))
