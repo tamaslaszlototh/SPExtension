@@ -406,3 +406,15 @@ def test_the_plus_is_a_drawn_icon_the_same_size_as_the_collapse_arrow(app, qt_ap
     assert not plus.icon().isNull()
     assert plus.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly
     assert plus.iconSize().width() < plus.width()  # a little room around the cross
+
+
+@pytest.mark.parametrize("width, height", [(260, 700), (900, 140)])  # tall, flat
+def test_the_groups_do_not_touch_the_top_of_their_container(app, qt_app, width, height):
+    from shelfplus_app.ui.panel import CONTENT_TOP_PADDING
+
+    view = show(app, qt_app, width, height)
+    first = view.group_boxes[0]
+    toggle = first.findChild(QtWidgets.QToolButton, "ShelfPlusGroupToggle")
+
+    assert CONTENT_TOP_PADDING > 0
+    assert toggle.mapTo(view.content, QPoint(0, 0)).y() >= CONTENT_TOP_PADDING

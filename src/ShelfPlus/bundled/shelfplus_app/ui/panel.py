@@ -37,6 +37,7 @@ EDGE_SCROLL_PX = 24  # holding a dragged Button this close to an edge scrolls
 EDGE_SCROLL_STEP = 16
 EDGE_SCROLL_MS = 40
 MARGIN = 4
+CONTENT_TOP_PADDING = 6  # space above the first Group inside the scroll area
 TILE_SIZE_SAVE_MS = 400  # the slider's value is saved once it stops moving
 
 
@@ -567,7 +568,7 @@ class QtPanelView:
 
     def _build_tall(self, columns):
         column = QtWidgets.QVBoxLayout(self.content)
-        column.setContentsMargins(MARGIN, 0, MARGIN, MARGIN)
+        column.setContentsMargins(MARGIN, CONTENT_TOP_PADDING, MARGIN, MARGIN)
         column.setSpacing(MARGIN)
         for group in self.app.layout.groups:
             box = GroupBox(self, group)
@@ -596,7 +597,7 @@ class QtPanelView:
 
     def _build_flat(self):
         row = QtWidgets.QHBoxLayout(self.content)
-        row.setContentsMargins(MARGIN, 0, MARGIN, 0)
+        row.setContentsMargins(MARGIN, CONTENT_TOP_PADDING, MARGIN, 0)
         row.setSpacing(GROUP_GAP)
         for group in self.app.layout.groups:
             # A small column per Group: its header line on top, its tiles in one row under it.
