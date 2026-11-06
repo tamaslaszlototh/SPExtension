@@ -12,6 +12,7 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import model
+from .recorder import keep
 from .widgets import (FlowLayout, ParamForm, STEP_MIME, own, resource_urls, step_from_drop, step_menu)
 
 Qt = QtCore.Qt
@@ -512,7 +513,7 @@ class RecPill(QtWidgets.QFrame):
         session.recChanged.connect(self.refresh)
         self.refresh()
         self.adjustSize()
-        g = anchor.window().geometry()
+        g = keep(anchor.window()).geometry()
         self.move(g.center().x() - self.width() // 2, g.top() + 60)
 
     def refresh(self):
@@ -758,7 +759,7 @@ class VariantB(QtCore.QObject):
         self.session = session
         session.recStarted.connect(self._rec_started)
         session.recFinished.connect(self._rec_finished)
-        self.dialog = EditorDialog(session, self.panel.window())
+        self.dialog = EditorDialog(session, keep(self.panel.window()))
         if record:
             session.start_recording()
         else:
@@ -840,7 +841,7 @@ class Popover(QtWidgets.QFrame):
     """Lebegő beállító egy csempéhez. Nem Qt.Popup, mert a menüből elkapáshoz a Painter menüjébe kell kattintani."""
 
     def __init__(self, strip, step):
-        super().__init__(strip.window(), Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        super().__init__(keep(strip.window()), Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.setObjectName("pop")
         self.setProperty("spx", True)
         self.setStyleSheet("QFrame#pop { background: #262626; border: 1px solid #6aa0ff; border-radius: 6px; }")
@@ -1035,8 +1036,8 @@ class VariantC(QtWidgets.QFrame):
         self.pop = Popover(self, step)
         self.pop.adjustSize()
         g = self.mapToGlobal(QtCore.QPoint(0, self.height()))
-        right = self.window().geometry().right()
-        g.setX(max(self.window().geometry().left(), min(g.x(), right - self.pop.width())))
+        right = keep(self.window()).geometry().right()
+        g.setX(max(keep(self.window()).geometry().left(), min(g.x(), right - self.pop.width())))
         self.pop.move(g)
         self.pop.show()
 

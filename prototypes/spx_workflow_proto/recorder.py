@@ -39,6 +39,23 @@ def alive(o):
         return False
 
 
+# #21 kötelező szabály: 11.1-en ha egy szülő Python-hivatkozását eldobjuk (amit parent()/parentWidget()
+# hívással értünk el), a gyerekek hivatkozásai „already deleted” lesznek. Ezért minden így elért
+# Painter-objektumot megtartunk a plugin élete végéig (a halottakat időnként kiszórjuk).
+KEEP = {}
+
+
+def keep(o):
+    if o is not None:
+        KEEP[ptr(o)] = o
+    return o
+
+
+def prune_keep():
+    for k in [k for k, o in KEEP.items() if not alive(o)]:
+        del KEEP[k]
+
+
 def first_line(text):
     t = text.replace("&&", "\0").replace("&", "").replace("\0", "&")
     return t.split("\n")[0].split("\t")[0].strip()
@@ -50,7 +67,7 @@ def is_own(obj):
         while obj is not None:
             if obj.property("spx"):
                 return True
-            obj = obj.parent()
+            obj = keep(obj.parent())
     except Exception:
         return False
     return False
@@ -68,11 +85,11 @@ def menu_path(env, a, menu=None):
             except Exception:
                 continue
     path = text
-    while isinstance(m, QtWidgets.QMenu):
+    while isinstance(m, QtWidgets.QMenu) and alive(m):
         t = first_line(m.title())
         if t:
             path = t + "/" + path
-        m = m.parentWidget()
+        m = keep(m.parentWidget())
     return path
 
 
@@ -118,30 +135,38 @@ class ActionHooks(QtCore.QObject):
             pass
 
     def rescan(self):
+        prune_keep()
         for a in self.env.all_actions():
             if alive(a):
-                self._hook(a, "triggered", partial(self._on_action, a))
+                self._hook(keep(a), "triggered", partial(self._on_action, a))
         for m in self.env.all_menus():
             if alive(m):
-                self._hook(m, "triggered", partial(self._on_menu, m))
+                self._hook(keep(m), "triggered", partial(self._on_menu, m))
 
     def _accept(self, a):
-        if not alive(a) or is_own(a) or a.isSeparator():
+        if not alive(a) or is_own(a) or not alive(a) or a.isSeparator():
             return False
-        if a.actionGroup() is not None:      # eszközváltás (Paint, Eraser…): nem menüparancs
+        if keep(a.actionGroup()) is not None:      # eszközváltás (Paint, Eraser…): nem menüparancs
             return False
         t = first_line(a.text())
         return bool(t) and not t.startswith(IGNORE_PREFIX)
 
     def _on_action(self, a, checked=False):
-        if self._accept(a):
-            self._queue(a, None)
-        elif self.on_trigger is not None and alive(a) and not is_own(a):
-            self.on_trigger()        # pl. „Add fill layer”: a saját History-sorát most számoljuk el
+        try:
+            if self._accept(a):
+                self._queue(a, None)
+            elif self.on_trigger is not None and alive(a) and not is_own(a):
+                self.on_trigger()    # pl. „Add fill layer”: a saját History-sorát most számoljuk el
+        except RuntimeError as e:    # törölt Qt-objektum: a parancsot kihagyjuk, a rögzítés megy tovább
+            self.env.log("hook hiba (QAction): %r" % e)
 
     def _on_menu(self, m, a):
-        if self._accept(a) and not is_own(m):
-            self._queue(a, m)
+        try:
+            keep(a)
+            if self._accept(a) and not is_own(m):
+                self._queue(a, m)
+        except RuntimeError as e:
+            self.env.log("hook hiba (QMenu): %r" % e)
 
     def _queue(self, a, menu):
         key = ptr(a)

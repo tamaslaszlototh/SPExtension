@@ -7,7 +7,7 @@ from urllib.parse import unquote
 
 from PySide6 import QtGui, QtWidgets
 
-from .recorder import ActionCapture, Recorder, alive, describe, first_line, is_own
+from .recorder import ActionCapture, Recorder, alive, describe, first_line, is_own, keep
 
 LOG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "spx_workflow_proto")
 
@@ -55,21 +55,29 @@ class Host:
     def menu_actions(self):
         seen, out = set(), []
         menus = list(self.env.all_menus())
+        dead = 0
         for m in menus:
-            if not alive(m) or is_own(m):
+            try:
+                if not alive(m) or is_own(m) or not alive(m):
+                    continue
+                actions = [keep(a) for a in m.actions()]
+            except RuntimeError:          # közben törölt menü (pl. bezárt helyi menü)
+                dead += 1
                 continue
-            for a in m.actions():
+            for a in actions:
                 try:
-                    if a.isSeparator() or a.menu() is not None or not first_line(a.text()) or is_own(a):
+                    if not alive(a) or a.isSeparator() or keep(a.menu()) is not None or \
+                            not first_line(a.text()) or is_own(a):
                         continue
                     info = describe(self.env, a, m)
                 except RuntimeError:
+                    dead += 1
                     continue
                 if info["path"] in seen:
                     continue
                 seen.add(info["path"])
                 out.append(info)
-        self.log("menüparancs-lista: %d tétel" % len(out))
+        self.log("menüparancs-lista: %d tétel (törölt objektum kihagyva: %d)" % (len(out), dead))
         return sorted(out, key=lambda x: x["path"].lower())
 
 
@@ -104,7 +112,7 @@ class PainterEnv:
     def _live_widgets(self):
         for w in QtWidgets.QApplication.allWidgets():
             if alive(w):
-                yield w
+                yield keep(w)          # #21 szabály: a hivatkozást megtartjuk
 
     def history_view(self):
         if self._history is not None and alive(self._history):
@@ -125,11 +133,11 @@ class PainterEnv:
         return None
 
     def all_actions(self):
-        mw = self.sp.ui.get_main_window()
-        out = list(mw.findChildren(QtGui.QAction))
+        mw = keep(self.sp.ui.get_main_window())
+        out = [keep(a) for a in mw.findChildren(QtGui.QAction)]
         for w in self._live_widgets():
             try:
-                out.extend(w.actions())
+                out.extend(keep(a) for a in w.actions())
             except Exception:
                 pass
         return out
@@ -138,7 +146,7 @@ class PainterEnv:
         return [w for w in self._live_widgets() if isinstance(w, QtWidgets.QMenu)]
 
     def main_window(self):
-        return self.sp.ui.get_main_window()
+        return keep(self.sp.ui.get_main_window())
 
     # ---- események
     def connect_events(self, on_change, on_close):

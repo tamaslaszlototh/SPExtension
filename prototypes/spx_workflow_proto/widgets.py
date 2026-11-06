@@ -5,6 +5,7 @@ from urllib.parse import unquote
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import model
+from .recorder import keep
 
 Qt = QtCore.Qt
 STEP_MIME = "application/x-spx-step"
@@ -328,7 +329,7 @@ class ParamForm(QtWidgets.QWidget):
         self._capture.start()
 
     def _captured(self, info):
-        if not self.isVisible() and not self.parent():
+        if not self.isVisible() and keep(self.parent()) is None:
             return
         try:
             self.cap_btn.setText("Elkapás a menüből")
@@ -337,7 +338,7 @@ class ParamForm(QtWidgets.QWidget):
         self._set_action(info)
 
     def _pick_list(self):
-        d = MenuPicker(self.host, self.window())
+        d = MenuPicker(self.host, keep(self.window()))
         if d.exec() and d.result_info:
             self._set_action(d.result_info)
 
