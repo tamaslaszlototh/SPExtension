@@ -32,12 +32,12 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
    - ✅ **Save** is greyed out, and the text above it says *Add a Step first.*
 2. Click **+ Add Step → Layer → Fill layer**, then **+ Add Step → Mask → Black mask**.
    - ✅ *Black mask* is indented under *Fill layer*.
-3. Click **+ Add Step → Effect → Generator on the mask**.
+3. Click **+ Add Step → Effect → Generator on mask**.
    - ✅ The row says **Generator ⚠ choose resource**, and Save is greyed out.
 4. With that row selected, click the **Choose…** button on the **Resource** line below the Steps. Type `dirt` in the search box. (Generators cannot be dragged out of the Assets window, so this list is the way to choose one.)
    - ✅ The list shows Painter's resources whose name contains *dirt*, each with its type after it.
    - Pick the **Dirt generator**: hover the rows, and choose the one whose address ends in `mg_dirt`. Click **Choose**.
-   - ✅ The row now says **Dirt — generator on the mask**, the ⚠ is gone, and the button now reads **Dirt** instead of *Choose…*.
+   - ✅ The row now says **Dirt — generator on mask**, the ⚠ is gone, and the button now reads **Dirt** instead of *Choose…*.
    - Write down in Notes what type the list showed next to it.
    - Click the **Dirt** button again: ✅ the list opens again, so you could pick another one. Click **Cancel**.
 5. Click **+ Add Step → Setting → Opacity**. Below the Steps, keep **BaseColor** ticked and set it to **50 %**.
@@ -114,17 +114,17 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 
 This is what Painter's right-click **Add paint** / **Add fill** on a layer makes: a Paint or Fill shown indented under the layer.
 
-1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, then **+ Add Step → Effect → Paint on the layer**, then **+ Add Step → Mask → Black mask**, then **+ Add Step → Effect → Fill on the mask**.
-   - ✅ The rows read **Fill layer**, **├ Paint — on the layer**, **├ Black mask**, **└ Fill — on the mask**: each row says what it applies to.
+1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, then **+ Add Step → Effect → Paint on layer**, then **+ Add Step → Mask → Black mask**, then **+ Add Step → Effect → Fill on mask**.
+   - ✅ The rows read **Fill layer**, **├ Paint — on layer**, **├ Black mask**, **└ Fill — on mask**: each row says what it applies to.
 2. Save it, select a layer and click the tile once.
    - ✅ The new Fill layer has a **Paint** inside it (open the layer's arrow in the Layers window), and its mask has a **Fill** inside it, as if you had used Add paint and Add fill yourself.
    - ✅ One **Ctrl+Z** removes all of it.
-3. Open it again (double-click) and click the **└ Fill — on the mask** row. Set **Content** to **Value** and the value to **0.3**. Save and run it.
-   - ✅ The row now reads **Fill — on the mask, value 0.3**.
+3. Open it again (double-click) and click the **└ Fill — on mask** row. Set **Content** to **Value** and the value to **0.3**. Save and run it.
+   - ✅ The row now reads **Fill — on mask, value 0.3**.
    - ✅ The mask's Fill is a dark grey (0.3): the layer shows through only faintly.
 4. Open it again, set the mask Fill's **Content** to **Resource**, click **Choose…** (or drop a procedural from the Assets window onto it) and pick e.g. a *Clouds* procedural. Save and run it.
    - ✅ The mask's Fill uses that resource.
-5. Add **+ Add Step → Effect → Fill on the layer** under the Fill layer and click it.
+5. Add **+ Add Step → Effect → Fill on layer** under the Fill layer and click it.
    - ✅ It has the same **Channels** and **Content** settings as a Fill layer (check G).
    - Set **Content** to **Per channel**, BaseColor to a strong blue. Save and run it.
    - ✅ The Fill inside the layer is blue, on top of the Fill layer's own colour.

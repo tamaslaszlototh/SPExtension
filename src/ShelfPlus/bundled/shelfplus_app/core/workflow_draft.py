@@ -25,18 +25,18 @@ _TEMPLATES = [
     ("Mask", "Black mask", {"type": "add_mask", "background": "black"}),
     ("Mask", "White mask", {"type": "add_mask", "background": "white"}),
     ("Mask", "Smart mask", {"type": "add_smart", "smart": "mask"}),
-    ("Effect", "Generator on the mask", {"type": "add_effect", "effect": "generator", "target": "mask"}),
-    ("Effect", "Filter on the mask", {"type": "add_effect", "effect": "filter", "target": "mask"}),
-    ("Effect", "Levels on the mask", {"type": "add_effect", "effect": "levels", "target": "mask"}),
-    ("Effect", "Anchor point on the mask", {"type": "add_effect", "effect": "anchor", "target": "mask"}),
-    ("Effect", "Paint on the mask", {"type": "add_effect", "effect": "paint", "target": "mask"}),
-    ("Effect", "Fill on the mask", {"type": "add_effect", "effect": "fill", "target": "mask"}),
-    ("Effect", "Generator on the layer", {"type": "add_effect", "effect": "generator", "target": "layer"}),
-    ("Effect", "Filter on the layer", {"type": "add_effect", "effect": "filter", "target": "layer"}),
-    ("Effect", "Levels on the layer", {"type": "add_effect", "effect": "levels", "target": "layer"}),
-    ("Effect", "Anchor point on the layer", {"type": "add_effect", "effect": "anchor", "target": "layer"}),
-    ("Effect", "Paint on the layer", {"type": "add_effect", "effect": "paint", "target": "layer"}),
-    ("Effect", "Fill on the layer", {"type": "add_effect", "effect": "fill", "target": "layer"}),
+    ("Effect", "Generator on mask", {"type": "add_effect", "effect": "generator", "target": "mask"}),
+    ("Effect", "Filter on mask", {"type": "add_effect", "effect": "filter", "target": "mask"}),
+    ("Effect", "Levels on mask", {"type": "add_effect", "effect": "levels", "target": "mask"}),
+    ("Effect", "Anchor point on mask", {"type": "add_effect", "effect": "anchor", "target": "mask"}),
+    ("Effect", "Paint on mask", {"type": "add_effect", "effect": "paint", "target": "mask"}),
+    ("Effect", "Fill on mask", {"type": "add_effect", "effect": "fill", "target": "mask"}),
+    ("Effect", "Generator on layer", {"type": "add_effect", "effect": "generator", "target": "layer"}),
+    ("Effect", "Filter on layer", {"type": "add_effect", "effect": "filter", "target": "layer"}),
+    ("Effect", "Levels on layer", {"type": "add_effect", "effect": "levels", "target": "layer"}),
+    ("Effect", "Anchor point on layer", {"type": "add_effect", "effect": "anchor", "target": "layer"}),
+    ("Effect", "Paint on layer", {"type": "add_effect", "effect": "paint", "target": "layer"}),
+    ("Effect", "Fill on layer", {"type": "add_effect", "effect": "fill", "target": "layer"}),
     ("Setting", "Blend mode", {"type": "set_blend", "blend": "Normal"}),
     ("Setting", "Opacity", {"type": "set_opacity", "opacity": {"BaseColor": 100}}),
     ("At the end", "Brush", {"type": "select_brush"}),
@@ -157,8 +157,8 @@ def _content_detail(step):
 
 
 def row_detail(step):
-    """What the Step applies to, shown after its name in the editor's rows ("on the mask",
-    "generator on the mask", "BaseColor"…), or ``None`` when the name says it all. Not
+    """What the Step applies to, shown after its name in the editor's rows ("on mask",
+    "generator on mask", "BaseColor"…), or ``None`` when the name says it all. Not
     part of the automatic Workflow name."""
     kind = step.get("type")
     parts = []
@@ -169,7 +169,7 @@ def row_detail(step):
         if "channels" in step:
             parts.append(_count(step["channels"], "channel"))
     elif kind == "add_effect":
-        target = f"on the {step.get('target')}"
+        target = f"on {step.get('target')}"
         named = step.get("resource") or step.get("material")  # the name is the resource's
         parts.append(f"{_EFFECTS.get(step.get('effect'), 'effect').lower()} {target}" if named and "material" not in step else target)
         parts.append(_content_detail(step))

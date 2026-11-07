@@ -96,13 +96,13 @@ def test_the_editor_replaces_the_groups_while_it_is_open(app, qt_app):
 
 def test_building_fill_black_mask_dirt_opacity_by_hand(app, qt_app, adapter):
     editor = open_new(app, qt_app)
-    for label in ("Fill layer", "Black mask", "Generator on the mask", "Opacity"):
+    for label in ("Fill layer", "Black mask", "Generator on mask", "Opacity"):
         editor.add_step(label)
 
     assert editor.visible_rows() == [
         "Fill layer",
         "├ Black mask",
-        "├ Generator — on the mask  ⚠ choose resource",
+        "├ Generator — on mask  ⚠ choose resource",
         "└ Opacity 100% — BaseColor",
         "At the end of the Workflow",
     ]
@@ -348,14 +348,14 @@ def test_a_paint_layer_has_channels_but_no_content(app, qt_app):
 def test_a_generator_is_chosen_from_the_picker(app, qt_app, picks):
     editor = open_new(app, qt_app)
     editor.add_step("Fill layer")
-    editor.add_step("Generator on the mask")
+    editor.add_step("Generator on mask")
     editor.select_step(1)
 
     picks.append(DIRT)
     editor.fields["choose_resource"].click()
     settled(qt_app)
 
-    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt — generator on the mask"
+    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt — generator on mask"
 
 
 def test_the_resource_picker_lists_matches_by_name(app, qt_app):
@@ -412,7 +412,7 @@ def test_a_brush_dropped_on_a_choose_button_for_another_kind_is_refused(app, qt_
     adapter.add_resource(FakeResource("resource://a/Hard", "Hard"))
     editor = open_new(app, qt_app)
     editor.add_step("Fill layer")
-    editor.add_step("Generator on the mask")
+    editor.add_step("Generator on mask")
     editor.select_step(1)
 
     editor.fields["choose_resource"].drop_text("resource://a/Hard")
@@ -461,7 +461,7 @@ def test_a_fill_on_the_layer_has_the_fill_layer_settings(app, qt_app, adapter):
     adapter.texture_channels = ["BaseColor", "Roughness"]
     editor = open_new(app, qt_app)
     editor.add_step("Fill layer")
-    editor.add_step("Fill on the layer")
+    editor.add_step("Fill on layer")
     editor.select_step(1)
 
     assert set(editor.fields["channels"]) == {"BaseColor", "Roughness"}
@@ -479,7 +479,7 @@ def test_a_fill_on_the_mask_takes_one_value_or_one_resource(app, qt_app, picks):
     editor = open_new(app, qt_app)
     editor.add_step("Fill layer")
     editor.add_step("Black mask")
-    editor.add_step("Fill on the mask")
+    editor.add_step("Fill on mask")
     editor.select_step(2)
     assert "channels" not in editor.fields
 
@@ -501,7 +501,7 @@ def test_a_fill_on_the_mask_takes_one_value_or_one_resource(app, qt_app, picks):
 def test_moving_a_fill_between_layer_and_mask_drops_the_content_that_does_not_fit(app, qt_app):
     editor = open_new(app, qt_app)
     editor.add_step("Fill layer")
-    editor.add_step("Fill on the mask")
+    editor.add_step("Fill on mask")
     editor.select_step(1)
     editor.fields["content"].setCurrentText("Value")
     settled(qt_app)

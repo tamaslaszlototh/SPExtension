@@ -132,10 +132,10 @@ def test_a_fill_layer_with_a_material_is_named_after_it():
 
 
 def test_paint_and_fill_effects_are_in_the_catalog():
-    assert template("Paint on the layer") == {"type": "add_effect", "effect": "paint", "target": "layer"}
-    assert template("Fill on the mask") == {"type": "add_effect", "effect": "fill", "target": "mask"}
-    assert incomplete(template("Paint on the layer")) is None
-    assert auto_name([FILL, template("Paint on the layer")]) == "Fill layer + Paint"
+    assert template("Paint on layer") == {"type": "add_effect", "effect": "paint", "target": "layer"}
+    assert template("Fill on mask") == {"type": "add_effect", "effect": "fill", "target": "mask"}
+    assert incomplete(template("Paint on layer")) is None
+    assert auto_name([FILL, template("Paint on layer")]) == "Fill layer + Paint"
 
 
 def test_a_rows_detail_says_what_the_step_applies_to():
@@ -144,12 +144,12 @@ def test_a_rows_detail_says_what_the_step_applies_to():
     def effect(kind, target, **extra):
         return {"type": "add_effect", "effect": kind, "target": target, **extra}
 
-    assert row_detail(effect("fill", "mask")) == "on the mask"
-    assert row_detail(effect("paint", "layer")) == "on the layer"
-    assert row_detail(effect("generator", "mask", resource="resource://a/Dirt", resource_name="Dirt")) == "generator on the mask"
-    assert row_detail(effect("generator", "mask")) == "on the mask"  # no resource yet: the name says generator
-    assert row_detail(effect("fill", "mask", source={"value": 0.3})) == "on the mask, value 0.3"
-    assert row_detail(effect("fill", "layer", sources={"BaseColor": {"color": "#0000ff"}})) == "on the layer, per channel"
+    assert row_detail(effect("fill", "mask")) == "on mask"
+    assert row_detail(effect("paint", "layer")) == "on layer"
+    assert row_detail(effect("generator", "mask", resource="resource://a/Dirt", resource_name="Dirt")) == "generator on mask"
+    assert row_detail(effect("generator", "mask")) == "on mask"  # no resource yet: the name says generator
+    assert row_detail(effect("fill", "mask", source={"value": 0.3})) == "on mask, value 0.3"
+    assert row_detail(effect("fill", "layer", sources={"BaseColor": {"color": "#0000ff"}})) == "on layer, per channel"
     assert row_detail({"type": "add_smart", "smart": "material", "resource": "resource://a/Rust"}) == "smart material"
     assert row_detail({"type": "add_smart", "smart": "mask"}) is None  # "Smart mask" says it already
     assert row_detail(OPACITY) == "BaseColor"

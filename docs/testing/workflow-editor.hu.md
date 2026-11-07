@@ -36,12 +36,12 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
    - ✅ A **Save** gomb szürke, fölötte ez áll: *Add a Step first.*
 2. Kattints a **+ Add Step → Layer → Fill layer**, majd a **+ Add Step → Mask → Black mask** pontra.
    - ✅ A *Black mask* beljebb húzva, a *Fill layer* alatt áll.
-3. Kattints a **+ Add Step → Effect → Generator on the mask** pontra.
+3. Kattints a **+ Add Step → Effect → Generator on mask** pontra.
    - ✅ A sorban ez áll: **Generator ⚠ choose resource**, és a Save szürke.
 4. Amíg ez a sor ki van jelölve, kattints a Step-ek alatti **Resource** sorban a **Choose…** gombra, és írd be a keresőbe: `dirt`. (Generatort nem lehet kihúzni az Assets ablakból, ezért ebből a listából lehet kiválasztani.)
    - ✅ A lista a Painter azon resource-ait mutatja, amelyek nevében benne van a *dirt*, mindegyik után a típusával.
    - Válaszd a **Dirt generatort**: vidd az egeret a sorok fölé, és azt válaszd, amelyiknek a címe `mg_dirt`-re végződik. Kattints a **Choose** gombra.
-   - ✅ A sorban most **Dirt — generator on the mask** áll, eltűnt a ⚠, és a gombon is **Dirt** áll *Choose…* helyett.
+   - ✅ A sorban most **Dirt — generator on mask** áll, eltűnt a ⚠, és a gombon is **Dirt** áll *Choose…* helyett.
    - Írd fel a Notes oszlopba, milyen típust mutatott mellette a lista.
    - Kattints újra a **Dirt** gombra: ✅ újra megnyílik a lista, vagyis választhatnál mást is. Kattints a **Cancel** gombra.
 5. Kattints a **+ Add Step → Setting → Opacity** pontra. A Step-ek alatt hagyd bepipálva a **BaseColor** sort, és állítsd **50 %**-ra.
@@ -118,17 +118,17 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill** csinál: a layer alatt beljebb húzva megjelenő Paint vagy Fill.
 
-1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, majd **+ Add Step → Effect → Paint on the layer**, majd **+ Add Step → Mask → Black mask**, majd **+ Add Step → Effect → Fill on the mask**.
-   - ✅ A sorok: **Fill layer**, **├ Paint — on the layer**, **├ Black mask**, **└ Fill — on the mask**: minden sor mutatja, mire vonatkozik.
+1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, majd **+ Add Step → Effect → Paint on layer**, majd **+ Add Step → Mask → Black mask**, majd **+ Add Step → Effect → Fill on mask**.
+   - ✅ A sorok: **Fill layer**, **├ Paint — on layer**, **├ Black mask**, **└ Fill — on mask**: minden sor mutatja, mire vonatkozik.
 2. Mentsd, jelölj ki egy layert, és kattints egyszer a csempére.
    - ✅ Az új Fill layeren belül ott egy **Paint** (nyisd le a layer nyilát a Layers ablakban), a maszkjában pedig egy **Fill**, mintha te adtad volna hozzá Add painttel és Add fill-lel.
    - ✅ Egyetlen **Ctrl+Z** mindezt visszavonja.
-3. Nyisd meg újra (dupla kattintás), és kattints a **└ Fill — on the mask** sorra. A **Content** legyen **Value**, az érték **0.3**. Mentsd és futtasd.
-   - ✅ A sorban most ez áll: **Fill — on the mask, value 0.3**.
+3. Nyisd meg újra (dupla kattintás), és kattints a **└ Fill — on mask** sorra. A **Content** legyen **Value**, az érték **0.3**. Mentsd és futtasd.
+   - ✅ A sorban most ez áll: **Fill — on mask, value 0.3**.
    - ✅ A maszk Fillje sötétszürke (0.3): a layer csak halványan látszik.
 4. Nyisd meg újra, a maszk Filljénél a **Content** legyen **Resource**, kattints a **Choose…** gombra (vagy húzz rá egy procedurált az Assets ablakból), és válassz pl. egy *Clouds* procedurált. Mentsd és futtasd.
    - ✅ A maszk Fillje azt a resource-t használja.
-5. Adj hozzá a Fill layer alá egy **+ Add Step → Effect → Fill on the layer** Stepet, és kattints rá.
+5. Adj hozzá a Fill layer alá egy **+ Add Step → Effect → Fill on layer** Stepet, és kattints rá.
    - ✅ Ugyanazok a **Channels** és **Content** beállításai vannak, mint egy Fill layernek (G pont).
    - A **Content** legyen **Per channel**, a BaseColor erős kék. Mentsd és futtasd.
    - ✅ A layeren belüli Fill kék, a Fill layer saját színe fölött.

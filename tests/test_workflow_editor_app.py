@@ -198,7 +198,7 @@ def test_the_automatic_name_uses_the_dropped_resources_display_name(app, adapter
     adapter.add_resource(FakeResource(dirt, "Dirt", is_brush=False))
     app.new_workflow(app.layout.groups[0])
     app.workflow_draft.add(template("Fill layer"))
-    app.workflow_draft.add(template("Generator on the mask"))
+    app.workflow_draft.add(template("Generator on mask"))
 
     app.workflow_resource_drop(dirt)
     button = app.save_workflow()
