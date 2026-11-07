@@ -477,11 +477,85 @@ class ActionPicker(QtWidgets.QDialog):
         return self._actions[row] if 0 <= row < len(self._actions) else None
 
 
+class UpdateDialog(QtWidgets.QDialog):
+    """"Shelf+ vX.Y.Z is available" with the release notes, and Update / Later / Skip this
+    version; for a release that needs a newer loader, Open the Releases page instead of
+    Update. Non-modal: Painter stays usable while it is open."""
+
+    def __init__(self, offer, app, parent=None):
+        super().__init__(parent)
+        self.offer = offer
+        self.app = app
+        self.setObjectName(OBJECT_NAME + "UpdateDialog")
+        self.setWindowTitle("Shelf+ update")
+        self.setModal(False)
+        self.resize(460, 380)
+        column = QtWidgets.QVBoxLayout(self)
+        self.text = QtWidgets.QLabel(offer.text)
+        self.text.setObjectName(OBJECT_NAME + "UpdateText")
+        self.text.setWordWrap(True)
+        self.text.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        column.addWidget(self.text)
+        self.notes = QtWidgets.QTextBrowser()
+        self.notes.setObjectName(OBJECT_NAME + "UpdateNotes")
+        self.notes.setOpenExternalLinks(True)
+        self.notes.setMarkdown(offer.notes or "_No release notes._")
+        column.addWidget(self.notes, 1)
+        row = QtWidgets.QHBoxLayout()
+        row.addStretch(1)
+        if offer.reinstall:
+            self.main_button = QtWidgets.QPushButton("Open the Releases page")
+            self.main_button.setToolTip(offer.page_url)
+            self.main_button.clicked.connect(self._open_page)
+        else:
+            self.main_button = QtWidgets.QPushButton("Update")
+            self.main_button.setToolTip("Download it now; it becomes active the next time Painter starts")
+            self.main_button.clicked.connect(self._update)
+        self.main_button.setObjectName(OBJECT_NAME + "UpdateNow")
+        self.main_button.setDefault(True)
+        self.later_button = QtWidgets.QPushButton("Later")
+        self.later_button.setObjectName(OBJECT_NAME + "UpdateLater")
+        self.later_button.setToolTip("Ask again at the next check")
+        self.later_button.clicked.connect(self.reject)
+        self.skip_button = QtWidgets.QPushButton("Skip this version")
+        self.skip_button.setObjectName(OBJECT_NAME + "UpdateSkip")
+        self.skip_button.setToolTip(f"Do not offer v{offer.version} again; a newer version is still offered")
+        self.skip_button.clicked.connect(self._skip)
+        for button in (self.main_button, self.later_button, self.skip_button):
+            row.addWidget(button)
+        column.addLayout(row)
+        self._answered = False
+
+    def _answer(self, handler):
+        self._answered = True
+        handler()
+
+    def _update(self):
+        self._answer(self.app.update_now)
+        self.accept()
+
+    def _open_page(self):
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.offer.page_url))
+        self._answer(self.app.update_later)
+        self.accept()
+
+    def _skip(self):
+        self._answer(self.app.skip_update)
+        self.accept()
+
+    def done(self, result):
+        if not self._answered:  # Later, Esc or the window's close button
+            self._answer(self.app.update_later)
+        super().done(result)
+
+
 class QtPanelView:
     """The Panel widget over ``app`` (see ``app.App``)."""
 
     def __init__(self, app):
         self.app = app
+        self.update_dialog = None  # the non-blocking windows of the updater
+        self.message_box = None
         self.dragging = None  # the Button being dragged
         self.orientation = None
         self._plan = None
@@ -707,6 +781,8 @@ class QtPanelView:
         self.new_group_action = menu.addAction("New Group…")
         self.new_group_action.triggered.connect(lambda: self.new_group(len(self.app.layout.groups)))
         menu.addSeparator()
+        self.update_action = menu.addAction("Check for updates")
+        self.update_action.triggered.connect(self.app.check_for_updates)
         self.copy_action = menu.addAction("Copy diagnostics")
         self.copy_action.triggered.connect(self.copy_diagnostics)
         return menu
@@ -777,6 +853,44 @@ class QtPanelView:
     def show_status(self, text):
         self.status.setText(text)
         self.status_timer.start(STATUS_MS)
+
+    # -- self-update (R9) -------------------------------------------------------
+
+    def show_busy(self, text):
+        """"Checking for updates…" in the bar while the updater works; ``None`` clears it."""
+        if not _alive(self.widget):
+            return
+        self.status_timer.stop()
+        self.status.setText(text or "")
+
+    def offer_update(self, offer):
+        """The non-blocking update dialog. A newer offer replaces one still open."""
+        if not _alive(self.widget):
+            return
+        self._close_window("update_dialog")
+        dialog = UpdateDialog(offer, self.app, self.widget)
+        dialog.show()
+        dialog.raise_()
+        self.update_dialog = dialog
+
+    def show_message(self, text):
+        """A non-blocking message box (the updater's results). The reference is kept."""
+        if not _alive(self.widget):
+            return
+        self._close_window("message_box")
+        box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Information, "Shelf+", text,
+                                    QtWidgets.QMessageBox.StandardButton.Ok, self.widget)
+        box.setObjectName(OBJECT_NAME + "Message")
+        box.setModal(False)
+        box.show()
+        self.message_box = box
+
+    def _close_window(self, name):
+        window = getattr(self, name, None)
+        setattr(self, name, None)
+        if _alive(window):
+            window.close()
+            window.deleteLater()
 
     def notify(self, text):
         """A message from the App (e.g. a brush that could not be activated), shown for a
@@ -1184,6 +1298,8 @@ class QtPanelView:
     # -- teardown -------------------------------------------------------------
 
     def dispose(self):
+        self._close_window("update_dialog")
+        self._close_window("message_box")
         widget, self.widget = self.widget, None
         self.escape_filter.remove()
         if widget is not None and isValid(widget):

@@ -3,7 +3,9 @@
     python tools/build_release.py v0.1.0 [--out dist]
 
 The zip holds ``ShelfPlus/`` exactly as it goes into Painter's plugins folder: the
-loader, ``VERSION`` (version and ``min_loader``) and ``bundled/``. The tag must match
+loader, ``VERSION`` (version and ``min_loader``) and ``bundled/``. ``VERSION`` is also
+published as its own asset, so the updater knows ``min_loader`` before it downloads
+anything. The tag must match
 the version in ``src/ShelfPlus/VERSION``; a suffix (``v0.1.0-rc.1``) marks a
 pre-release and does not change the version inside the zip.
 """
@@ -52,6 +54,7 @@ def build(tag, out_dir):
 
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
     (out_dir / "SHA256SUMS").write_text(f"{digest}  {zip_path.name}\n", encoding="utf-8", newline="\n")
+    (out_dir / "VERSION").write_bytes((PLUGIN / "VERSION").read_bytes())  # read by the updater
     return zip_path
 
 
