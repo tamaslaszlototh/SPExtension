@@ -89,7 +89,7 @@ class StepTree(QtWidgets.QListWidget):
         finally:
             self.drag_source = None
             # after the drag's own event loop: the tree is rebuilt from the draft
-            QtCore.QTimer.singleShot(0, self.editor, self.editor.refresh)  # not once it is gone
+            self.editor.refresh_later()
 
     def _ours(self, event):
         return event.source() is self and self.drag_source is not None
@@ -241,6 +241,15 @@ class WorkflowEditor(QtWidgets.QFrame):
         bottom.addWidget(self.save_button)
         column.addLayout(bottom)
 
+        # Redraws once the current event is over (after a drag's own event loop). Parented
+        # to the editor, so it cannot fire once the editor is gone. (Not
+        # ``QTimer.singleShot(0, context, callable)``: PySide6 6.5 in Painter 11.1 has no
+        # such call, and a drop was lost to the TypeError.)
+        self.refresh_timer = QtCore.QTimer(self)
+        self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.setInterval(0)
+        self.refresh_timer.timeout.connect(self.refresh)
+
         self.refresh()
 
     # -- drawing -------------------------------------------------------------
@@ -264,6 +273,9 @@ class WorkflowEditor(QtWidgets.QFrame):
         if draft.steps:
             return self._step_icon(draft.steps[0])
         return QtGui.QIcon()
+
+    def refresh_later(self):
+        self.refresh_timer.start()
 
     def refresh(self):
         """Redraw everything from the draft (not the settings fields being typed in)."""
@@ -385,7 +397,7 @@ class WorkflowEditor(QtWidgets.QFrame):
     def drop_row(self, source, gap):
         if not self.draft.drop(source, gap):
             self.view.show_status("A Step cannot go there; it was put back.")
-        QtCore.QTimer.singleShot(0, self, self.refresh)
+        self.refresh_later()
 
     def delete_row(self, index):
         count = blocks.block_size(self.draft.steps, index)
