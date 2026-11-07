@@ -34,10 +34,10 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
    - ✅ *Black mask* is indented under *Fill layer*.
 3. Click **+ Add Step → Effect → Generator on the mask**.
    - ✅ The row says **Generator ⚠ choose resource**, and Save is greyed out.
-4. With that row selected, drag the **Dirt** generator from the Assets window (Generators) onto the editor.
-   - ✅ The row now says **Dirt**, and the ⚠ is gone.
+4. With that row selected, paste `resource://starter_assets/mg_dirt/mg_dirt` into the **Resource** field below the Steps. (Generators cannot be dragged out of the Assets window, so this field is the way to choose one.)
+   - ✅ The row now says **mg_dirt**, and the ⚠ is gone.
 5. Click **+ Add Step → Setting → Opacity**. Below the Steps, keep **BaseColor** ticked and set it to **50 %**.
-   - ✅ The name at the top reads **Fill layer + Black mask + Dirt + Opacity 50%**.
+   - ✅ The name at the top reads **Fill layer + Black mask + mg_dirt + Opacity 50%**.
 6. Click **Save**.
    - ✅ The Groups come back, with a new tile at the end of *General*. Its icon is the Fill layer Step's icon.
 7. Select a layer in the Layers window and click the new tile **once**.
@@ -75,7 +75,16 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 2. Select a layer in the Layers window and click **Use selected layer's name**.
    - ✅ The name field shows that layer's name, and Save works.
 
-### F. Delete a Workflow from the editor
+### F. A smart mask dropped from the Assets window
+
+1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, then **+ Add Step → Mask → Smart mask**.
+   - ✅ The smart mask row says **Smart mask ⚠ choose resource**.
+2. With that row selected, drag any **smart mask** from the Assets window (Smart masks) onto the editor.
+   - ✅ The row now shows the smart mask's name, and the ⚠ is gone.
+   - If the drag does not start or nothing changes, write down which smart mask you tried.
+3. Click **Cancel**.
+
+### G. Delete a Workflow from the editor
 
 1. Open the editor on one of the Workflows you made and click the **bin** next to the name.
    - ✅ You are asked *Delete "…"?*. **No** leaves everything as it was.
@@ -89,12 +98,13 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
 | 1. Install: ☰ shows v0.7.0 | | | |
-| A. Build Fill + Black mask + Dirt + Opacity 50%, run it | | | |
+| A. Build Fill + Black mask + mg_dirt + Opacity 50%, run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |
 | D. Own icon from disk | | | |
 | E. Select layer by name | | | |
-| F. Delete from the editor asks first | | | |
+| F. Smart mask dropped from the Assets window | | | |
+| G. Delete from the editor asks first | | | |
 
 **If something fails:**
 

@@ -38,10 +38,10 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
    - ✅ A *Black mask* beljebb húzva, a *Fill layer* alatt áll.
 3. Kattints a **+ Add Step → Effect → Generator on the mask** pontra.
    - ✅ A sorban ez áll: **Generator ⚠ choose resource**, és a Save szürke.
-4. Amíg ez a sor ki van jelölve, húzd rá a szerkesztőre az Assets ablakból (Generators) a **Dirt** generatort.
-   - ✅ A sorban most **Dirt** áll, és eltűnt a ⚠.
+4. Amíg ez a sor ki van jelölve, másold be a Step-ek alatti **Resource** mezőbe ezt: `resource://starter_assets/mg_dirt/mg_dirt`. (Generatort nem lehet kihúzni az Assets ablakból, ezért ezzel a mezővel lehet kiválasztani.)
+   - ✅ A sorban most **mg_dirt** áll, és eltűnt a ⚠.
 5. Kattints a **+ Add Step → Setting → Opacity** pontra. A Step-ek alatt hagyd bepipálva a **BaseColor** sort, és állítsd **50 %**-ra.
-   - ✅ Fent a név: **Fill layer + Black mask + Dirt + Opacity 50%**.
+   - ✅ Fent a név: **Fill layer + Black mask + mg_dirt + Opacity 50%**.
 6. Kattints a **Save** gombra.
    - ✅ Visszajönnek a Groupok, és a *General* végén ott egy új csempe. Az ikonja a Fill layer Step ikonja.
 7. Jelölj ki egy layert a Layers ablakban, és kattints **egyszer** az új csempére.
@@ -79,7 +79,16 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 2. Jelölj ki egy layert a Layers ablakban, és kattints a **Use selected layer's name** gombra.
    - ✅ A névmezőben megjelenik a layer neve, és a Save már működik.
 
-### F. Workflow törlése a szerkesztőből
+### F. Smart mask behúzása az Assets ablakból
+
+1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, majd **+ Add Step → Mask → Smart mask**.
+   - ✅ A smart mask sorában ez áll: **Smart mask ⚠ choose resource**.
+2. Amíg ez a sor ki van jelölve, húzz rá a szerkesztőre egy tetszőleges **smart maskot** az Assets ablakból (Smart masks).
+   - ✅ A sorban most a smart mask neve áll, és eltűnt a ⚠.
+   - Ha a húzás el sem indul, vagy nem változik semmi, írd fel, melyik smart maskkal próbáltad.
+3. Kattints a **Cancel** gombra.
+
+### G. Workflow törlése a szerkesztőből
 
 1. Nyisd meg a szerkesztőben az egyik általad készített Workflow-t, és kattints a név melletti **kuka** ikonra.
    - ✅ Rákérdez: *Delete "…"?*. A **No** mindent úgy hagy, ahogy volt.
@@ -93,12 +102,13 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
 | 1. Telepítés: a ☰ v0.7.0-t mutat | | | |
-| A. Fill + Black mask + Dirt + Opacity 50% összerakása és futtatása | | | |
+| A. Fill + Black mask + mg_dirt + Opacity 50% összerakása és futtatása | | | |
 | B. Dupla kattintás újranyit; Opacity a Startba | | | |
 | C. A Save és a layer sor visszaugrik | | | |
 | D. Saját ikon lemezről | | | |
 | E. Layer kiválasztása név alapján | | | |
-| F. A szerkesztőből törlés előtt rákérdez | | | |
+| F. Smart mask behúzása az Assets ablakból | | | |
+| G. A szerkesztőből törlés előtt rákérdez | | | |
 
 **Ha valami nem sikerül:**
 
