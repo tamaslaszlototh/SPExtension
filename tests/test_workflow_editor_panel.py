@@ -438,3 +438,20 @@ def test_per_channel_values_follow_each_channels_range_and_start(app, qt_app, ad
     assert editor.fields["colour_Normal"].text() == "#8080ff"
     height.setValue(-0.4)
     assert editor.draft.steps[0]["sources"]["Height"] == {"value": -0.4} and editor.draft.problem is None
+
+
+def test_number_fields_keep_the_number_off_their_buttons(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Opacity")
+    editor.select_step(0)
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+
+    def margins(spin):
+        m = spin.lineEdit().textMargins()
+        return m.left(), m.right()
+
+    assert margins(editor.fields["value_Roughness"]) == (6, 6)
+    editor.select_step(1)  # the settings are rebuilt for the Opacity Step
+    assert margins(editor.fields["opacity"]["BaseColor"][1]) == (6, 6)

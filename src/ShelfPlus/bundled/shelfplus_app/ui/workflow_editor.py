@@ -51,6 +51,16 @@ CONTENT_DEFAULT, CONTENT_MATERIAL, CONTENT_CHANNELS = "Painter's default", "One 
 SOURCE_VALUE, SOURCE_RESOURCE = "Value", "Resource"
 
 
+NUMBER_PADDING = 6  # px between a number field's text and its edges and buttons
+
+
+def padded(spin):
+    """A number field whose number does not touch its + / - buttons. Text margins, not a
+    stylesheet: a stylesheet would replace how Painter's style draws the buttons."""
+    spin.lineEdit().setTextMargins(NUMBER_PADDING, 0, NUMBER_PADDING, 0)
+    return spin
+
+
 def image_png(path, size=ICON_PX):
     """The image file at ``path`` as PNG bytes, scaled down to ``size`` px; ``None`` if it
     cannot be read."""
@@ -754,7 +764,7 @@ class WorkflowEditor(QtWidgets.QFrame):
             button.clicked.connect(pick_colour)
             row.addWidget(button, 1)
         else:
-            spin = QtWidgets.QDoubleSpinBox()
+            spin = padded(QtWidgets.QDoubleSpinBox())
             spin.setObjectName(f"{OBJECT_NAME}Value")
             spin.setRange(*value_range(channel))  # Height -1 to 1, IOR 1 to 3…
             spin.setDecimals(3)
@@ -802,7 +812,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         for channel in CHANNELS + [c for c in values if c not in CHANNELS]:
             box = QtWidgets.QCheckBox(channel)
             box.setChecked(channel in values)
-            spin = QtWidgets.QSpinBox()
+            spin = padded(QtWidgets.QSpinBox())
             spin.setRange(0, 100)
             spin.setSuffix(" %")
             spin.setValue(round(values.get(channel, 100)))
