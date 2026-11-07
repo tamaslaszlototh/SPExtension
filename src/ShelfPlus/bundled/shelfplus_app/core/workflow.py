@@ -36,6 +36,7 @@ UI_STEP_TYPES = ("select_brush", "run_action", "save")
 SCOPE_PREFIX = "Shelf+: "  # the History entry of a Workflow's layer changes
 
 NO_PROJECT = "open a project first"
+SELECTION_UNREADABLE = "Painter's selected layer could not be read. See the log."
 LAYER_NAMES = {"fill": "Fill layer", "paint": "Paint layer", "folder": "folder"}
 
 
@@ -244,7 +245,9 @@ class WorkflowRun:
             try:
                 start = self.adapter.selected_layer()
             except Exception:
+                # not "nothing selected": that would put new layers on top of the stack
                 log.exception("Could not read the selected layer")
+                return self._not_started(FAILED, SELECTION_UNREADABLE), None
             # the first block: the Steps before the first one that creates or picks a layer
             for index, step in enumerate(steps[: self.first_ui]):
                 if not needs_current_layer(step):

@@ -142,7 +142,7 @@ class PainterAdapter:
         effect selected, its layer; with several layers selected, the first."""
         import substance_painter.layerstack as ls
 
-        selected = ls.get_selected_nodes(ls.get_active_stack())
+        selected = ls.get_selected_nodes(_active_stack())
         if not selected:
             return None
         if len(selected) > 1:
@@ -158,10 +158,10 @@ class PainterAdapter:
         import substance_painter.layerstack as ls
 
         if above is None:
-            position = ls.InsertPosition.from_textureset_stack(ls.get_active_stack())
+            position = ls.InsertPosition.from_textureset_stack(_active_stack())
         else:
             position = ls.InsertPosition.above_node(above)
-        insert = {"fill": ls.insert_fill, "paint": ls.insert_paint, "folder": ls.insert_group}[kind]
+        insert = getattr(ls, {"fill": "insert_fill", "paint": "insert_paint", "folder": "insert_group"}[kind])
         node = insert(position)
         if name:
             node.set_name(name)
@@ -200,7 +200,7 @@ class PainterAdapter:
         import substance_painter.layerstack as ls
 
         found = []
-        pending = list(ls.get_root_layer_nodes(ls.get_active_stack()))
+        pending = list(ls.get_root_layer_nodes(_active_stack()))
         while pending:
             node = pending.pop()
             if node.get_name() == name:
@@ -229,6 +229,13 @@ class PainterAdapter:
         timer.timeout.connect(callback)
         timer.start()
         return timer
+
+
+def _active_stack():
+    """The layer stack of the active texture set (``textureset``, not ``layerstack``)."""
+    import substance_painter.textureset as ts
+
+    return ts.get_active_stack()
 
 
 _LAYER_TYPES = ("FillLayer", "PaintLayer", "GroupLayer", "InstanceLayer")

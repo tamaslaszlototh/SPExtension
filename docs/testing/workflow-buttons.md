@@ -1,4 +1,4 @@
-# Testing Workflow buttons (Shelf+ v0.5.0-rc.1)
+# Testing Workflow buttons (Shelf+ v0.5.1-rc.1)
 
 This build makes **Workflow buttons** run. A Workflow button does several things in Painter with one click, and one **Ctrl+Z** undoes all of its layer changes.
 
@@ -22,12 +22,12 @@ One run takes about 10 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.5.0-rc.1.zip** from the [v0.5.0-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.5.0-rc.1).
+2. Download **ShelfPlus-v0.5.1-rc.1.zip** from the [v0.5.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.5.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.5.0**.
-   - If it says an older version, or Painter showed "Shelf+ v0.5.0 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.5.1**.
+   - If it says an older version, or Painter showed "Shelf+ v0.5.1 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
 
 ## 2. The checks
@@ -86,7 +86,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.5.0 | | | |
+| 1. Install: ☰ shows v0.5.1 | | | |
 | A. A layer selected (and one Ctrl+Z) | | | |
 | B. A layer inside a folder | | | |
 | C. A folder selected | | | |

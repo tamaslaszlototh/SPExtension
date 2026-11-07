@@ -288,6 +288,20 @@ class TestPreflight:
         assert failed.message == "“W” did not start: Step 1 (Add black mask) needs a selected layer."
         self.untouched(adapter, before)
 
+    def test_an_unreadable_selection_stops_it(self, adapter, monkeypatch):
+        """Not read as "nothing selected", which would put the layer on top of the stack."""
+        before = adapter.stack.names()
+
+        def broken():
+            raise AttributeError("no get_active_stack")
+
+        monkeypatch.setattr(adapter, "selected_layer", broken)
+
+        failed = result(adapter, [FILL, BLACK], name="W")
+
+        assert failed.message == "“W” did not start: Painter's selected layer could not be read. See the log."
+        self.untouched(adapter, before)
+
     def test_no_selection_needed_when_a_layer_is_created_first(self, adapter):
         assert result(adapter, [FILL, BLACK]).ok
 
