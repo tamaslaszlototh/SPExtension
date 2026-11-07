@@ -1,4 +1,4 @@
-# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.2-rc.1)
+# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.3-rc.1)
 
 Ebben a verzióban már **saját Workflow-kat lehet összerakni a Panelen**, és a meglévőket is lehet javítani:
 
@@ -18,12 +18,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.7.2-rc.1.zip** fájlt a [v0.7.2-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.2-rc.1).
+2. Töltsd le a **ShelfPlus-v0.7.3-rc.1.zip** fájlt a [v0.7.3-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.3-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.2**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.2 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.3**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.3 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -38,11 +38,12 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
    - ✅ A *Black mask* beljebb húzva, a *Fill layer* alatt áll.
 3. Kattints a **+ Add Step → Effect → Generator on the mask** pontra.
    - ✅ A sorban ez áll: **Generator ⚠ choose resource**, és a Save szürke.
-4. Amíg ez a sor ki van jelölve, kattints a Step-ek alatti **Resource** mező melletti **Choose…** gombra, és írd be a keresőbe: `dirt`. (Generatort nem lehet kihúzni az Assets ablakból, ezért ebből a listából lehet kiválasztani.)
+4. Amíg ez a sor ki van jelölve, kattints a Step-ek alatti **Resource** sorban a **Choose…** gombra, és írd be a keresőbe: `dirt`. (Generatort nem lehet kihúzni az Assets ablakból, ezért ebből a listából lehet kiválasztani.)
    - ✅ A lista a Painter azon resource-ait mutatja, amelyek nevében benne van a *dirt*, mindegyik után a típusával.
    - Válaszd a **Dirt generatort**: vidd az egeret a sorok fölé, és azt válaszd, amelyiknek a címe `mg_dirt`-re végződik. Kattints a **Choose** gombra.
-   - ✅ A sorban most **Dirt** áll, és eltűnt a ⚠.
+   - ✅ A sorban most **Dirt** áll, eltűnt a ⚠, és a gombon is **Dirt** áll *Choose…* helyett.
    - Írd fel a Notes oszlopba, milyen típust mutatott mellette a lista.
+   - Kattints újra a **Dirt** gombra: ✅ újra megnyílik a lista, vagyis választhatnál mást is. Kattints a **Cancel** gombra.
 5. Kattints a **+ Add Step → Setting → Opacity** pontra. A Step-ek alatt hagyd bepipálva a **BaseColor** sort, és állítsd **50 %**-ra.
    - ✅ Fent a név: **Fill layer + Black mask + Dirt + Opacity 50%**.
 6. Kattints a **Save** gombra.
@@ -99,6 +100,8 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
    - ✅ Minden bepipált channel kap egy sort: **Value**, színgombbal (BaseColor) vagy 0 és 1 közötti számmal (Roughness, Metallic…).
 3. Kattints a **BaseColor** színgombjára, és válassz egy erős pirosat. A **Roughness** legyen **0.9**.
 4. A **Normal** sorában (vagy bármelyik másik channelnél) állítsd a **Value**-t **Resource**-ra, kattints a **Choose…** gombra, keress egy textúrát vagy procedurált (például `clouds`), és válaszd ki.
+   - ✅ A gombon most a kiválasztott resource neve áll.
+   - Próbáld ki a másik módot is: egy másik channelnél válts **Resource**-ra, és húzz rá egy textúrát az Assets ablakból (Textures) **a Choose… gombjára**. ✅ A gombon a textúra neve jelenik meg.
 5. Kattints a **Save** gombra. Jelölj ki egy layert, és kattints egyszer az új csempére.
    - ✅ Az új Fill layer tulajdonságainál a Height ki van kapcsolva, a BaseColor piros, a Roughness 0.9, és a 4. lépés channeljén a választott resource van.
    - Írd fel a Notes oszlopba, ha a piros világosabb vagy sötétebb, mint amit választottál.
@@ -120,7 +123,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.7.2-t mutat | | | |
+| 1. Telepítés: a ☰ v0.7.3-t mutat | | | |
 | A. Fill + Black mask + Dirt + Opacity 50% összerakása (Dirt a listából) és futtatása | | | |
 | B. Dupla kattintás újranyit; Opacity a Startba | | | |
 | C. A Save és a layer sor visszaugrik | | | |

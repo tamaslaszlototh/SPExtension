@@ -575,6 +575,25 @@ class App:
         name = resource.gui_name if resource is not None else resource_name(url)
         self.notify(f"Select the Step “{name}” is for, then drop it again.")
 
+    def dropped_resource(self, uri_list, wants_brush=False):
+        """A resource dropped onto one setting: ``{"resource", "resource_name"}``, or
+        ``None`` (the reason is shown). A brush setting takes only a brush, any other
+        setting anything but a brush."""
+        urls = resource_urls_from_drop(uri_list)
+        if not urls:
+            return None
+        resource = resolve(self.adapter, urls[0])
+        if resource is None:
+            self.notify(f"Painter does not know this resource: {urls[0]}")
+            return None
+        if wants_brush and not resource.is_brush:
+            self.notify(f"“{resource.gui_name}” is not a brush or tool preset.")
+            return None
+        if not wants_brush and resource.is_brush:
+            self.notify(f"“{resource.gui_name}” is a brush. This setting needs another kind of resource.")
+            return None
+        return {"resource": urls[0], "resource_name": resource.gui_name}
+
     def search_resources(self, query):
         """Painter's resources matching ``query``, for the resource picker."""
         try:

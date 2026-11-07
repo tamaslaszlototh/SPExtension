@@ -368,3 +368,55 @@ def test_the_resource_picker_lists_matches_by_name(app, qt_app):
     picker.run_search()
     assert picker.rows() == [] and not picker.ok_button.isEnabled()
     picker.deleteLater()
+
+
+def test_the_choose_button_shows_the_chosen_resource_and_still_chooses(app, qt_app, adapter, picks):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+    editor.fields["kind_Normal"].setCurrentText("Resource")
+    settled(qt_app)
+    assert editor.fields["choose_source_Normal"].text() == "Choose…"
+    assert "source_Normal" not in editor.fields  # no text box next to it
+
+    picks.append(DIRT)
+    editor.fields["choose_source_Normal"].click()
+    settled(qt_app)
+    assert editor.fields["choose_source_Normal"].text() == "Dirt"
+
+    picks.append(RUST)  # it still opens the list
+    editor.fields["choose_source_Normal"].click()
+    settled(qt_app)
+    assert editor.fields["choose_source_Normal"].text() == "Rust"
+    assert editor.draft.steps[0]["sources"]["Normal"] == {"resource": RUST, "resource_name": "Rust"}
+
+
+def test_a_resource_dropped_on_the_choose_button_is_chosen(app, qt_app, picks):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+    editor.fields["content"].setCurrentText("One material")
+    settled(qt_app)
+
+    assert editor.fields["choose_material"].accepts(f"{RUST}?version=abc\r\n")
+    editor.fields["choose_material"].drop_text(f"{RUST}?version=abc\r\n")
+    settled(qt_app)
+
+    assert editor.draft.steps[0]["material"] == {"resource": RUST, "resource_name": "Rust"}
+    assert editor.fields["choose_material"].text() == "Rust"
+
+
+def test_a_brush_dropped_on_a_choose_button_for_another_kind_is_refused(app, qt_app, adapter, picks):
+    adapter.add_resource(FakeResource("resource://a/Hard", "Hard"))
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Generator on the mask")
+    editor.select_step(1)
+
+    editor.fields["choose_resource"].drop_text("resource://a/Hard")
+    settled(qt_app)
+
+    assert "resource" not in editor.draft.steps[1]
+    assert app.view.notice.text() == "“Hard” is a brush. This setting needs another kind of resource."

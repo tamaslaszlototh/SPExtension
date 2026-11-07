@@ -159,6 +159,58 @@ class StepTree(QtWidgets.QListWidget):
             event.ignore()
 
 
+class ResourceButton(QtWidgets.QPushButton):
+    """A setting that takes a resource: "Choose…" until one is chosen, then its name. A
+    click opens the resource list; a resource dragged from the Assets window can be
+    dropped onto it."""
+
+    def __init__(self, editor, ref, picked, title, wants_brush=False):
+        super().__init__()
+        self.editor = editor
+        self.picked = picked
+        self.title = title
+        self.wants_brush = wants_brush
+        self.ref = ref
+        url = ref.get("resource") or ""
+        name = ref.get("resource_name") or resource_name(url)
+        self.setText(name or "Choose…")
+        tip = "Click to choose from Painter's resources, or drop one here from the Assets window."
+        self.setToolTip(f"{name}\n{url}\n\n{tip}" if url else tip)
+        self.setAcceptDrops(True)
+        self.clicked.connect(self.choose)
+
+    def choose(self):
+        resource = self.editor._pick_resource(self.title, self.ref.get("resource_name") or "")
+        if resource is not None:
+            self.picked({"resource": resource.url, "resource_name": resource.gui_name})
+
+    def accepts(self, text):
+        return "resource://" in (text or "")
+
+    def drop_text(self, text):
+        """A ``text/uri-list`` dropped onto the button."""
+        ref = self.editor.app.dropped_resource(text, self.wants_brush)
+        if ref is not None:
+            self.picked(ref)
+
+    def dragEnterEvent(self, event):
+        if self.accepts(_resource_text(event.mimeData())):
+            event.setDropAction(QtCore.Qt.DropAction.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        self.dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        text = _resource_text(event.mimeData())
+        if self.accepts(text):
+            event.setDropAction(QtCore.Qt.DropAction.CopyAction)
+            event.accept()
+            self.drop_text(text)
+
+
 class RowWidget(QtWidgets.QWidget):
     """A Step row's ↑, ↓ and X, right-aligned over the item."""
 
@@ -589,9 +641,10 @@ class WorkflowEditor(QtWidgets.QFrame):
             form.addRow(QtWidgets.QLabel("Saves the project."))
         if takes_resource(step):
             def picked(ref):
-                change(rebuild=True, resource=ref.get("resource") or None, resource_name=ref.get("resource_name"))
+                change(rebuild=True, resource=ref["resource"], resource_name=ref["resource_name"])
 
-            form.addRow("Resource", self._resource_field("resource", step, picked))
+            wants_brush = kind == "select_brush"
+            form.addRow("Resource", self._resource_field("resource", step, picked, wants_brush=wants_brush))
 
     # -- resource fields -----------------------------------------------------------
 
@@ -605,31 +658,13 @@ class WorkflowEditor(QtWidgets.QFrame):
         finally:
             picker.deleteLater()
 
-    def _resource_field(self, key, ref, picked, title="Choose a resource"):
-        """The name of the chosen resource (or its URL, editable) and "Choose…".
-        ``ref``: a dict with ``resource`` and maybe ``resource_name``; ``picked(new ref)``."""
-        box = QtWidgets.QWidget()
-        row = QtWidgets.QHBoxLayout(box)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(4)
-        url = ref.get("resource") or ""
-        edit = self._line(key, url, "Choose it, drop it here, or paste its resource:// URL")
-        if url:
-            edit.setToolTip(f"{ref.get('resource_name') or resource_name(url)}\n{url}")
-        edit.textEdited.connect(lambda text: picked({"resource": text.strip()}))
-        row.addWidget(edit, 1)
-        choose = QtWidgets.QPushButton("Choose…")
-        choose.setObjectName(f"{OBJECT_NAME}Choose{key.capitalize()}")
-        self.fields[f"choose_{key}"] = choose
-
-        def choose_one():
-            resource = self._pick_resource(title, ref.get("resource_name") or "")
-            if resource is not None:
-                picked({"resource": resource.url, "resource_name": resource.gui_name})
-
-        choose.clicked.connect(choose_one)
-        row.addWidget(choose)
-        return box
+    def _resource_field(self, key, ref, picked, title="Choose a resource", wants_brush=False):
+        """A ``ResourceButton``. ``ref``: a dict with ``resource`` and maybe
+        ``resource_name``; ``picked({"resource", "resource_name"})`` when one is chosen."""
+        button = ResourceButton(self, ref, picked, title, wants_brush)
+        button.setObjectName(f"{OBJECT_NAME}Choose{key.capitalize()}")
+        self.fields[f"choose_{key}"] = button
+        return button
 
     # -- a new layer's channels and content ----------------------------------------
 
@@ -682,7 +717,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         form.addRow("Content", combo)
         if mode == CONTENT_MATERIAL:
             def material_picked(ref):
-                change(rebuild="resource_name" in ref, material=ref)
+                change(rebuild=True, material=ref)
 
             form.addRow("Material", self._resource_field("material", step["material"], material_picked, "Choose a material"))
         elif mode == CONTENT_CHANNELS:
@@ -709,7 +744,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         row.addWidget(kind)
         if "resource" in source:
             row.addWidget(self._resource_field(f"source_{channel}", source,
-                                               lambda ref: set_source(ref, "resource_name" in ref),
+                                               lambda ref: set_source(ref, True),
                                                f"Choose a resource for {channel}"), 1)
         elif "color" in source:
             button = QtWidgets.QPushButton(source["color"])

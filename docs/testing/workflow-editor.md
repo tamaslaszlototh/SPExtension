@@ -1,4 +1,4 @@
-# Testing the Workflow editor (Shelf+ v0.7.2-rc.1)
+# Testing the Workflow editor (Shelf+ v0.7.3-rc.1)
 
 This build lets you **make your own Workflows on the Panel** and fix existing ones:
 
@@ -16,11 +16,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.7.2-rc.1.zip** from the [v0.7.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.2-rc.1).
+2. Download **ShelfPlus-v0.7.3-rc.1.zip** from the [v0.7.3-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.3-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.2**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.3**.
 
 Your own Layout stays as it is. This test adds a few Buttons, and you can delete them afterwards.
 
@@ -34,11 +34,12 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
    - ✅ *Black mask* is indented under *Fill layer*.
 3. Click **+ Add Step → Effect → Generator on the mask**.
    - ✅ The row says **Generator ⚠ choose resource**, and Save is greyed out.
-4. With that row selected, click **Choose…** next to the **Resource** field below the Steps. Type `dirt` in the search box. (Generators cannot be dragged out of the Assets window, so this list is the way to choose one.)
+4. With that row selected, click the **Choose…** button on the **Resource** line below the Steps. Type `dirt` in the search box. (Generators cannot be dragged out of the Assets window, so this list is the way to choose one.)
    - ✅ The list shows Painter's resources whose name contains *dirt*, each with its type after it.
    - Pick the **Dirt generator**: hover the rows, and choose the one whose address ends in `mg_dirt`. Click **Choose**.
-   - ✅ The row now says **Dirt**, and the ⚠ is gone.
+   - ✅ The row now says **Dirt**, the ⚠ is gone, and the button now reads **Dirt** instead of *Choose…*.
    - Write down in Notes what type the list showed next to it.
+   - Click the **Dirt** button again: ✅ the list opens again, so you could pick another one. Click **Cancel**.
 5. Click **+ Add Step → Setting → Opacity**. Below the Steps, keep **BaseColor** ticked and set it to **50 %**.
    - ✅ The name at the top reads **Fill layer + Black mask + Dirt + Opacity 50%**.
 6. Click **Save**.
@@ -95,6 +96,8 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
    - ✅ Each ticked channel gets a row: **Value** with a colour button (BaseColor) or a number from 0 to 1 (Roughness, Metallic…).
 3. Click the **BaseColor** colour button and pick a strong red. Set **Roughness** to **0.9**.
 4. On the **Normal** row (or any other channel), switch **Value** to **Resource**, click **Choose…**, search for a texture or procedural (for example `clouds`) and pick one.
+   - ✅ The button now shows the name of what you picked.
+   - Also try the other way: on another channel switch to **Resource**, and drag a texture from the Assets window (Textures) **onto its Choose… button**. ✅ The button shows the texture's name.
 5. Click **Save**. Select a layer and click the new tile once.
    - ✅ The new Fill layer's properties show Height switched off, BaseColor red, Roughness 0.9, and your resource on the channel from step 4.
    - Write down in Notes if the red looks lighter or darker than the one you picked.
@@ -116,7 +119,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.7.2 | | | |
+| 1. Install: ☰ shows v0.7.3 | | | |
 | A. Build Fill + Black mask + Dirt + Opacity 50% (Dirt chosen from the list), run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |
