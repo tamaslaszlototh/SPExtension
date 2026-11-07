@@ -16,6 +16,7 @@ from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
 from .core.workflow import run_workflow
+from .core.workflow_draft import WorkflowDraft, needs_resource, resource_name
 
 log = logging.getLogger("ShelfPlus.app")
 
@@ -76,7 +77,11 @@ class App:
         self.editor = None
         self.panel_state = None
         self._panel_state_unsaved = False
-        handlers = {"Brush button": self.explain_brush_drop, "Menu button": self.start_menu_capture}
+        handlers = {
+            "Brush button": self.explain_brush_drop,
+            "Menu button": self.start_menu_capture,
+            "Workflow button": self.new_workflow,
+        }
         self.add_button_kinds = [(label, handlers.get(label, handler)) for label, handler in ADD_BUTTON_KINDS]
         # ids of Brush buttons whose preset is not on this machine, and of Menu buttons
         # whose command is not in this Painter version
@@ -97,6 +102,9 @@ class App:
         self._loading_timer = None
         self._loading_checks = 0
         self._settled = False  # a brush not found can be trusted to be missing
+        # the Workflow editor (R7): the Workflow open in it, and the Group a new one goes to
+        self.workflow_draft = None
+        self._draft_group_id = None
         self.view = None
         self._dock = None
 
@@ -446,6 +454,146 @@ class App:
     def _render(self):
         if self.view is not None:
             self.view.render()
+
+    # -- the Workflow editor (R7) ------------------------------------------------
+
+    def new_workflow(self, group):
+        """"+ → Workflow button": the editor opens empty; saving adds the Workflow at the
+        end of ``group``."""
+        if self.view is None:  # closed meanwhile (the "+" menu starts it a moment later)
+            return
+        if self.read_only:
+            self.notify(READ_ONLY_MESSAGE)
+            return
+        self.workflow_draft = WorkflowDraft()
+        self._draft_group_id = group.id
+        log.info("Workflow editor: new Workflow in Group %r", group.name)
+        self._render()
+
+    def edit_workflow(self, button):
+        """A double-click on a Workflow button: the editor opens with its Steps."""
+        if self.view is None:
+            return
+        if self.read_only:
+            self.notify(READ_ONLY_MESSAGE)
+            return
+        if not button.valid or button.kind != "workflow":
+            self.notify(f"“{button.name}” cannot be edited: {button.problem or 'it is not a Workflow'}.")
+            return
+        self.workflow_draft = WorkflowDraft(button.raw["steps"], name=button.raw["name"], button_id=button.id)
+        self._draft_group_id = None
+        log.info("Workflow editor: editing %r", button.name)
+        self._render()
+
+    def draft_button(self):
+        draft = self.workflow_draft
+        if draft is None or draft.button_id is None:
+            return None
+        return next((b for g in self.layout.groups for b in g.buttons if b.id == draft.button_id), None)
+
+    def close_workflow_editor(self):
+        """Close the editor without saving."""
+        self.workflow_draft = None
+        self._draft_group_id = None
+        self._render()
+
+    def save_workflow(self):
+        """Save the open Workflow and close the editor. Returns its Button, or ``None`` if
+        it cannot be saved (the reason is shown; the editor stays open)."""
+        draft = self.workflow_draft
+        if draft is None:
+            return None
+        if draft.problem:
+            self.notify(draft.problem)
+            return None
+        try:
+            if draft.button_id is None:
+                group = self.editor.group(self._draft_group_id)
+                button = self.editor.add_button(group.id, len(group.buttons), draft.to_raw(), icon_png=draft.icon_png)
+            else:
+                button = self.draft_button()
+                if button is None:
+                    raise KeyError(draft.button_id)
+                self.editor.update_button(button, draft.to_raw(), icon_png=draft.icon_png, reset_icon=draft.icon_reset)
+        except ReadOnlyLayoutError as error:
+            self.notify(str(error))
+            return None
+        except KeyError:
+            log.exception("Saving the Workflow: its Button or Group is gone")
+            self.notify("The Workflow's Button or Group is no longer there.")
+            return None
+        except (ValueError, OSError):
+            log.exception("Saving the Workflow failed")
+            self.notify("The Workflow could not be saved. See the log.")
+            return None
+        log.info("Saved Workflow %r (%d Step(s))", button.name, len(draft.steps))
+        self.close_workflow_editor()
+        return button
+
+    def delete_workflow(self):
+        """The editor's trash, after the user said Yes: the Workflow button is deleted (the
+        Panel's Undo can bring it back). A new Workflow is just closed. Returns the
+        ``PendingDelete``, or ``None``."""
+        button = self.draft_button()
+        pending = None
+        if button is not None:
+            try:
+                pending = self.editor.delete_button(button)
+            except (ReadOnlyLayoutError, KeyError, OSError):
+                log.exception("Deleting the Workflow failed")
+                self.notify("The Workflow could not be deleted. See the log.")
+                return None
+            log.info("Deleted Workflow %r", button.name)
+        self.close_workflow_editor()
+        return pending
+
+    def workflow_resource_drop(self, uri_list):
+        """A resource dropped onto the editor: it fills the selected incomplete Step that
+        takes one; a brush otherwise adds a ``select_brush`` Step."""
+        draft = self.workflow_draft
+        urls = resource_urls_from_drop(uri_list)
+        if draft is None or not urls:
+            return
+        url = urls[0]
+        resource = resolve(self.adapter, url)
+        step = draft.selected_step
+        if step is not None and needs_resource(step) and resource is not None:
+            # a brush fills only a Brush Step, and a Brush Step takes only a brush
+            if step["type"] == "select_brush" and not resource.is_brush:
+                self.notify(f"“{resource.gui_name}” is not a brush or tool preset.")
+                return
+            if step["type"] != "select_brush" and resource.is_brush:
+                self.notify(f"“{resource.gui_name}” is a brush. This Step needs another kind of resource.")
+                return
+        if draft.fill_resource(url, resource.gui_name if resource is not None else None):
+            self._render()
+            return
+        if resource is not None and resource.is_brush:
+            draft.add({"type": "select_brush", "resource": url, "resource_name": resource.gui_name})
+            self._render()
+            return
+        name = resource.gui_name if resource is not None else resource_name(url)
+        self.notify(f"Select the Step “{name}” is for, then drop it again.")
+
+    def step_action_png(self, step):
+        """The icon of a ``run_action`` Step's command (PNG bytes), or ``None``."""
+        if step.get("type") != "run_action" or not step.get("action"):
+            return None
+        try:
+            action = self.adapter.find_action(step["action"])
+            return None if action is None else self.adapter.action_icon_png(action)
+        except Exception:
+            log.exception("Could not read the icon of %r", step["action"])
+            return None
+
+    def selected_layer_name(self):
+        """The name of the layer selected in Painter, or ``None``."""
+        try:
+            layer = self.adapter.selected_layer()
+            return None if layer is None else self.adapter.layer_name(layer)
+        except Exception:
+            log.exception("Could not read the selected layer's name")
+            return None
 
     # -- running ---------------------------------------------------------------
 

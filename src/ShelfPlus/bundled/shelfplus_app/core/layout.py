@@ -60,8 +60,13 @@ STEP_PARAMS = {
     "save": {},
 }
 
+# ``resource_name``: the resource's display name, stored with its URL (R3.2) when the
+# Workflow editor knows it.
 OPTIONAL_STEP_PARAMS = {
     "add_layer": {"name": lambda v: isinstance(v, str)},
+    "add_effect": {"resource_name": _text},
+    "add_smart": {"resource_name": _text},
+    "select_brush": {"resource_name": _text},
 }
 
 

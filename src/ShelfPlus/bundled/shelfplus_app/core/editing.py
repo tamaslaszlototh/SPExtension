@@ -115,6 +115,45 @@ class LayoutEditor:
             raise
         return button
 
+    def update_button(self, button, raw, icon_png=None, reset_icon=False):
+        """Replace a Button's content (the Workflow editor saving): ``raw`` is its new
+        JSON without ``id`` and ``icon``; it keeps its id and place. ``icon_png`` replaces
+        its icon (``icons/<id>.png``); ``reset_icon`` goes back to the automatic icon."""
+        self._check_writable()
+        self.locate(button)
+        data = {"id": button.id}
+        data.update((k, v) for k, v in raw.items() if k not in ("id", "icon"))
+        data["icon"] = None if reset_icon else button.raw.get("icon")
+        if icon_png:
+            data["icon"] = f"icons/{button.id}.png"
+        problem = Button.from_json(data).problem
+        if problem:
+            raise ValueError(f"the changed Button is invalid: {problem}")
+        old_raw, old_problem = dict(button.raw), button.problem
+        icon_file = self.data_dir / data["icon"] if icon_png else None
+        old_icon = icon_file.read_bytes() if icon_file is not None and icon_file.is_file() else None
+        try:
+            if icon_file is not None:
+                icon_file.parent.mkdir(parents=True, exist_ok=True)
+                icon_file.write_bytes(icon_png)
+            with self._change():
+                button.raw.clear()
+                button.raw.update(data)
+                button.problem = None
+        except BaseException:
+            button.raw.clear()
+            button.raw.update(old_raw)
+            button.problem = old_problem
+            if icon_file is not None:
+                if old_icon is None:
+                    icon_file.unlink(missing_ok=True)
+                else:
+                    icon_file.write_bytes(old_icon)
+            raise
+        old_icon_path = old_raw.get("icon")
+        if old_icon_path and old_icon_path != data["icon"]:  # reset, or replaced by icons/<id>.png
+            self._delete_icon(Button.from_json(old_raw))
+
     def move_button(self, button, group_id, index):
         """Move ``button`` so it lands before position ``index`` of the Group as it is now
         (``index`` counts the moved Button too, as a drop position does). Returns whether

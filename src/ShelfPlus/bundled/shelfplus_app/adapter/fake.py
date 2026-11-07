@@ -305,6 +305,9 @@ class FakeAdapter:
     def find_layers(self, name):
         return [layer for layer in self.stack.walk() if layer.name == name]
 
+    def layer_name(self, layer):
+        return layer.name
+
     def select_layer(self, layer):
         if self.stack.in_scope:
             raise RuntimeError("The selection cannot change inside a ScopedModification")

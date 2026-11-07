@@ -170,7 +170,8 @@ def test_moving_a_button_to_another_group_from_its_menu(app, qt_app):
     view = show(app, qt_app, 260, 700)
     fill = app.layout.groups[1].buttons[0]
 
-    [rename, move_to, delete] = view.button_actions(fill)
+    [edit, rename, move_to, delete] = view.button_actions(fill)
+    assert edit[0] == "Edit Workflow…"
     assert [rename[0], move_to[0], delete[0]] == ["Rename…", "Move to", "Delete"]
     target = next(entry for entry in move_to[2] if entry[0] == "Empty")
     target[2]()

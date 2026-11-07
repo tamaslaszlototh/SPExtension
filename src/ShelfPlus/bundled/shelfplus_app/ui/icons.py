@@ -1,5 +1,7 @@
 """Icons drawn at run time, so the release needs no image files."""
 
+import math
+
 from PySide6 import QtCore, QtGui
 
 KIND_COLOURS = {
@@ -147,5 +149,143 @@ def plus_icon():
     painter.setBrush(QtGui.QColor("#e6e6e6"))
     painter.drawRoundedRect(27, 8, 10, 48, 4, 4)
     painter.drawRoundedRect(8, 27, 48, 10, 4, 4)
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
+# -- the Step icon set (PRD R7.6) ----------------------------------------------------
+#
+# One colour per kind of Step: layers blue-grey, masks grey, effects teal, settings amber,
+# saving green. A Workflow without its own icon shows its first Step's icon.
+
+STEP_COLOURS = {
+    "layer": "#4a6d8c",
+    "mask": "#5f5f5f",
+    "effect": "#2f8f8a",
+    "setting": "#b07d1f",
+    "save": "#3fa66a",
+}
+
+
+def _tile(colour):
+    pixmap, painter = _canvas()
+    painter.setBrush(QtGui.QColor(colour))
+    painter.drawRoundedRect(2, 2, 60, 60, 10, 10)
+    return pixmap, painter
+
+
+def _layers(painter, top_colour="#ffffff"):
+    """Three stacked layer slabs; the top one in ``top_colour``."""
+    for y, colour in ((40, "#9fb6c9"), (30, "#c9d8e4"), (20, top_colour)):
+        painter.setBrush(QtGui.QColor(colour))
+        painter.drawPolygon(QtGui.QPolygonF([
+            QtCore.QPointF(32, y - 8), QtCore.QPointF(54, y), QtCore.QPointF(32, y + 8), QtCore.QPointF(10, y),
+        ]))
+
+
+def _star(painter, cx, cy, r, colour="#ffffff"):
+    points = []
+    for i in range(8):
+        radius = r if i % 2 == 0 else r * 0.38
+        angle = i * math.pi / 4
+        points.append(QtCore.QPointF(cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
+    painter.setBrush(QtGui.QColor(colour))
+    painter.drawPolygon(QtGui.QPolygonF(points))
+
+
+def _mask(painter, background="black"):
+    """A square split white / black, the mask's background bigger."""
+    painter.setBrush(QtGui.QColor("#ffffff"))
+    painter.drawRect(14, 14, 36, 36)
+    painter.setBrush(QtGui.QColor("#101010"))
+    if background == "black":
+        painter.drawRect(14, 14, 36, 36)
+        painter.setBrush(QtGui.QColor("#ffffff"))
+        painter.drawEllipse(24, 24, 16, 16)
+    else:
+        painter.drawEllipse(24, 24, 16, 16)
+
+
+def step_icon(step, action_png=None):
+    """The bundled icon of a Step; ``select_brush`` gets the brush icon and ``run_action``
+    its command's icon (``action_png``) or the generic menu icon."""
+    kind = step.get("type")
+    if kind == "select_brush":
+        return brush_icon()
+    if kind == "run_action":
+        if action_png:
+            pixmap = QtGui.QPixmap()
+            if pixmap.loadFromData(action_png):
+                return QtGui.QIcon(pixmap)
+        return menu_icon()
+    if kind == "add_layer":
+        pixmap, painter = _tile(STEP_COLOURS["layer"])
+        top = {"fill": "#7fc4f0", "paint": "#ffffff", "folder": "#f0c96a"}.get(step.get("layer"), "#ffffff")
+        _layers(painter, top)
+    elif kind == "select_layer":
+        pixmap, painter = _tile(STEP_COLOURS["layer"])
+        _layers(painter)
+        painter.setBrush(QtGui.QColor("#d9822b"))  # a pointer on the top layer
+        painter.drawPolygon(QtGui.QPolygonF([
+            QtCore.QPointF(36, 26), QtCore.QPointF(56, 40), QtCore.QPointF(47, 42), QtCore.QPointF(52, 54),
+            QtCore.QPointF(47, 56), QtCore.QPointF(42, 44), QtCore.QPointF(36, 50),
+        ]))
+    elif kind == "add_smart" and step.get("smart") == "material":
+        pixmap, painter = _tile(STEP_COLOURS["layer"])
+        _layers(painter, "#f0c96a")
+        _star(painter, 46, 46, 12, "#d9822b")
+    elif kind == "add_mask":
+        pixmap, painter = _tile(STEP_COLOURS["mask"])
+        _mask(painter, step.get("background"))
+    elif kind == "add_smart":
+        pixmap, painter = _tile(STEP_COLOURS["mask"])
+        _mask(painter)
+        _star(painter, 46, 46, 12, "#d9822b")
+    elif kind == "add_effect":
+        pixmap, painter = _tile(STEP_COLOURS["effect"])
+        effect = step.get("effect")
+        painter.setBrush(QtGui.QColor("#ffffff"))
+        if effect == "generator":
+            _star(painter, 32, 32, 22)
+        elif effect == "filter":
+            painter.drawPolygon(QtGui.QPolygonF([
+                QtCore.QPointF(12, 14), QtCore.QPointF(52, 14), QtCore.QPointF(36, 34),
+                QtCore.QPointF(36, 52), QtCore.QPointF(28, 48), QtCore.QPointF(28, 34),
+            ]))
+        elif effect == "levels":
+            for x, h in ((14, 14), (24, 30), (34, 22), (44, 38)):
+                painter.drawRect(x, 52 - h, 7, h)
+        else:  # the anchor point
+            painter.drawEllipse(26, 10, 12, 12)
+            painter.drawRect(30, 20, 4, 30)
+            painter.drawRect(18, 28, 28, 4)
+            painter.drawPie(14, 30, 36, 24, 180 * 16, 180 * 16)
+            painter.setBrush(QtGui.QColor(STEP_COLOURS["effect"]))
+            painter.drawPie(20, 30, 24, 16, 180 * 16, 180 * 16)
+        if step.get("target") == "mask":
+            painter.setBrush(QtGui.QColor("#101010"))  # a small mask badge
+            painter.drawRect(44, 44, 14, 14)
+    elif kind == "set_blend":
+        pixmap, painter = _tile(STEP_COLOURS["setting"])
+        painter.setBrush(QtGui.QColor(255, 255, 255, 200))
+        painter.drawEllipse(10, 16, 30, 30)
+        painter.setBrush(QtGui.QColor(32, 32, 32, 160))
+        painter.drawEllipse(24, 16, 30, 30)
+    elif kind == "set_opacity":
+        pixmap, painter = _tile(STEP_COLOURS["setting"])
+        for row in range(4):  # a checkerboard fading out
+            for col in range(4):
+                if (row + col) % 2 == 0:
+                    painter.setBrush(QtGui.QColor(255, 255, 255, 60 + 60 * col))
+                    painter.drawRect(12 + col * 10, 12 + row * 10, 10, 10)
+    elif kind == "save":
+        pixmap, painter = _tile(STEP_COLOURS["save"])
+        painter.setBrush(QtGui.QColor("#ffffff"))  # a floppy disk
+        painter.drawRoundedRect(14, 14, 36, 36, 4, 4)
+        painter.setBrush(QtGui.QColor(STEP_COLOURS["save"]))
+        painter.drawRect(22, 14, 18, 12)
+        painter.drawRect(20, 34, 24, 14)
+    else:
+        pixmap, painter = _tile(INVALID_COLOUR)
     painter.end()
     return QtGui.QIcon(pixmap)

@@ -252,6 +252,9 @@ class PainterAdapter:
                 pending.extend(node.sub_layers())
         return found
 
+    def layer_name(self, layer):
+        return layer.get_name()
+
     def select_layer(self, layer):
         import substance_painter.layerstack as ls
 

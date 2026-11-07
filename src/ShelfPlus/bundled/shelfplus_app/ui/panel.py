@@ -28,8 +28,9 @@ from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orien
 from ..core.menu import search_actions
 from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
 from ..core.storage import ReadOnlyLayoutError
-from .icons import automatic_icon, menu_icon, panel_icon, plus_icon, trash_icon, with_warning_badge
+from .icons import automatic_icon, menu_icon, panel_icon, plus_icon, step_icon, trash_icon, with_warning_badge
 from .pen_hover import PenHover
+from .workflow_editor import WorkflowEditor
 
 log = logging.getLogger("ShelfPlus.app.panel")
 
@@ -68,7 +69,12 @@ def button_icon(app, button):
     """The Button's own icon file, or its automatic icon if it has none or it cannot be read."""
     path = app.icon_path(button)
     icon = QtGui.QIcon(str(path)) if path is not None else QtGui.QIcon()
-    return icon if not icon.isNull() else automatic_icon(button)
+    if not icon.isNull():
+        return icon
+    if button.valid and button.kind == "workflow":  # the first Step's icon (R7.6)
+        first = button.raw["steps"][0]
+        return step_icon(first, app.step_action_png(first))
+    return automatic_icon(button)
 
 
 class MenuButton(QtWidgets.QToolButton):
@@ -171,8 +177,15 @@ class Tile(QtWidgets.QToolButton):
             self.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda pos: view.button_menu(button, self.mapToGlobal(pos)))
-        self.clicked.connect(lambda: view.app.run_button(button))
         self._press = None
+        self.opens_editor = button.valid and button.kind == "workflow"
+        self.clicked.connect(lambda: view.click_button(button))
+
+    def mouseDoubleClickEvent(self, event):
+        if self.opens_editor and event.button() == QtCore.Qt.MouseButton.LeftButton:
+            self.view.edit_workflow(self.button)
+            return
+        super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
@@ -394,11 +407,11 @@ class ActionPicker(QtWidgets.QDialog):
     """The searchable list of Painter's commands (the fallback of capture mode, and on
     11.1 the only way to add a command from a submenu)."""
 
-    def __init__(self, app, group, parent=None):
+    def __init__(self, app, group=None, parent=None, title=None):
         super().__init__(parent)
         self.app = app
         self.setObjectName(OBJECT_NAME + "ActionPicker")
-        self.setWindowTitle(f"Add a Menu button to {group.name}")
+        self.setWindowTitle(title or f"Add a Menu button to {group.name}")
         self.resize(420, 480)
         column = QtWidgets.QVBoxLayout(self)
         self.search = QtWidgets.QLineEdit()
@@ -534,6 +547,8 @@ class QtPanelView:
         self.scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         root.addWidget(self.scroll, 1)
+        self.workflow_editor = None  # shown in place of the Groups while a Workflow is edited
+        self._root = root
         self.content = None
         self._wheel = _SidewaysWheel(self)
         self.scroll.viewport().installEventFilter(self._wheel)
@@ -554,6 +569,13 @@ class QtPanelView:
         self.relayout_timer.setSingleShot(True)
         self.relayout_timer.setInterval(0)
         self.relayout_timer.timeout.connect(self.relayout_if_needed)
+        # A Workflow button runs only once no second click follows: a double-click opens
+        # the editor instead and must not run it first. On the view, not the tile, so a
+        # re-render in between does not lose the click.
+        self.run_timer = QtCore.QTimer(widget)
+        self.run_timer.setSingleShot(True)
+        self.run_timer.timeout.connect(self._run_clicked)
+        self._clicked = None
 
         self.pen_hover = PenHover(widget, paused=lambda: self.dragging is not None)
 
@@ -760,6 +782,7 @@ class QtPanelView:
         self.messages.setText("\n".join(self.app.messages))
         self.messages.setVisible(bool(self.app.messages))
         self._sync_capture_bar()
+        self._sync_workflow_editor()
 
         self._plan = self._compute_plan()
         old = self.scroll.takeWidget()
@@ -784,6 +807,23 @@ class QtPanelView:
         else:
             self._build_tall(self._plan.columns)
         self.scroll.setWidget(self.content)
+
+    def _sync_workflow_editor(self):
+        """The editor in place of the Groups while ``app.workflow_draft`` is open."""
+        draft = self.app.workflow_draft
+        editor = self.workflow_editor
+        if editor is not None and (draft is None or editor.draft is not draft):
+            self.workflow_editor = None
+            if _alive(editor):
+                editor.hide()
+                editor.deleteLater()
+            editor = None
+        if draft is not None and editor is None:
+            self.workflow_editor = WorkflowEditor(self, draft)
+            self._root.addWidget(self.workflow_editor, 1)
+        elif editor is not None:
+            editor.refresh()
+        self.scroll.setVisible(draft is None)
 
     def _header(self, group):
         collapsed = self.app.is_collapsed(group.id)
@@ -967,14 +1007,31 @@ class QtPanelView:
             self.notify("The brush could not be added. See the log.")
 
     def delete_button(self, button):
-        def change():
-            pending = self.app.editor.delete_button(button)
-            self.undo_label.setText(f"Deleted “{pending.name}”.")
-            self.undo_label.show()
-            self.undo_button.show()
-            self.undo_timer.start()
+        self._edit(lambda: self.show_undo(self.app.editor.delete_button(button)))
 
-        self._edit(change)
+    def show_undo(self, pending):
+        """"Deleted “X”.  Undo" for a few seconds."""
+        self.undo_label.setText(f"Deleted “{pending.name}”.")
+        self.undo_label.show()
+        self.undo_button.show()
+        self.undo_timer.start()
+
+    def click_button(self, button):
+        if not (button.valid and button.kind == "workflow"):
+            self.app.run_button(button)
+            return
+        self._clicked = button
+        self.run_timer.start(QtWidgets.QApplication.doubleClickInterval())
+
+    def _run_clicked(self):
+        button, self._clicked = self._clicked, None
+        if button is not None:
+            self.app.run_button(button)
+
+    def edit_workflow(self, button):
+        self.run_timer.stop()
+        self._clicked = None
+        self.app.edit_workflow(button)
 
     def undo_delete(self):
         self.undo_timer.stop()
@@ -1021,7 +1078,10 @@ class QtPanelView:
         editable = not self.app.read_only
         others = [g for g in self.app.layout.groups if all(b is not button for b in g.buttons)]
         moves = [(g.name, True, lambda g=g: self.move_button(button, g.id, len(g.buttons))) for g in others]
-        return [
+        entries = []
+        if button.kind == "workflow":
+            entries.append(("Edit Workflow…", editable and button.valid, lambda: self.edit_workflow(button)))
+        return entries + [
             ("Rename…", editable and button.valid, lambda: self.rename_button(button)),
             ("Move to", editable and bool(moves), moves),
             ("Delete", editable, lambda: self.delete_button(button)),
@@ -1072,6 +1132,7 @@ class QtPanelView:
         self.escape_filter.remove()
         if widget is not None and isValid(widget):
             self.pen_hover.stop()
-            for timer in (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer):
+            timers = (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer, self.run_timer)
+            for timer in timers:
                 timer.stop()
             widget.deleteLater()
