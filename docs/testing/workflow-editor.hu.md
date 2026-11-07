@@ -1,4 +1,4 @@
-# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.3-rc.1)
+# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.4-rc.1)
 
 Ebben a verzióban már **saját Workflow-kat lehet összerakni a Panelen**, és a meglévőket is lehet javítani:
 
@@ -18,12 +18,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.7.3-rc.1.zip** fájlt a [v0.7.3-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.3-rc.1).
+2. Töltsd le a **ShelfPlus-v0.7.4-rc.1.zip** fájlt a [v0.7.4-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.4-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.3**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.3 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.4**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.4 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -50,6 +50,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
    - ✅ Visszajönnek a Groupok, és a *General* végén ott egy új csempe. Az ikonja a Fill layer Step ikonja.
 7. Jelölj ki egy layert a Layers ablakban, és kattints **egyszer** az új csempére.
    - ✅ A kijelölt layer fölött megjelenik egy Fill layer fekete maszkkal, a maszkban Dirt generatorral, és a BaseColor opacity-je 50%.
+   - ✅ Az új Fill layer tulajdonságainál **minden channel be van kapcsolva**, mint amikor a Painterben kézzel adsz hozzá Fill layert.
    - ✅ Egyetlen **Ctrl+Z** mindezt visszavonja.
 
 ### B. Újranyitás, az Opacity áttétele a Start blokkba
@@ -126,7 +127,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.7.3-t mutat | | | |
+| 1. Telepítés: a ☰ v0.7.4-t mutat | | | |
 | A. Fill + Black mask + Dirt + Opacity 50% összerakása (Dirt a listából) és futtatása | | | |
 | B. Dupla kattintás újranyit; Opacity a Startba | | | |
 | C. A Save és a layer sor visszaugrik | | | |

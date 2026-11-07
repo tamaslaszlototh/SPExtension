@@ -1,4 +1,4 @@
-# Testing the Workflow editor (Shelf+ v0.7.3-rc.1)
+# Testing the Workflow editor (Shelf+ v0.7.4-rc.1)
 
 This build lets you **make your own Workflows on the Panel** and fix existing ones:
 
@@ -16,11 +16,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.7.3-rc.1.zip** from the [v0.7.3-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.3-rc.1).
+2. Download **ShelfPlus-v0.7.4-rc.1.zip** from the [v0.7.4-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.4-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.3**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.4**.
 
 Your own Layout stays as it is. This test adds a few Buttons, and you can delete them afterwards.
 
@@ -46,6 +46,7 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
    - ✅ The Groups come back, with a new tile at the end of *General*. Its icon is the Fill layer Step's icon.
 7. Select a layer in the Layers window and click the new tile **once**.
    - ✅ A Fill layer with a black mask, a Dirt generator in the mask and BaseColor opacity 50% appears above the selected layer.
+   - ✅ In the new Fill layer's properties **every channel is switched on**, as when you add a Fill layer in Painter yourself.
    - ✅ One **Ctrl+Z** removes all of it.
 
 ### B. Reopen it, move Opacity to the Start block
@@ -122,7 +123,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.7.3 | | | |
+| 1. Install: ☰ shows v0.7.4 | | | |
 | A. Build Fill + Black mask + Dirt + Opacity 50% (Dirt chosen from the list), run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |

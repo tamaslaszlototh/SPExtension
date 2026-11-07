@@ -97,10 +97,17 @@ def _require(current):
 
 def add_layer(adapter, step, current):
     """A new layer above the Current layer, then its active channels and (a Fill layer)
-    its content: one material, or per channel a colour, value or resource."""
+    its content: one material, or per channel a colour, value or resource.
+
+    A Fill or Paint layer made through Painter's Python API starts with no channel
+    switched on (unlike one made in Painter's own UI), so without chosen channels every
+    channel of the texture set is switched on: what the editor shows as all ticked."""
     layer = adapter.insert_layer(step["layer"], above=current, name=step.get("name") or None)
-    if "channels" in step:
-        adapter.set_active_channels(layer, list(step["channels"]))
+    channels = step.get("channels")
+    if channels is None and step["layer"] in ("fill", "paint"):
+        channels = _texture_channels(adapter)
+    if channels:
+        adapter.set_active_channels(layer, list(channels))
     if "material" in step:
         adapter.set_material(layer, step["material"]["resource"])
     for channel, source in step.get("sources", {}).items():
@@ -216,13 +223,17 @@ def _check_resources(adapter, step):
 
 
 def _texture_channels(adapter):
-    """The channels of the active texture set, or ``None`` if Painter cannot tell."""
+    """The channels of the active texture set (in Painter's order), or ``None`` if Painter
+    cannot tell."""
     try:
         channels = adapter.stack_channels()
     except Exception:
         log.exception("Could not read the texture set's channels")
         return None
-    return None if channels is None else set(channels)
+    if channels is None:
+        log.warning("Painter did not list the texture set's channels")
+        return None
+    return list(channels)
 
 
 def _project_ready(adapter):

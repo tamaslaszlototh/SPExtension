@@ -98,7 +98,25 @@ class TestRunning:
 
         assert adapter.stack.layers[0].channels == ["Roughness"]
 
-    def test_without_settings_painters_defaults_stay(self, adapter):
+    def test_without_chosen_channels_every_channel_of_the_texture_set_is_switched_on(self, adapter):
+        """What the editor shows as "all ticked". A layer made through Painter's Python
+        API starts with no channel switched on, unlike one made in Painter's own UI."""
+        adapter.texture_channels = ["BaseColor", "Height", "Roughness"]
+
+        assert run(adapter, [fill(), {"type": "add_layer", "layer": "paint"}]).ok
+
+        paint, filled = adapter.stack.layers[:2]
+        assert filled.channels == ["BaseColor", "Height", "Roughness"]
+        assert paint.channels == ["BaseColor", "Height", "Roughness"]
+
+    def test_a_folder_gets_no_channels(self, adapter):
+        adapter.texture_channels = ["BaseColor"]
+
+        assert run(adapter, [{"type": "add_layer", "layer": "folder"}]).ok
+
+        assert adapter.stack.layers[0].channels is None
+
+    def test_when_painter_cannot_list_the_channels_they_are_left_alone(self, adapter):
         assert run(adapter, [fill()]).ok
 
         layer = adapter.stack.layers[0]
