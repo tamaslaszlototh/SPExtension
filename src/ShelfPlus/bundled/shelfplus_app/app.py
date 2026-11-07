@@ -15,9 +15,11 @@ from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, r
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
+from .core import blocks
+from .core.recording import Recording
 from .core.workflow import run_workflow
 from .core.channels import DEFAULT_CHANNELS
-from .core.workflow_draft import WorkflowDraft, needs_resource, resource_name
+from .core.workflow_draft import WorkflowDraft, incomplete, needs_resource, resource_name
 
 log = logging.getLogger("ShelfPlus.app")
 
@@ -27,6 +29,7 @@ ADD_BUTTON_KINDS = [
     ("Brush button", None),
     ("Menu button", None),
     ("Workflow button", None),
+    ("Recorded Workflow", None),
 ]
 
 # When the plugin starts, Painter may not even have begun loading its resources, so a
@@ -82,6 +85,7 @@ class App:
             "Brush button": self.explain_brush_drop,
             "Menu button": self.start_menu_capture,
             "Workflow button": self.new_workflow,
+            "Recorded Workflow": self.start_recording,
         }
         self.add_button_kinds = [(label, handlers.get(label, handler)) for label, handler in ADD_BUTTON_KINDS]
         # ids of Brush buttons whose preset is not on this machine, and of Menu buttons
@@ -106,6 +110,12 @@ class App:
         # the Workflow editor (R7): the Workflow open in it, and the Group a new one goes to
         self.workflow_draft = None
         self._draft_group_id = None
+        # Recording (R8): the one in progress, what it records into (a Group for a new
+        # Workflow, or the draft it continues), and its hooks on Painter's commands
+        self.recording = None
+        self._recording_group_id = None
+        self._recording_draft = None
+        self._stop_recording_watch = None
         self.view = None
         self._dock = None
 
@@ -400,6 +410,8 @@ class App:
 
     def _command_run(self, action):
         """A command the user ran in Painter (duplicates and own triggers already dropped)."""
+        if self.recording is not None:
+            self.recording.command(action)
         if self._capture_group_id is None:
             return
         group = self.capturing
@@ -634,6 +646,116 @@ class App:
             log.exception("Could not read the selected layer's name")
             return None
 
+    # -- Recording (R8) ----------------------------------------------------------
+
+    @property
+    def recording_target(self):
+        """What the Recording goes into, for the REC bar: the Group's or the Workflow's name."""
+        if self.recording is None:
+            return None
+        if self._recording_draft is not None:
+            return self._recording_draft.name
+        try:
+            return self.editor.group(self._recording_group_id).name
+        except KeyError:
+            return None
+
+    @property
+    def recording_steps(self):
+        """How many Steps the Recording has captured so far."""
+        return 0 if self.recording is None else len(self.recording.capture.steps)
+
+    def start_recording(self, group):
+        """"+ → Recorded Workflow": record a new Workflow for the end of ``group``."""
+        if self.view is None:  # closed meanwhile (the "+" menu starts it a moment later)
+            return
+        if self.read_only:
+            self.notify(READ_ONLY_MESSAGE)
+            return
+        if self._begin_recording():
+            self._recording_group_id = group.id
+            log.info("Recording a new Workflow for Group %r", group.name)
+            self._render()
+
+    def continue_recording(self):
+        """The editor's Continue: record more Steps at the end of the open Workflow."""
+        draft = self.workflow_draft
+        if draft is None or self.view is None:
+            return
+        if self._begin_recording():
+            self._recording_draft = draft
+            self.workflow_draft = None  # the Groups and the REC bar show while it records
+            log.info("Recording more Steps for %r", draft.name)
+            self._render()
+
+    def _begin_recording(self):
+        if self.recording is not None:
+            self.notify("Shelf+ is already recording.")
+            return False
+        self.cancel_menu_capture()
+        recording = Recording(self.adapter, changed=self._render, notify=self.notify, closing=self.stop_recording)
+        problem = recording.start()
+        if problem:
+            self.notify(problem)
+            return False
+        self.recording = recording
+        try:  # the commands clicked name the operations; without them it still records
+            self._stop_recording_watch = self.adapter.watch_actions(self.action_watcher.notify)
+        except Exception:
+            log.exception("Recording: could not hook Painter's commands")
+        return True
+
+    def _end_recording(self):
+        """Unhook the Recording; returns its ``Capture``."""
+        recording, self.recording = self.recording, None
+        stop, self._stop_recording_watch = self._stop_recording_watch, None
+        if stop is not None:
+            try:
+                stop()
+            except Exception:
+                log.exception("Could not unhook Painter's commands")
+        return recording.stop()
+
+    def stop_recording(self):
+        """Stop: the editor opens with the captured Steps (after the Workflow's own Steps
+        when continuing one). The first incomplete Step is selected, so a resource dropped
+        right away fills it."""
+        if self.recording is None:
+            return None
+        steps = self._match_smart_materials(self._end_recording().steps)
+        draft, self._recording_draft = self._recording_draft, None
+        if draft is None:
+            draft = WorkflowDraft(steps)
+            self._draft_group_id = self._recording_group_id
+        else:
+            draft.steps = blocks.normalized(draft.steps + steps)
+        self._recording_group_id = None
+        first = next((i for i, step in enumerate(draft.steps) if incomplete(step)), None)
+        draft.select(first)
+        self.workflow_draft = draft
+        log.info("Recording stopped: %d Step(s) captured", len(steps))
+        self.notify(f"Recorded {len(steps)} Step(s)." if steps else "Nothing was recorded.")
+        self._render()
+        return draft
+
+    def _match_smart_materials(self, steps):
+        """A recorded smart material knows only its folder's name: the one resource with
+        that name is taken; with none or several the user picks (the Step stays incomplete)."""
+        for step in steps:
+            if step.get("type") != "add_smart" or step.get("smart") != "material" or step.get("resource"):
+                continue
+            name = step.get("resource_name") or ""
+            found = [
+                r for r in self.search_resources(name)
+                if r.gui_name == name and not r.is_brush and (r.kind is None or "smart material" in r.kind.lower())
+            ]
+            if len(found) == 1:
+                step["resource"] = found[0].url
+                continue
+            why = "several resources have that name" if found else "no resource has that name"
+            self.notify(f"Choose the smart material for “{name}”: {why}.")
+        return steps
+
     # -- running ---------------------------------------------------------------
 
     def run_button(self, button):
@@ -677,6 +799,11 @@ class App:
 
     def close(self):
         self._cancel_running()
+        if self.recording is not None:
+            try:
+                self._end_recording()
+            except Exception:
+                log.exception("Stopping the Recording failed")
         self._stop_loading_timer()
         self._stop_menu_timer()
         self._capture_group_id = None

@@ -1,5 +1,6 @@
 """An in-memory adapter for tests. Records what the App asked Painter to do."""
 
+import itertools
 from contextlib import contextmanager
 
 from ..core.brush import BrushResource
@@ -10,10 +11,14 @@ def FakeResource(url, gui_name, is_brush=True):
     return BrushResource(url, gui_name, is_brush)
 
 
+_uids = itertools.count(1)  # like Painter's node uids: unique, stable across undo/redo
+
+
 class FakeTimer:
-    def __init__(self, interval_ms, callback):
+    def __init__(self, interval_ms, callback, single=False):
         self.interval_ms = interval_ms
         self.callback = callback
+        self.single = single  # a single-shot timer (``later``) stops once it fired
         self.active = True
 
     def stop(self):
@@ -24,6 +29,7 @@ class FakeLayer:
     """A layer of the fake stack. ``children`` (top first) only for a folder."""
 
     def __init__(self, name, kind="paint", children=None):
+        self.uid = next(_uids)
         self.name = name
         self.kind = kind
         self.children = list(children or [])
@@ -43,8 +49,11 @@ class FakeLayer:
 class FakeEffect:
     """An effect inside a layer (insert_effect's result); a Fill one has content."""
 
-    def __init__(self, target, effect):
+    def __init__(self, target, effect, name=None, source=None):
+        self.uid = next(_uids)
         self.target, self.effect = target, effect
+        self.name = name or effect.capitalize()
+        self.source = source  # a generator's or filter's resource URL
         self.channels = None
         self.material = None
         self.sources = {}
@@ -143,6 +152,16 @@ class FakeAdapter:
         self.texture_channels = None  # the active texture set's channels; None: unknown
         self.saves = 0
         self.save_error = None
+
+        # Recording: the texture set, Painter's History, its events and drops onto Painter.
+        self.texture_set = "coat"
+        self.snapshot_errors = []  # raised by the next snapshot() calls, one each
+        self.history = []  # the History's labels, oldest first
+        self.history_index = 0  # how many of them are done
+        self.history_watchers = []
+        self.stack_watchers = []
+        self.closing_watchers = []
+        self.drop_watchers = []
 
     def add_dock_widget(self, widget):
         if self.fail_on_dock:
@@ -296,7 +315,7 @@ class FakeAdapter:
         if resource is not None:
             self._resource(resource)
         layer.effects.append((target, effect, resource))
-        node = FakeEffect(target, effect)
+        node = FakeEffect(target, effect, source=resource)
         layer.effect_nodes.append(node)
         return node
 
@@ -378,6 +397,87 @@ class FakeAdapter:
             raise self.save_error
         self.saves += 1
 
+    # -- Recording -----------------------------------------------------------
+
+    def snapshot(self):
+        """The active layer stack as ``core/recording.py`` reads it."""
+        if self.snapshot_errors:
+            raise self.snapshot_errors.pop(0)
+        nodes = []
+
+        def add(layer, parent):
+            nodes.append({
+                "uid": layer.uid, "name": layer.name, "kind": layer.kind, "parent": parent, "stack": "layers",
+                "mask": layer.mask, "blend": {"BaseColor": layer.blend},
+                "opacity": {channel: value / 100 for channel, value in layer.opacity.items()},
+            })
+            for node in reversed(layer.effect_nodes):  # the newest is on top
+                nodes.append({
+                    "uid": node.uid, "name": node.name, "kind": node.effect, "parent": layer.uid,
+                    "stack": "mask" if node.target == "mask" else "content", "source": node.source,
+                })
+            for child in layer.children:
+                add(child, layer.uid)
+
+        for layer in self.stack.layers:
+            add(layer, None)
+        selected = self.stack.selected
+        return {"stack": self.texture_set, "selected": selected.uid if selected else None, "nodes": nodes}
+
+    def switch_texture_set(self, name, stack):
+        """The user picks another texture set: Painter sends its layer stack event."""
+        self.texture_set, self.stack = name, stack
+        self.layer_stack_changed()
+
+    def watch_history(self, callback):
+        self.history_watchers.append(callback)
+        callback(tuple(self.history), self.history_index)
+        return lambda: self.history_watchers.remove(callback)
+
+    def _history_changed(self):
+        for callback in list(self.history_watchers):
+            callback(tuple(self.history), self.history_index)
+
+    def push_history(self, label):
+        """A new History row (after the stack has changed), like ``QUndoStack.push``."""
+        del self.history[self.history_index:]
+        self.history.append(label)
+        self.history_index += 1
+        self._history_changed()
+
+    def undo_history(self):
+        self.history_index -= 1
+        self._history_changed()
+
+    def redo_history(self):
+        self.history_index += 1
+        self._history_changed()
+
+    def on_layer_stack_changed(self, callback):
+        self.stack_watchers.append(callback)
+        return lambda: self.stack_watchers.remove(callback)
+
+    def layer_stack_changed(self):
+        for callback in list(self.stack_watchers):
+            callback()
+
+    def on_project_closing(self, callback):
+        self.closing_watchers.append(callback)
+        return lambda: self.closing_watchers.remove(callback)
+
+    def close_project(self):
+        for callback in list(self.closing_watchers):
+            callback()
+        self.project_is_open = False
+
+    def watch_drops(self, callback):
+        self.drop_watchers.append(callback)
+        return lambda: self.drop_watchers.remove(callback)
+
+    def drop_on_painter(self, urls):
+        for callback in list(self.drop_watchers):
+            callback(list(urls))
+
     # -- timers --------------------------------------------------------------
 
     def repeat(self, interval_ms, callback):
@@ -385,7 +485,15 @@ class FakeAdapter:
         self.timers.append(timer)
         return timer
 
+    def later(self, interval_ms, callback):
+        """A single-shot timer."""
+        timer = FakeTimer(interval_ms, callback, single=True)
+        self.timers.append(timer)
+        return timer
+
     def fire_timers(self):
         for timer in list(self.timers):
             if timer.active:
+                if timer.single:
+                    timer.active = False
                 timer.callback()

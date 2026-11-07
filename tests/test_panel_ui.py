@@ -200,7 +200,7 @@ def test_the_plus_menu_lists_the_button_kinds(app, qt_app):
     plus = view.group_boxes[0].findChild(QtWidgets.QToolButton, "ShelfPlusGroupAdd")
     texts = [a.text() for a in plus.menu().actions()]
 
-    assert [t.split(" (")[0] for t in texts] == ["Brush button", "Menu button", "Workflow button"]
+    assert [t.split(" (")[0] for t in texts] == ["Brush button", "Menu button", "Workflow button", "Recorded Workflow"]
 
 
 def test_every_panel_element_has_a_name_for_the_pen(app, qt_app):

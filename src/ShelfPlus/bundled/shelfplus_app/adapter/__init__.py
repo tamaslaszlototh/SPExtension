@@ -56,5 +56,16 @@ The Workflow runner (``core/workflow.py``); layers are opaque handles to the cor
   or a Paint layer; only then does it take a brush). ``None`` if it cannot tell.
 - ``save_project()``
 
+Recording (``core/recording.py``):
+
+- ``snapshot() -> dict``: the active layer stack, nodes by uid (the format is in
+  ``core/recording.py``). May raise while the project is locked (saving).
+- ``watch_history(callback(labels, index)) -> stop``: Painter's History, called at once
+  and after every change (``recording.HistoryWatch``).
+- ``on_layer_stack_changed(callback) -> stop``: Painter's ``LayerStacksModelDataChanged``.
+- ``on_project_closing(callback) -> stop``: Painter's ``ProjectAboutToClose``.
+- ``watch_drops(callback(urls)) -> stop``: resources dropped anywhere in Painter.
+- ``later(interval_ms, callback) -> timer``: a single-shot timer with ``stop()``.
+
 ``painter.PainterAdapter`` is the real one; ``fake.FakeAdapter`` is used by tests.
 """

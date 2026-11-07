@@ -38,6 +38,9 @@ OBJECT_NAME = "ShelfPlusPanel"
 MIME_TYPE = "application/x-shelfplus-button"
 URI_LIST = "text/uri-list"  # what the Assets window drags
 STATUS_MS = 3000
+REC_BLINK_MS = 600  # the REC bar's dot blinks while recording
+REC_RED = "#d23c3c"
+REC_ON, REC_OFF = "● REC", "○ REC"
 NOTICE_MS = 8000
 UNDO_MS = 5000
 SPACING = 4  # between tiles
@@ -539,6 +542,7 @@ class QtPanelView:
         root.addWidget(self.notice)
 
         root.addWidget(self._build_capture_bar())
+        root.addWidget(self._build_rec_bar())
         self.escape_filter = _EscapeFilter(self.app.cancel_menu_capture)
 
         self.scroll = QtWidgets.QScrollArea()
@@ -576,6 +580,10 @@ class QtPanelView:
         self.run_timer.setSingleShot(True)
         self.run_timer.timeout.connect(self._run_clicked)
         self._clicked = None
+
+        self.rec_timer = QtCore.QTimer(widget)
+        self.rec_timer.setInterval(REC_BLINK_MS)
+        self.rec_timer.timeout.connect(self._blink)
 
         self.pen_hover = PenHover(widget, paused=lambda: self.dragging is not None)
 
@@ -623,6 +631,53 @@ class QtPanelView:
         self.capture_text.setText(text)
         self.capture_bar.show()
         self.escape_filter.install()
+
+    # -- Recording (R8.1) ------------------------------------------------------
+
+    def _build_rec_bar(self):
+        bar = QtWidgets.QFrame()
+        bar.setObjectName(OBJECT_NAME + "Rec")
+        bar.setStyleSheet(f"QFrame#{OBJECT_NAME}Rec {{ border: 1px solid {REC_RED}; border-radius: 4px; }}")
+        row = QtWidgets.QHBoxLayout(bar)
+        row.setContentsMargins(6, 4, 6, 4)
+        row.setSpacing(MARGIN)
+        self.rec_dot = QtWidgets.QLabel(REC_ON)
+        self.rec_dot.setObjectName(OBJECT_NAME + "RecDot")
+        self.rec_dot.setStyleSheet(f"color: {REC_RED}; font-weight: bold;")
+        self.rec_dot.setToolTip("Recording: do the Steps in Painter, then press Stop")
+        row.addWidget(self.rec_dot)
+        self.rec_text = QtWidgets.QLabel()
+        self.rec_text.setObjectName(OBJECT_NAME + "RecText")
+        self.rec_text.setWordWrap(True)
+        self.rec_text.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        row.addWidget(self.rec_text, 1)
+        self.rec_stop = QtWidgets.QPushButton("Stop")
+        self.rec_stop.setObjectName(OBJECT_NAME + "RecStop")
+        self.rec_stop.setToolTip("Stop recording and review the Steps")
+        self.rec_stop.clicked.connect(self.app.stop_recording)
+        row.addWidget(self.rec_stop)
+        bar.hide()
+        self.rec_bar = bar
+        return bar
+
+    def _sync_rec_bar(self):
+        if self.app.recording is None:
+            self.rec_bar.hide()
+            self.rec_timer.stop()
+            return
+        count = self.app.recording_steps
+        steps = "1 Step" if count == 1 else f"{count} Steps"
+        self.rec_text.setText(f"{self.app.recording_target or 'Workflow'}: {steps}")
+        self.rec_text.setToolTip("Brushes cannot be recorded: add them in the editor after Stop.")
+        self.rec_bar.show()
+        if not self.rec_timer.isActive():
+            self.rec_dot.setText(REC_ON)
+            self.rec_timer.start()
+
+    def _blink(self):
+        if not _alive(self.rec_dot):
+            return
+        self.rec_dot.setText(REC_OFF if self.rec_dot.text() == REC_ON else REC_ON)
 
     def choose_from_list(self):
         """The searchable list of Painter's commands, for the Group being captured into."""
@@ -782,6 +837,7 @@ class QtPanelView:
         self.messages.setText("\n".join(self.app.messages))
         self.messages.setVisible(bool(self.app.messages))
         self._sync_capture_bar()
+        self._sync_rec_bar()
         self._sync_workflow_editor()
 
         self._plan = self._compute_plan()
@@ -1132,7 +1188,7 @@ class QtPanelView:
         self.escape_filter.remove()
         if widget is not None and isValid(widget):
             self.pen_hover.stop()
-            timers = (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer, self.run_timer)
+            timers = (self.status_timer, self.notice_timer, self.undo_timer, self.relayout_timer, self.tile_save_timer, self.run_timer, self.rec_timer)
             for timer in timers:
                 timer.stop()
             widget.deleteLater()

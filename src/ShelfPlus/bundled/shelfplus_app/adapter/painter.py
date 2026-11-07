@@ -355,12 +355,64 @@ class PainterAdapter:
 
         project.save()
 
+    # -- Recording (core/recording.py) ------------------------------------------------
+
+    def snapshot(self):
+        """The active layer stack, nodes by uid (see ``recording.snapshot``)."""
+        import substance_painter.layerstack as ls
+
+        from . import recording
+
+        return recording.snapshot(ls, _active_stack(), lambda node: _layer_of(ls, node))
+
+    def watch_history(self, callback):
+        from .recording import HistoryWatch
+
+        return HistoryWatch(callback)
+
+    def watch_drops(self, callback):
+        from .recording import DropWatch
+
+        return DropWatch(callback)
+
+    def on_layer_stack_changed(self, callback):
+        return self._on_event("LayerStacksModelDataChanged", callback)
+
+    def on_project_closing(self, callback):
+        return self._on_event("ProjectAboutToClose", callback)
+
+    def _on_event(self, name, callback):
+        """``callback()`` on every Painter event ``name``; returns a function that stops it."""
+        import substance_painter.event as event
+
+        kind = getattr(event, name)
+
+        def handler(_event):
+            try:
+                callback()
+            except Exception:
+                log.exception("Handling Painter's %s failed", name)
+
+        event.DISPATCHER.connect(kind, handler)
+        return lambda: event.DISPATCHER.disconnect(kind, handler)
+
     # -- timers --------------------------------------------------------------
 
     def repeat(self, interval_ms, callback):
         from PySide6 import QtCore
 
         timer = QtCore.QTimer()
+        timer.setInterval(interval_ms)
+        timer.timeout.connect(callback)
+        timer.start()
+        return timer
+
+    def later(self, interval_ms, callback):
+        """A single-shot timer (kept by the caller; ``stop()`` cancels it)."""
+        from PySide6 import QtCore
+
+        timer = QtCore.QTimer()
+        timer.setSingleShot(True)
         timer.setInterval(interval_ms)
         timer.timeout.connect(callback)
         timer.start()
