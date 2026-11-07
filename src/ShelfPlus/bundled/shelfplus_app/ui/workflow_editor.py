@@ -17,8 +17,17 @@ The rules live in ``core/workflow_draft.py``; this file only draws and forwards.
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import blocks
-from ..core.workflow_draft import CATALOG, incomplete, short_name, takes_resource, template
+from ..core.workflow_draft import (
+    CATALOG,
+    COLOUR_CHANNELS,
+    incomplete,
+    resource_name,
+    short_name,
+    takes_resource,
+    template,
+)
 from .icons import step_icon, trash_icon
+from .resource_picker import ResourcePicker
 
 
 OBJECT_NAME = "ShelfPlusWorkflowEditor"
@@ -37,6 +46,16 @@ BLEND_MODES = [
     "PinLight", "Saturation", "Color", "Hue", "Value", "Passthrough", "Disable",
 ]
 CHANNELS = ["BaseColor", "Height", "Roughness", "Metallic", "Normal", "Emissive", "Opacity", "Specular"]
+# A Fill layer's content, as the settings offer it
+CONTENT_DEFAULT, CONTENT_MATERIAL, CONTENT_CHANNELS = "Painter's default", "One material", "Per channel"
+SOURCE_VALUE, SOURCE_RESOURCE = "Value", "Resource"
+DEFAULT_GREY = 0.5
+DEFAULT_COLOUR = "#808080"
+
+
+def default_source(channel):
+    """What a channel of a Fill layer starts with in "Per channel"."""
+    return {"color": DEFAULT_COLOUR} if channel in COLOUR_CHANNELS else {"value": DEFAULT_GREY}
 
 
 def image_png(path, size=ICON_PX):
@@ -218,11 +237,16 @@ class WorkflowEditor(QtWidgets.QFrame):
         column.addWidget(self.add_button)
 
         # -- the selected Step's settings
-        self.settings = QtWidgets.QFrame()
+        self.settings = QtWidgets.QScrollArea()
         self.settings.setObjectName(OBJECT_NAME + "Settings")
-        self.settings_layout = QtWidgets.QFormLayout(self.settings)
+        self.settings.setWidgetResizable(True)
+        self.settings.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self.settings.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        inner = QtWidgets.QWidget()
+        self.settings_layout = QtWidgets.QFormLayout(inner)
         self.settings_layout.setContentsMargins(4, 4, 4, 4)
-        column.addWidget(self.settings)
+        self.settings.setWidget(inner)
+        column.addWidget(self.settings, 1)
         self.fields = {}
 
         # -- saving
@@ -251,6 +275,12 @@ class WorkflowEditor(QtWidgets.QFrame):
         self.refresh_timer.setSingleShot(True)
         self.refresh_timer.setInterval(0)
         self.refresh_timer.timeout.connect(self.refresh)
+        # The settings are rebuilt after the signal that changed them: the widget sending
+        # it is one of those deleted.
+        self.settings_timer = QtCore.QTimer(self)
+        self.settings_timer.setSingleShot(True)
+        self.settings_timer.setInterval(0)
+        self.settings_timer.timeout.connect(self._build_settings)
 
         self.refresh()
 
@@ -504,7 +534,9 @@ class WorkflowEditor(QtWidgets.QFrame):
         kind = step["type"]
         form = self.settings_layout
 
-        def change(**values):
+        def change(rebuild=False, **values):
+            """Set (``None``: remove) keys of the Step; ``rebuild`` redraws these settings
+            too (their rows depend on what changed)."""
             new = dict(self.draft.steps[index])
             for key, value in values.items():
                 if value is None:
@@ -513,11 +545,15 @@ class WorkflowEditor(QtWidgets.QFrame):
                     new[key] = value
             self.draft.set_step(index, new)
             self._after_setting()
+            if rebuild:
+                self.settings_timer.start()
 
         if kind == "add_layer":
             edit = self._line("name", step.get("name", ""), "Painter's default name")
             edit.textEdited.connect(lambda text: change(name=text.strip() or None))
             form.addRow("Name", edit)
+            if step["layer"] in ("fill", "paint"):
+                self._layer_settings(step, change)
         elif kind == "add_mask":
             combo = self._combo("background", ["black", "white"], step["background"])
             combo.currentTextChanged.connect(lambda text: change(background=text))
@@ -552,10 +588,154 @@ class WorkflowEditor(QtWidgets.QFrame):
         elif kind == "save":
             form.addRow(QtWidgets.QLabel("Saves the project."))
         if takes_resource(step):
-            edit = self._line("resource", step.get("resource", ""), "Drop it here from the Assets window")
-            edit.setToolTip("Drag the resource from the Assets window onto the editor, or paste its resource:// URL")
-            edit.textEdited.connect(lambda text: change(resource=text.strip() or None, resource_name=None))
-            form.addRow("Resource", edit)
+            def picked(ref):
+                change(rebuild=True, resource=ref.get("resource") or None, resource_name=ref.get("resource_name"))
+
+            form.addRow("Resource", self._resource_field("resource", step, picked))
+
+    # -- resource fields -----------------------------------------------------------
+
+    def _pick_resource(self, title, query=""):
+        """The resource picker; the chosen resource, or ``None``."""
+        picker = ResourcePicker(self.app, title, query, parent=self)
+        try:
+            if picker.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                return picker.chosen()
+            return None
+        finally:
+            picker.deleteLater()
+
+    def _resource_field(self, key, ref, picked, title="Choose a resource"):
+        """The name of the chosen resource (or its URL, editable) and "Choose…".
+        ``ref``: a dict with ``resource`` and maybe ``resource_name``; ``picked(new ref)``."""
+        box = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(4)
+        url = ref.get("resource") or ""
+        edit = self._line(key, url, "Choose it, drop it here, or paste its resource:// URL")
+        if url:
+            edit.setToolTip(f"{ref.get('resource_name') or resource_name(url)}\n{url}")
+        edit.textEdited.connect(lambda text: picked({"resource": text.strip()}))
+        row.addWidget(edit, 1)
+        choose = QtWidgets.QPushButton("Choose…")
+        choose.setObjectName(f"{OBJECT_NAME}Choose{key.capitalize()}")
+        self.fields[f"choose_{key}"] = choose
+
+        def choose_one():
+            resource = self._pick_resource(title, ref.get("resource_name") or "")
+            if resource is not None:
+                picked({"resource": resource.url, "resource_name": resource.gui_name})
+
+        choose.clicked.connect(choose_one)
+        row.addWidget(choose)
+        return box
+
+    # -- a new layer's channels and content ----------------------------------------
+
+    def _layer_settings(self, step, change):
+        """Active channels (Fill and Paint layers) and a Fill layer's content."""
+        form = self.settings_layout
+        offered = self.app.texture_channels()
+        active = step.get("channels")
+        offered += [c for c in (active or []) if c not in offered]
+
+        grid_box = QtWidgets.QWidget()
+        grid = QtWidgets.QGridLayout(grid_box)
+        grid.setContentsMargins(0, 0, 0, 0)
+        checks = {}
+        for number, channel in enumerate(offered):
+            box = QtWidgets.QCheckBox(channel)
+            box.setChecked(active is None or channel in active)
+            grid.addWidget(box, number // 2, number % 2)
+            checks[channel] = box
+        self.fields["channels"] = checks
+
+        def channels_changed():
+            chosen = [c for c in offered if checks[c].isChecked()]
+            current = self.draft.selected_step
+            sources = current.get("sources")
+            if sources is not None:  # per channel: one source per active channel
+                sources = {c: sources.get(c) or default_source(c) for c in chosen}
+            everything = chosen == offered and active is None
+            change(rebuild=True, channels=None if everything else chosen, sources=sources or None)
+
+        for box in checks.values():
+            box.toggled.connect(lambda checked: channels_changed())
+        form.addRow("Channels", grid_box)
+        if step["layer"] != "fill":
+            return
+
+        mode = CONTENT_MATERIAL if "material" in step else CONTENT_CHANNELS if "sources" in step else CONTENT_DEFAULT
+        combo = self._combo("content", [CONTENT_DEFAULT, CONTENT_MATERIAL, CONTENT_CHANNELS], mode)
+
+        def content_changed(text):
+            if text == CONTENT_MATERIAL:
+                change(rebuild=True, material={"resource": ""}, sources=None)
+            elif text == CONTENT_CHANNELS:
+                channels = step.get("channels") or offered
+                change(rebuild=True, material=None, sources={c: default_source(c) for c in channels})
+            else:
+                change(rebuild=True, material=None, sources=None)
+
+        combo.currentTextChanged.connect(content_changed)
+        form.addRow("Content", combo)
+        if mode == CONTENT_MATERIAL:
+            def material_picked(ref):
+                change(rebuild="resource_name" in ref, material=ref)
+
+            form.addRow("Material", self._resource_field("material", step["material"], material_picked, "Choose a material"))
+        elif mode == CONTENT_CHANNELS:
+            for channel, source in step["sources"].items():
+                form.addRow(channel, self._source_field(channel, source, change))
+
+    def _source_field(self, channel, source, change):
+        """One channel of a Fill layer: Value (a colour or a grey) or Resource."""
+        box = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(4)
+
+        def set_source(new, rebuild=False):
+            sources = dict(self.draft.selected_step["sources"])
+            sources[channel] = new
+            change(rebuild=rebuild, sources=sources)
+
+        kind = self._combo(f"kind_{channel}", [SOURCE_VALUE, SOURCE_RESOURCE],
+                           SOURCE_RESOURCE if "resource" in source else SOURCE_VALUE)
+        kind.currentTextChanged.connect(
+            lambda text: set_source({"resource": ""} if text == SOURCE_RESOURCE else default_source(channel), True)
+        )
+        row.addWidget(kind)
+        if "resource" in source:
+            row.addWidget(self._resource_field(f"source_{channel}", source,
+                                               lambda ref: set_source(ref, "resource_name" in ref),
+                                               f"Choose a resource for {channel}"), 1)
+        elif "color" in source:
+            button = QtWidgets.QPushButton(source["color"])
+            button.setObjectName(f"{OBJECT_NAME}Colour")
+            button.setStyleSheet(f"background: {source['color']};")
+            button.setToolTip(f"{channel} colour: click to change it")
+            self.fields[f"colour_{channel}"] = button
+
+            def pick_colour():
+                colour = QtWidgets.QColorDialog.getColor(QtGui.QColor(source["color"]), self, f"{channel} colour")
+                if colour.isValid():
+                    set_source({"color": colour.name()}, True)
+
+            button.clicked.connect(pick_colour)
+            row.addWidget(button, 1)
+        else:
+            spin = QtWidgets.QDoubleSpinBox()
+            spin.setObjectName(f"{OBJECT_NAME}Value")
+            spin.setRange(0, 1)
+            spin.setDecimals(3)
+            spin.setSingleStep(0.05)
+            spin.setValue(source["value"])
+            spin.valueChanged.connect(lambda value: set_source({"value": value}))
+            self.fields[f"value_{channel}"] = spin
+            row.addWidget(spin, 1)
+        return box
 
     def _after_setting(self):
         """A setting changed: redraw the rows and the name, keep the fields."""

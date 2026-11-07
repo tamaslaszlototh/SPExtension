@@ -115,3 +115,17 @@ def test_the_saved_json_is_the_flat_list_the_runner_reads():
         "steps": [FILL, BLACK, DIRT, OPACITY, SAVE],
     }
     assert button_problem({"id": "x", **raw}) is None
+
+
+def test_a_layer_whose_material_or_channel_resource_is_not_chosen_yet_is_incomplete():
+    waiting = {"type": "add_layer", "layer": "fill", "material": {"resource": ""}}
+    channel = {"type": "add_layer", "layer": "fill", "channels": ["Height"], "sources": {"Height": {"resource": ""}}}
+
+    assert incomplete(waiting) == "⚠ choose resource"
+    assert incomplete(channel) == "⚠ choose resource"
+
+
+def test_a_fill_layer_with_a_material_is_named_after_it():
+    rust = {"type": "add_layer", "layer": "fill", "material": {"resource": "resource://a/Rust_v2", "resource_name": "Rust"}}
+
+    assert auto_name([rust, BLACK]) == "Fill layer: Rust + Black mask"

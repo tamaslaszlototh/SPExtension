@@ -16,7 +16,7 @@ from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
 from .core.workflow import run_workflow
-from .core.workflow_draft import WorkflowDraft, needs_resource, resource_name
+from .core.workflow_draft import DEFAULT_CHANNELS, WorkflowDraft, needs_resource, resource_name
 
 log = logging.getLogger("ShelfPlus.app")
 
@@ -574,6 +574,25 @@ class App:
             return
         name = resource.gui_name if resource is not None else resource_name(url)
         self.notify(f"Select the Step “{name}” is for, then drop it again.")
+
+    def search_resources(self, query):
+        """Painter's resources matching ``query``, for the resource picker."""
+        try:
+            return list(self.adapter.search_resources(query))
+        except Exception:
+            log.exception("Searching Painter's resources for %r failed", query)
+            self.notify("Painter's resources could not be searched. See the log.")
+            return []
+
+    def texture_channels(self):
+        """The channels a new layer can use: the active texture set's, or the usual ones
+        when Painter cannot tell (no project open)."""
+        try:
+            channels = self.adapter.stack_channels()
+        except Exception:
+            log.info("Could not read the texture set's channels", exc_info=True)
+            channels = None
+        return list(channels) if channels else list(DEFAULT_CHANNELS)
 
     def step_action_png(self, step):
         """The icon of a ``run_action`` Step's command (PNG bytes), or ``None``."""

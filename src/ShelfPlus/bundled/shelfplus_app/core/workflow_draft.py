@@ -41,6 +41,14 @@ _TEMPLATES = [
 ]
 CATALOG = [(section, label) for section, label, _ in _TEMPLATES]
 
+# The channels offered for a new layer when Painter cannot list the texture set's own.
+DEFAULT_CHANNELS = ["BaseColor", "Height", "Roughness", "Metallic", "Normal", "Emissive", "Opacity", "Specular"]
+# Channels whose uniform value is a colour; the others take a grey from 0 to 1.
+COLOUR_CHANNELS = {
+    "BaseColor", "Diffuse", "Specular", "SpecularEdgeColor", "Emissive", "Normal",
+    "ScatterColor", "SheenColor", "CoatColor", "Transmissive", "Reflection",
+}
+
 
 def template(label):
     """A new Step for a catalog entry."""
@@ -58,12 +66,20 @@ def needs_resource(step):
     return takes_resource(step) and not step.get("resource")
 
 
+def layer_resource_missing(step):
+    """A new layer whose material or a channel's resource is not chosen yet."""
+    if step.get("type") != "add_layer":
+        return False
+    slots = [step.get("material")] + list((step.get("sources") or {}).values())
+    return any(isinstance(s, dict) and "resource" in s and not s["resource"] for s in slots)
+
+
 def incomplete(step):
     """What is missing from the Step, for its row ("⚠ choose resource"), or ``None``."""
     problem = step_problem(step)
     if problem is None:
         return None
-    if needs_resource(step):
+    if needs_resource(step) or layer_resource_missing(step):
         return "⚠ choose resource"
     if step.get("type") == "select_layer":
         return "⚠ enter a name"
@@ -89,7 +105,10 @@ def short_name(step):
     kind = step.get("type")
     resource = step.get("resource_name") or resource_name(step.get("resource"))
     if kind == "add_layer":
-        return step.get("name") or _LAYERS.get(step.get("layer"), "Layer")
+        name = step.get("name") or _LAYERS.get(step.get("layer"), "Layer")
+        material = step.get("material") or {}
+        material_name = material.get("resource_name") or resource_name(material.get("resource"))
+        return f"{name}: {material_name}" if material_name else name
     if kind == "add_mask":
         return f"{str(step.get('background')).capitalize()} mask"
     if kind == "add_effect":

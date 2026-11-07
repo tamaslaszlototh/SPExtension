@@ -257,3 +257,114 @@ def test_ui_steps_are_marked_as_part_of_the_end_section(app, qt_app):
         editor.add_step(label)
 
     assert editor.visible_rows() == ["Paint layer", "At the end of the Workflow", "├ Save", "└ Brush  ⚠ choose resource"]
+
+
+# -- a new layer's channels and content ---------------------------------------------
+
+RUST = "resource://starter_assets/Rust"
+
+
+@pytest.fixture
+def picks(monkeypatch, adapter):
+    """The resource picker returns these, in order (as if the user chose them)."""
+    adapter.add_resource(FakeResource(RUST, "Rust", is_brush=False))
+    queue = []
+    asked = []
+
+    def pick(editor, title, query=""):
+        asked.append(title)
+        return adapter.resources[queue.pop(0)] if queue else None
+
+    monkeypatch.setattr("shelfplus_app.ui.workflow_editor.WorkflowEditor._pick_resource", pick)
+    return queue
+
+
+def settled(qt_app):
+    qt_app.processEvents()  # the settings are rebuilt after the signal that changed them
+    qt_app.processEvents()
+
+
+def test_a_fill_layer_gets_its_channels_and_per_channel_content(app, qt_app, adapter, picks):
+    adapter.texture_channels = ["BaseColor", "Height", "Roughness", "Normal"]
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+
+    editor.fields["channels"]["Height"].setChecked(False)
+    settled(qt_app)
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+    editor.fields["value_Roughness"].setValue(0.7)
+    editor.fields["kind_Normal"].setCurrentText("Resource")
+    settled(qt_app)
+    assert editor.draft.problem == "Step 1 (Add Fill layer) is incomplete: ⚠ choose resource"
+    picks.append(DIRT)
+    editor.fields["choose_source_Normal"].click()
+    settled(qt_app)
+
+    step = editor.draft.steps[0]
+    assert step == {
+        "type": "add_layer",
+        "layer": "fill",
+        "channels": ["BaseColor", "Roughness", "Normal"],
+        "sources": {
+            "BaseColor": {"color": "#808080"},
+            "Roughness": {"value": 0.7},
+            "Normal": {"resource": DIRT, "resource_name": "Dirt"},
+        },
+    }
+    editor.save_button.click()
+    qt_app.processEvents()
+    app.run_button(app.layout.groups[0].buttons[-1])
+    layer = adapter.stack.layers[0]
+    assert layer.channels == ["BaseColor", "Roughness", "Normal"] and layer.sources["Normal"] == {"resource": DIRT}
+
+
+def test_one_material_for_a_fill_layer_is_chosen_from_the_picker(app, qt_app, picks):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+    editor.fields["content"].setCurrentText("One material")
+    settled(qt_app)
+    assert not editor.save_button.isEnabled()
+
+    picks.append(RUST)
+    editor.fields["choose_material"].click()
+    settled(qt_app)
+
+    assert editor.draft.steps[0]["material"] == {"resource": RUST, "resource_name": "Rust"}
+    assert editor.visible_rows()[0] == "Fill layer: Rust"
+    assert editor.save_button.isEnabled()
+
+
+def test_a_paint_layer_has_channels_but_no_content(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Paint layer")
+    editor.select_step(0)
+
+    assert "channels" in editor.fields and "content" not in editor.fields
+
+
+def test_a_generator_is_chosen_from_the_picker(app, qt_app, picks):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Generator on the mask")
+    editor.select_step(1)
+
+    picks.append(DIRT)
+    editor.fields["choose_resource"].click()
+    settled(qt_app)
+
+    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt"
+
+
+def test_the_resource_picker_lists_matches_by_name(app, qt_app):
+    from shelfplus_app.ui.resource_picker import ResourcePicker
+
+    picker = ResourcePicker(app, "Choose", "dir")
+
+    assert picker.rows() == ["Dirt"] and picker.chosen().url == DIRT
+    picker.search.setText("nothing like it")
+    picker.run_search()
+    assert picker.rows() == [] and not picker.ok_button.isEnabled()
+    picker.deleteLater()

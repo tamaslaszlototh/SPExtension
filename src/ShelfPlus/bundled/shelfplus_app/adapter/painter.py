@@ -62,6 +62,22 @@ class PainterAdapter:
                 )
         return None
 
+    def search_resources(self, query, limit=300):
+        """Painter's resources matching ``query`` (Painter's own search syntax), for the
+        resource picker: at most ``limit``, sorted by name."""
+        import substance_painter.resource as res
+
+        found = []
+        for resource in res.search(query)[: limit * 2]:
+            try:
+                url = versionless_url(resource.identifier().url())
+                kind = _kind_name(resource)
+                found.append(BrushResource(url, resource.gui_name(), _is_brush(res, resource), resource, kind))
+            except Exception:
+                log.debug("Skipping a search result", exc_info=True)
+        found.sort(key=lambda r: r.gui_name.lower())
+        return found[:limit]
+
     def resources_loading(self):
         """Whether Painter is still loading resources: a shelf is crawling, or its resource
         service has not started yet (``Shelves.all()`` raises)."""
@@ -238,6 +254,38 @@ class PainterAdapter:
             raise ValueError(f"Painter has no channel “{channel}”.")
         layer.set_opacity(percent / 100.0, value)
 
+    # -- a new layer's channels and content ------------------------------------------
+
+    def stack_channels(self):
+        """The ChannelType names of the active texture set's channels."""
+        return [channel.name for channel in _active_stack().all_channels()]
+
+    def set_active_channels(self, layer, channels):
+        """``channels``: ChannelType names; every other channel is switched off."""
+        import substance_painter.textureset as ts
+
+        layer.active_channels = {_channel(ts, name) for name in channels}
+
+    def set_material(self, layer, url):
+        """One material (or other resource) as the Fill layer's source for every channel."""
+        layer.set_material_source(self._resource_id(url))
+
+    def set_channel_source(self, layer, channel, source):
+        """A Fill layer's source for one channel: ``{"color": "#rrggbb"}``, ``{"value":
+        0..1}`` (a grey) or ``{"resource": url}``."""
+        import substance_painter.textureset as ts
+
+        channel_type = _channel(ts, channel)
+        if "resource" in source:
+            layer.set_source(channel_type, self._resource_id(source["resource"]))
+            return
+        if "color" in source:
+            hex_colour = source["color"].lstrip("#")
+            rgb = tuple(int(hex_colour[i : i + 2], 16) / 255 for i in (0, 2, 4))
+        else:
+            rgb = (source["value"],) * 3
+        layer.set_source(channel_type, _colour(rgb))
+
     def find_layers(self, name):
         """Every layer of the active texture set named exactly ``name``, folders included."""
         import substance_painter.layerstack as ls
@@ -330,6 +378,34 @@ def _layer_of(ls, node):
     while node is not None and node.get_type() not in layer_types:
         node = node.get_parent()
     return node
+
+
+def _channel(ts, name):
+    value = _enum_member(ts.ChannelType, name)
+    if value is None:
+        raise ValueError(f"Painter has no channel “{name}”.")
+    return value
+
+
+def _colour(rgb):
+    """A uniform colour for ``set_source``. The values are what a colour picker shows
+    (sRGB), so they are converted if Painter offers it."""
+    from substance_painter.colormanagement import Color
+
+    for name in ("from_srgb", "from_sRGB"):
+        convert = getattr(Color, name, None)
+        if convert is not None:
+            return convert(*rgb)
+    return Color(*rgb)
+
+
+def _kind_name(resource):
+    """"Smart material" from Painter's resource type, or ``None``."""
+    try:
+        name = resource.type().name
+    except Exception:
+        return None
+    return name.replace("_", " ").capitalize()
 
 
 def _enum_member(enum, name):

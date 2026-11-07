@@ -36,6 +36,7 @@ class BrushResource:
     gui_name: str
     is_brush: bool = True
     handle: object = None
+    kind: str = None  # Painter's resource type for people ("Smart material"), if known
 
 
 # -- creating -------------------------------------------------------------------

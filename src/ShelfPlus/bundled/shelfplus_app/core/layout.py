@@ -5,6 +5,7 @@ this code cannot understand ("invalid") is written back unchanged on save, and
 keys added by newer code survive a round trip.
 """
 
+import re
 import secrets
 from dataclasses import dataclass, field
 
@@ -40,6 +41,42 @@ def _resource(v):
     return isinstance(v, str) and v.startswith("resource://")
 
 
+_HEX_COLOUR = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+def _number_0_1(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1
+
+
+def _channels(v):
+    return isinstance(v, list) and v != [] and all(_text(c) for c in v) and len(set(v)) == len(v)
+
+
+def _resource_ref(v):
+    """``{"resource": url, "resource_name": optional display name}``"""
+    return (
+        isinstance(v, dict)
+        and _resource(v.get("resource"))
+        and set(v) <= {"resource", "resource_name"}
+        and ("resource_name" not in v or _text(v["resource_name"]))
+    )
+
+
+def _source(v):
+    """One channel of a Fill layer: ``{"color": "#rrggbb"}``, ``{"value": 0..1}`` or a resource."""
+    if not isinstance(v, dict) or len(v) == 0:
+        return False
+    if set(v) == {"color"}:
+        return isinstance(v["color"], str) and _HEX_COLOUR.fullmatch(v["color"]) is not None
+    if set(v) == {"value"}:
+        return _number_0_1(v["value"])
+    return _resource_ref(v)
+
+
+def _sources(v):
+    return isinstance(v, dict) and v != {} and all(_text(k) and _source(x) for k, x in v.items())
+
+
 def _opacity(v):
     return isinstance(v, dict) and v != {} and all(
         isinstance(k, str) and isinstance(x, (int, float)) and not isinstance(x, bool) and 0 <= x <= 100
@@ -63,7 +100,14 @@ STEP_PARAMS = {
 # ``resource_name``: the resource's display name, stored with its URL (R3.2) when the
 # Workflow editor knows it.
 OPTIONAL_STEP_PARAMS = {
-    "add_layer": {"name": lambda v: isinstance(v, str)},
+    # ``channels``: the new layer's active channels (ChannelType names); a Fill layer's
+    # content: ``material`` (one resource for every channel) or ``sources`` (per channel).
+    "add_layer": {
+        "name": lambda v: isinstance(v, str),
+        "channels": _channels,
+        "material": _resource_ref,
+        "sources": _sources,
+    },
     "add_effect": {"resource_name": _text},
     "add_smart": {"resource_name": _text},
     "select_brush": {"resource_name": _text},
@@ -86,6 +130,21 @@ def step_problem(step):
             return f"Step {kind!r} has an invalid {name!r}"
     if kind == "add_effect" and step["effect"] in ("generator", "filter") and not _resource(step.get("resource")):
         return f"Step 'add_effect' ({step['effect']}) is missing 'resource'"
+    if kind == "add_layer":
+        return _layer_content_problem(step)
+    return None
+
+
+def _layer_content_problem(step):
+    has_content = "material" in step or "sources" in step
+    if has_content and step["layer"] != "fill":
+        return f"Step 'add_layer' ({step['layer']}) cannot have 'material' or 'sources'"
+    if "material" in step and "sources" in step:
+        return "Step 'add_layer' has both 'material' and 'sources'"
+    if "channels" in step:
+        for channel in step.get("sources", {}):
+            if channel not in step["channels"]:
+                return f"Step 'add_layer' sets '{channel}', which is not one of its channels"
     return None
 
 

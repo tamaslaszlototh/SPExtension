@@ -31,6 +31,9 @@ class FakeLayer:
         self.effects = []  # (target, effect, resource url or None), oldest first
         self.blend = "Normal"
         self.opacity = {}
+        self.channels = None  # the active channels; None: Painter's default
+        self.material = None  # a Fill layer's material (URL)
+        self.sources = {}  # a Fill layer's channel -> source
 
     def __repr__(self):
         return f"FakeLayer({self.name!r}, {self.kind!r})"
@@ -125,6 +128,7 @@ class FakeAdapter:
         # The project and its layer stack (the Workflow runner).
         self.edition = True  # the open project is in edition state
         self.stack = FakeLayerStack()
+        self.texture_channels = None  # the active texture set's channels; None: unknown
         self.saves = 0
         self.save_error = None
 
@@ -301,6 +305,28 @@ class FakeAdapter:
     def set_opacity(self, layer, channel, percent):
         self.stack.change("set_opacity")
         layer.opacity[channel] = percent
+
+    def set_active_channels(self, layer, channels):
+        self.stack.change("set_active_channels")
+        layer.channels = list(channels)
+
+    def set_material(self, layer, url):
+        self.stack.change("set_material")
+        self._resource(url)
+        layer.material = url
+
+    def set_channel_source(self, layer, channel, source):
+        self.stack.change("set_channel_source")
+        if "resource" in source:
+            self._resource(source["resource"])
+        layer.sources[channel] = {k: v for k, v in source.items() if k != "resource_name"}
+
+    def stack_channels(self):
+        return self.texture_channels
+
+    def search_resources(self, query):
+        words = query.lower().split()
+        return [r for r in self.resources.values() if all(w in r.gui_name.lower() for w in words)]
 
     def find_layers(self, name):
         return [layer for layer in self.stack.walk() if layer.name == name]

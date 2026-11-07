@@ -96,7 +96,16 @@ def _require(current):
 
 
 def add_layer(adapter, step, current):
-    return adapter.insert_layer(step["layer"], above=current, name=step.get("name") or None)
+    """A new layer above the Current layer, then its active channels and (a Fill layer)
+    its content: one material, or per channel a colour, value or resource."""
+    layer = adapter.insert_layer(step["layer"], above=current, name=step.get("name") or None)
+    if "channels" in step:
+        adapter.set_active_channels(layer, list(step["channels"]))
+    if "material" in step:
+        adapter.set_material(layer, step["material"]["resource"])
+    for channel, source in step.get("sources", {}).items():
+        adapter.set_channel_source(layer, channel, dict(source))
+    return layer
 
 
 def add_mask(adapter, step, current):
@@ -181,18 +190,39 @@ def _reason(error):
 # -- the runner ------------------------------------------------------------------------
 
 
+def step_resources(step):
+    """Every ``resource://`` URL a Step refers to (a layer's material and channel sources too)."""
+    urls = [step["resource"]] if step.get("resource") else []
+    if isinstance(step.get("material"), dict):
+        urls.append(step["material"]["resource"])
+    for source in (step.get("sources") or {}).values():
+        if isinstance(source, dict) and source.get("resource"):
+            urls.append(source["resource"])
+    return urls
+
+
 def _check_resources(adapter, step):
     """A MISSING message if what this Step refers to is not here, else ``None``."""
     if step["type"] == "run_action":
         if menu.find_action(adapter, step["action"]) is None:
             return menu.missing_message(step["action"])
         return None
-    url = step.get("resource")
-    if url is not None and brush.resolve(adapter, url) is None:
-        if step["type"] == "select_brush":
-            return brush.missing_message(url)
-        return f"This resource is not available on this machine: {url}"
+    for url in step_resources(step):
+        if brush.resolve(adapter, url) is None:
+            if step["type"] == "select_brush":
+                return brush.missing_message(url)
+            return f"This resource is not available on this machine: {url}"
     return None
+
+
+def _texture_channels(adapter):
+    """The channels of the active texture set, or ``None`` if Painter cannot tell."""
+    try:
+        channels = adapter.stack_channels()
+    except Exception:
+        log.exception("Could not read the texture set's channels")
+        return None
+    return None if channels is None else set(channels)
 
 
 def _project_ready(adapter):
@@ -288,6 +318,14 @@ class WorkflowRun:
         index = self._brush_without_paint_target()
         if index is not None:
             return self._problem(index, BRUSH_NEEDS_PAINT_TARGET), None
+
+        wanted = [(i, s) for i, s in enumerate(steps) if s["type"] == "add_layer" and "channels" in s]
+        available = _texture_channels(self.adapter) if wanted else None
+        if available is not None:
+            for index, step in wanted:
+                missing = next((c for c in step["channels"] if c not in available), None)
+                if missing:
+                    return self._problem(index, f"uses the {missing} channel, which this texture set does not have."), None
 
         for index, step in enumerate(steps):
             missing = _check_resources(self.adapter, step)

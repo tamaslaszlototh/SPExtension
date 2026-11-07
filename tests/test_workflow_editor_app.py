@@ -263,3 +263,14 @@ def test_a_new_icon_removes_an_old_icon_file_of_another_name(app):
     app.save_workflow()
 
     assert not old.exists() and saved(app)[0]["icon"] == f"icons/{save.id}.png"
+
+
+def test_the_resource_picker_searches_painters_resources(app):
+    assert [r.gui_name for r in app.search_resources("edg")] == ["Edges"]
+
+
+def test_the_texture_sets_channels_are_offered_when_painter_knows_them(app, adapter):
+    assert app.texture_channels()[:3] == ["BaseColor", "Height", "Roughness"]  # the usual ones
+    adapter.texture_channels = ["BaseColor", "Opacity"]
+
+    assert app.texture_channels() == ["BaseColor", "Opacity"]
