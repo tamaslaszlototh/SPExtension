@@ -96,11 +96,11 @@ class TestAddEffect:
         assert adapter.stack.names() == ["Fill layer", "Base"]  # no rollback (R4.7)
         assert adapter.saves == 0
 
-    def test_on_a_folder_content_is_refused_by_painter(self, adapter):
-        failed = result(adapter, [FOLDER, effect("levels", "layer")])
+    def test_on_a_folder_itself(self, adapter):
+        """Painter accepts an effect on a folder (v0.6.1-rc.1, check E)."""
+        assert result(adapter, [FOLDER, effect("anchor", "layer")]).ok
 
-        assert failed.state == FAILED
-        assert failed.message.startswith("“W” stopped at Step 2 (Add levels to the layer): ")
+        assert adapter.stack.layers[0].effects == [("layer", "anchor", None)]
 
     @pytest.mark.parametrize("kind, label", [("levels", "Add levels to the mask"), ("anchor", "Add anchor point to the mask")])
     def test_painter_refusing_levels_or_anchor_stops_the_workflow(self, adapter, kind, label):

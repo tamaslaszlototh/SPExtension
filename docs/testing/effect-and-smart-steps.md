@@ -115,13 +115,12 @@ The **Renamed preset** tile refers to a brush called *Basic Hard XYZ*, which doe
    - ✅ A message on the Panel says: *“Renamed preset” did not start: Step 3 (Select brush): This brush is not available on this machine: resource://starter_assets/Basic Hard XYZ*
    - ✅ **Nothing** changed: no new Fill layer, no new History row.
 
-### E. Anchor point, and an effect that cannot go on the mask
+### E. Anchor point on a layer and on a folder
 
 1. Click a layer **without** a mask, then click **Anchor point on layer**.
    - ✅ An **Anchor point** appears in that layer's own stack (not on a mask). Ctrl+Z removes it.
 2. Click a **folder**, then click **Anchor point on layer**.
-   - ✅ A message on the Panel says *“Anchor point on layer” stopped at Step 1 (Add anchor point to the layer): …* followed by Painter's reason, because a folder has no content of its own. Write the reason in the notes.
-   - If instead an anchor point appears, write *folder accepted it* in the notes. That is not a failure.
+   - ✅ An **Anchor point** appears on the folder. Ctrl+Z removes it.
 
 ## 4. Clean up
 
@@ -139,7 +138,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 | B. Smart material + smart mask | | | |
 | C. Fill + mask, then Basic Hard; the no-mask messages | | | |
 | D. Renamed preset does not start | | | |
-| E. Anchor point; folder message | | | |
+| E. Anchor point on a layer and on a folder | | | |
 
 **If something fails:**
 

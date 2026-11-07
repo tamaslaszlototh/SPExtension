@@ -277,8 +277,6 @@ class FakeAdapter:
         self.stack.change("insert_effect")
         if target == "mask" and layer.mask is None:
             raise RuntimeError("The layer has no mask")
-        if target == "layer" and layer.kind == "folder":
-            raise RuntimeError("A folder has no content stack")
         if resource is not None:
             self._resource(resource)
         layer.effects.append((target, effect, resource))
