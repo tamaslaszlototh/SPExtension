@@ -37,8 +37,13 @@ The Workflow runner (``core/workflow.py``); layers are opaque handles to the cor
 - ``layer_scope(label)``: a context manager, Painter's ``ScopedModification`` (one undo).
 - ``insert_layer(kind, above=None, name=None) -> layer``: ``kind`` fill / paint / folder,
   above ``above`` in its folder, or on top of the stack when ``None``.
-- ``add_mask(layer, background)`` (black / white), ``set_blend(layer, mode)`` (all
-  channels), ``set_opacity(layer, channel, percent)``.
+- ``add_mask(layer, background)`` (black / white), ``has_mask(layer) -> bool``,
+  ``set_blend(layer, mode)`` (all channels), ``set_opacity(layer, channel, percent)``.
+- ``insert_effect(layer, target, effect, resource=None)``: on top of the mask stack
+  (``target`` mask) or the content stack (layer); ``effect`` generator / filter (with a
+  ``resource://`` URL), levels or anchor.
+- ``insert_smart_material(url, above=None) -> layer``: placed like ``insert_layer``.
+- ``insert_smart_mask(layer, url)``: into the layer's mask (a black one if it has none).
 - ``find_layers(name) -> [layer]``: exact name, whole stack, folders included.
 - ``select_layer(layer)``: never called inside ``layer_scope``.
 - ``save_project()``

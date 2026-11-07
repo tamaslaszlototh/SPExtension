@@ -11,6 +11,7 @@ import pytest
 class Node:
     def __init__(self, name, kind="FillLayer", children=(), parent=None):
         self.name, self.kind, self.children, self.parent = name, kind, list(children), parent
+        self.mask = None
         for child in self.children:
             child.parent = self
 
@@ -25,6 +26,25 @@ class Node:
 
     def sub_layers(self):
         return self.children
+
+    def has_mask(self):
+        return self.mask is not None
+
+    def add_mask(self, background):
+        self.mask = background
+
+
+class Resource:
+    """``substance_painter.resource.Resource`` as far as the adapter uses it."""
+
+    def __init__(self, url, name):
+        self.url, self.name = url, name
+
+    def identifier(self):
+        return types.SimpleNamespace(url=lambda: self.url)
+
+    def gui_name(self):
+        return self.name
 
 
 STACK = object()
@@ -54,10 +74,30 @@ def painter(monkeypatch):
     ls.insert_fill = lambda position: (calls.append(position), Node("Fill"))[1]
     ls.insert_paint = lambda position: (calls.append(position), Node("Paint", "PaintLayer"))[1]
     ls.insert_group = lambda position: (calls.append(position), Node("Folder", "GroupLayer"))[1]
+    ls.InsertPosition.inside_node = lambda node, stack: ("inside", node, stack)
+    ls.NodeStack = types.SimpleNamespace(Content="Content", Mask="Mask", Substack="Substack")
+    ls.MaskBackground = types.SimpleNamespace(Black="Black", White="White")
+
+    def effect(kind):
+        return lambda position, *args: (calls.append((kind, position, *args)), Node(kind, kind))[1]
+
+    ls.insert_generator_effect = effect("generator")
+    ls.insert_filter_effect = effect("filter")
+    ls.insert_levels_effect = effect("levels")
+    ls.insert_anchor_point_effect = effect("anchor")
+    ls.insert_smart_mask = effect("smart mask")
+    ls.insert_smart_material = lambda position, resource_id: (
+        calls.append(("smart material", position, resource_id)),
+        Node("Rust", "GroupLayer"),
+    )[1]
+    res = types.ModuleType("substance_painter.resource")
+    resources = {"resource://starter_assets/Dirt": Resource("resource://starter_assets/Dirt?version=1", "Dirt")}
+    res.ResourceID = types.SimpleNamespace(from_url=lambda url: url)
+    res.Resource = types.SimpleNamespace(retrieve=lambda rid: [resources[rid]] if rid in resources else [])
     ts = types.ModuleType("substance_painter.textureset")
     ts.get_active_stack = lambda: STACK
     package = types.ModuleType("substance_painter")
-    for name, module in (("layerstack", ls), ("textureset", ts), ("application", types.ModuleType("a")), ("ui", types.ModuleType("u"))):
+    for name, module in (("layerstack", ls), ("textureset", ts), ("resource", res), ("application", types.ModuleType("a")), ("ui", types.ModuleType("u"))):
         setattr(package, name, module)
         monkeypatch.setitem(sys.modules, f"substance_painter.{name}", module)
     monkeypatch.setitem(sys.modules, "substance_painter", package)
@@ -87,3 +127,61 @@ def test_find_layers_includes_folder_contents(painter):
 
     assert adapter.find_layers("Inner") == [nodes["inner"]]
     assert adapter.find_layers("Folder") == [nodes["folder"]]
+
+
+DIRT = "resource://starter_assets/Dirt"
+
+
+def test_effect_on_the_mask_goes_inside_the_mask_stack(painter):
+    adapter, calls, nodes = painter
+    base = nodes["base"]
+    base.mask = "Black"
+
+    assert adapter.has_mask(base)
+    adapter.insert_effect(base, "mask", "generator", resource=DIRT)
+    adapter.insert_effect(base, "mask", "levels")
+
+    (kind, position, rid), levels = calls
+    assert (kind, position) == ("generator", ("inside", base, "Mask"))
+    assert rid.url() == "resource://starter_assets/Dirt?version=1"
+    assert levels == ("levels", ("inside", base, "Mask"))
+
+
+def test_effect_on_the_layer_goes_inside_the_content_stack(painter):
+    adapter, calls, nodes = painter
+    base = nodes["base"]
+
+    adapter.insert_effect(base, "layer", "filter", resource=DIRT)
+    adapter.insert_effect(base, "layer", "anchor")
+
+    assert calls[0][:2] == ("filter", ("inside", base, "Content"))
+    assert calls[1] == ("anchor", ("inside", base, "Content"), "Anchor point")
+
+
+def test_an_unknown_resource_at_run_time(painter):
+    adapter, calls, nodes = painter
+
+    with pytest.raises(ValueError, match="not available on this machine"):
+        adapter.insert_effect(nodes["base"], "layer", "filter", resource="resource://x/Gone")
+    assert calls == []
+
+
+def test_smart_material_above_a_layer_or_on_top(painter):
+    adapter, calls, nodes = painter
+
+    adapter.insert_smart_material(DIRT, above=nodes["base"])
+    adapter.insert_smart_material(DIRT)
+
+    assert [c[:2] for c in calls] == [("smart material", ("above", nodes["base"])), ("smart material", ("top", STACK))]
+
+
+def test_smart_mask_adds_a_black_mask_only_if_there_is_none(painter):
+    adapter, calls, nodes = painter
+    base, inner = nodes["base"], nodes["inner"]
+    inner.mask = "White"
+
+    adapter.insert_smart_mask(base, DIRT)
+    adapter.insert_smart_mask(inner, DIRT)
+
+    assert base.mask == "Black" and inner.mask == "White"
+    assert [c[:2] for c in calls] == [("smart mask", ("inside", base, "Mask")), ("smart mask", ("inside", inner, "Mask"))]

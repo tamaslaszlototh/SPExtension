@@ -10,8 +10,8 @@ A run has four parts:
    ``ScopedModification``: one History entry, one Ctrl+Z). Painter refuses selection
    changes inside it, so Steps work on layer handles and the **Current layer** (R4.6)
    is tracked here: it starts as the selected layer; ``add_layer`` inserts above it (on
-   top of the stack when there is none) and becomes it; ``select_layer`` makes the one
-   layer with that exact name it.
+   top of the stack when there is none) and becomes it, and so does a smart material;
+   ``select_layer`` makes the one layer with that exact name it.
 3. After the scope closes, the final Current layer is selected if it is not the start
    layer any more (not part of the undo).
 4. The UI Steps (``select_brush``, ``run_action``, ``save``) one after another. They may
@@ -21,7 +21,8 @@ A failing Step stops the run (R4.7). There is no rollback: what the scope alread
 stays and is undone with one Ctrl+Z.
 
 The layer side of the adapter (see ``adapter/__init__.py``): ``project_ready``,
-``selected_layer``, ``layer_scope``, ``insert_layer``, ``add_mask``, ``set_blend``,
+``selected_layer``, ``layer_scope``, ``insert_layer``, ``add_mask``, ``has_mask``,
+``insert_effect``, ``insert_smart_material``, ``insert_smart_mask``, ``set_blend``,
 ``set_opacity``, ``find_layers``, ``select_layer`` and ``save_project``.
 """
 
@@ -38,6 +39,8 @@ SCOPE_PREFIX = "Shelf+: "  # the History entry of a Workflow's layer changes
 NO_PROJECT = "open a project first"
 SELECTION_UNREADABLE = "Painter's selected layer could not be read. See the log."
 LAYER_NAMES = {"fill": "Fill layer", "paint": "Paint layer", "folder": "folder"}
+EFFECT_NAMES = {"anchor": "anchor point"}
+NO_MASK = "The Current layer has no mask. Add a mask before this Step."
 
 
 class StepError(Exception):
@@ -52,7 +55,8 @@ def step_label(step):
     if kind == "add_mask":
         return f"Add {step.get('background')} mask"
     if kind == "add_effect":
-        return f"Add {step.get('effect')}"
+        effect = EFFECT_NAMES.get(step.get("effect"), step.get("effect"))
+        return f"Add {effect} to the {step.get('target')}"
     if kind == "add_smart":
         return f"Add smart {step.get('smart')}"
     if kind == "set_blend":
@@ -108,6 +112,26 @@ def set_opacity(adapter, step, current):
     return current
 
 
+def add_effect(adapter, step, current):
+    """A generator, filter (both with a resource), levels or anchor point, on top of the
+    Current layer's mask stack or content stack."""
+    layer = _require(current)
+    target = step["target"]
+    if target == "mask" and not adapter.has_mask(layer):
+        raise StepError(NO_MASK)
+    adapter.insert_effect(layer, target, step["effect"], resource=step.get("resource"))
+    return current
+
+
+def add_smart(adapter, step, current):
+    """A smart material is inserted like a new layer and becomes the Current layer; a smart
+    mask goes onto the Current layer's mask."""
+    if step["smart"] == "material":
+        return adapter.insert_smart_material(step["resource"], above=current)
+    adapter.insert_smart_mask(_require(current), step["resource"])
+    return current
+
+
 def select_layer(adapter, step, current):
     name = step["name"]
     found = list(adapter.find_layers(name))
@@ -121,6 +145,8 @@ def select_layer(adapter, step, current):
 LAYER_STEPS = {
     "add_layer": add_layer,
     "add_mask": add_mask,
+    "add_effect": add_effect,
+    "add_smart": add_smart,
     "set_blend": set_blend,
     "set_opacity": set_opacity,
     "select_layer": select_layer,

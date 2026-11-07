@@ -13,6 +13,8 @@ from .assets import AssetsWindow
 
 log = logging.getLogger("ShelfPlus.app.adapter")
 
+ANCHOR_POINT_NAME = "Anchor point"
+
 
 class PainterAdapter:
     def __init__(self):
@@ -157,12 +159,8 @@ class PainterAdapter:
     def insert_layer(self, kind, above=None, name=None):
         import substance_painter.layerstack as ls
 
-        if above is None:
-            position = ls.InsertPosition.from_textureset_stack(_active_stack())
-        else:
-            position = ls.InsertPosition.above_node(above)
         insert = getattr(ls, {"fill": "insert_fill", "paint": "insert_paint", "folder": "insert_group"}[kind])
-        node = insert(position)
+        node = insert(_position_above(ls, above))
         if name:
             node.set_name(name)
         return node
@@ -171,6 +169,51 @@ class PainterAdapter:
         import substance_painter.layerstack as ls
 
         layer.add_mask({"black": ls.MaskBackground.Black, "white": ls.MaskBackground.White}[background])
+
+    def has_mask(self, layer):
+        return bool(layer.has_mask())
+
+    def insert_effect(self, layer, target, effect, resource=None):
+        """On top of the layer's mask stack (``target`` mask) or content stack (layer).
+        ``effect``: generator / filter (with a ``resource`` URL), levels or anchor."""
+        import substance_painter.layerstack as ls
+
+        stack = ls.NodeStack.Mask if target == "mask" else ls.NodeStack.Content
+        resource_id = self._resource_id(resource) if resource is not None else None
+        position = ls.InsertPosition.inside_node(layer, stack)
+        if effect == "generator":
+            return ls.insert_generator_effect(position, resource_id)
+        if effect == "filter":
+            return ls.insert_filter_effect(position, resource_id)
+        if effect == "levels":
+            return ls.insert_levels_effect(position)
+        if effect == "anchor":
+            return ls.insert_anchor_point_effect(position, ANCHOR_POINT_NAME)
+        raise ValueError(f"Shelf+ cannot add a “{effect}” effect.")
+
+    def insert_smart_material(self, url, above=None):
+        """The smart material's folder, above ``above`` in its folder or on top of the stack."""
+        import substance_painter.layerstack as ls
+
+        resource_id = self._resource_id(url)
+        return ls.insert_smart_material(_position_above(ls, above), resource_id)
+
+    def insert_smart_mask(self, layer, url):
+        """Into the layer's mask stack. A layer without a mask gets a black one first, so
+        only what the smart mask makes shows (Painter's own drop makes a new mask too)."""
+        import substance_painter.layerstack as ls
+
+        resource_id = self._resource_id(url)
+        if not layer.has_mask():
+            self.add_mask(layer, "black")
+        return ls.insert_smart_mask(ls.InsertPosition.inside_node(layer, ls.NodeStack.Mask), resource_id)
+
+    def _resource_id(self, url):
+        """The ``ResourceID`` of a version-less URL; preflight has checked that it exists."""
+        found = self.resolve_resource(url)
+        if found is None or found.handle is None:
+            raise ValueError(f"This resource is not available on this machine: {url}")
+        return found.handle.identifier()
 
     def set_blend(self, layer, mode):
         """``mode`` is a ``BlendingMode`` name (``Multiply``), set on every channel."""
@@ -229,6 +272,13 @@ class PainterAdapter:
         timer.timeout.connect(callback)
         timer.start()
         return timer
+
+
+def _position_above(ls, above):
+    """Above ``above`` in its folder, or on top of the active stack when it is ``None``."""
+    if above is None:
+        return ls.InsertPosition.from_textureset_stack(_active_stack())
+    return ls.InsertPosition.above_node(above)
 
 
 def _active_stack():

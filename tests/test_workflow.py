@@ -349,11 +349,11 @@ class TestPreflight:
 
     def test_a_step_this_version_cannot_run(self, adapter):
         before = adapter.stack.names()
-        steps = [FILL, {"type": "add_effect", "effect": "levels", "target": "layer"}]
+        steps = [FILL, {"type": "add_sticker"}]
 
         failed = result(adapter, steps, name="W")
 
-        assert failed.message == "“W” did not start: Step 2 (Add levels) is not available in this version of Shelf+."
+        assert failed.message == "“W” did not start: Step 2 (add_sticker) is not available in this version of Shelf+."
         self.untouched(adapter, before)
 
     def test_a_single_step_button_shows_the_step_message_alone(self, adapter):

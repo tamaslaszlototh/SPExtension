@@ -28,6 +28,7 @@ class FakeLayer:
         self.kind = kind
         self.children = list(children or [])
         self.mask = None
+        self.effects = []  # (target, effect, resource url or None), oldest first
         self.blend = "Normal"
         self.opacity = {}
 
@@ -60,6 +61,12 @@ class FakeLayerStack:
         if layer in self.layers:
             return self.layers
         return next(p.children for p in self.walk() if layer in p.children)
+
+    def insert(self, layer, above=None):
+        """Put ``layer`` above ``above`` in its folder, or on top of the stack."""
+        siblings = self.layers if above is None else self.siblings(above)
+        siblings.insert(0 if above is None else siblings.index(above), layer)
+        return layer
 
     def names(self, layers=None):
         """The stack as nested names, e.g. ``["Fill", ("Folder", ["Paint"])]``."""
@@ -251,13 +258,42 @@ class FakeAdapter:
         stack = self.stack
         stack.change("insert_layer")
         layer = FakeLayer(name or {"fill": "Fill layer", "paint": "Layer", "folder": "Folder"}[kind], kind)
-        siblings = stack.layers if above is None else stack.siblings(above)
-        siblings.insert(0 if above is None else siblings.index(above), layer)
-        return layer
+        return stack.insert(layer, above)
 
     def add_mask(self, layer, background):
         self.stack.change("add_mask")
         layer.mask = background
+
+    def has_mask(self, layer):
+        return layer.mask is not None
+
+    def _resource(self, url):
+        if url not in self.resources:  # preflight checks this; Painter would raise
+            raise ValueError(f"No resource {url}")
+        return self.resources[url]
+
+    def insert_effect(self, layer, target, effect, resource=None):
+        self.stack.change("insert_effect")
+        if target == "mask" and layer.mask is None:
+            raise RuntimeError("The layer has no mask")
+        if target == "layer" and layer.kind == "folder":
+            raise RuntimeError("A folder has no content stack")
+        if resource is not None:
+            self._resource(resource)
+        layer.effects.append((target, effect, resource))
+
+    def insert_smart_material(self, url, above=None):
+        stack = self.stack
+        stack.change("insert_smart_material")
+        return stack.insert(FakeLayer(self._resource(url).gui_name, "folder"), above)
+
+    def insert_smart_mask(self, layer, url):
+        """Into the layer's mask; a layer without one gets a black mask first."""
+        self.stack.change("insert_smart_mask")
+        self._resource(url)
+        if layer.mask is None:
+            layer.mask = "black"
+        layer.effects.append(("mask", "smart mask", url))
 
     def set_blend(self, layer, mode):
         self.stack.change("set_blend")
