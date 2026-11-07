@@ -63,9 +63,12 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ### F. Messages
 
 1. Start a Recording. Move a layer up or down in the stack. Expected: a message says that moving layers cannot be recorded. Press **Stop**.
-2. Start a Recording. Close the project. Expected: the REC bar goes away and the editor opens with what was recorded.
+2. Start a Recording, add a Fill layer, then close the project (**File → Close**). Expected: the REC bar goes away and the editor opens with what was recorded (the Fill layer).
+3. If the project has several texture sets: start a Recording, switch to another texture set and add a layer there. Expected: a message says changes in another texture set cannot be recorded, and after Stop that layer is not among the Steps.
 
-If anything goes wrong, click **☰ → Copy diagnostics** and paste it into the issue.
+If anything goes wrong, click **☰ → Copy diagnostics** right away, before restarting Painter, and paste it into your message. Send the filled-in table back, for example as a comment on [issue #31](https://github.com/tamaslaszlototh/SPExtension/issues/31).
+
+A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 
 ## Results
 
@@ -77,4 +80,4 @@ If anything goes wrong, click **☰ → Copy diagnostics** and paste it into the
 | C. Select layer Step appears | | | |
 | D. Painting gives no Step, no message | | | |
 | E. Continue, add Save, run | | | |
-| F. Messages (move, project close) | | | |
+| F. Messages (move, project close, other texture set) | | | |
