@@ -21,6 +21,7 @@ import logging
 from PySide6 import QtCore, QtWidgets
 
 from ..core.brush import resource_urls_from_drop, versionless_url
+from ..core.channels import is_colour
 from ..core.menu import OWN_PREFIX
 from .assets import valid
 
@@ -50,16 +51,129 @@ def _call(obj, method, *args):
     return None if function is None else function(*args)
 
 
+def _resource_url(source):
+    """The version-less ``resource://`` URL of a Painter source, or ``None``."""
+    resource_id = getattr(source, "resource_id", None)
+    if callable(resource_id):
+        resource_id = resource_id()
+    return versionless_url(resource_id.url()) if resource_id is not None else None
+
+
 def _source_url(node):
     """A generator's or filter's resource, version-less; ``None`` if it has none."""
     try:
-        source = _call(node, "get_source")
-        resource_id = getattr(source, "resource_id", None)
-        if callable(resource_id):
-            resource_id = resource_id()
-        return versionless_url(resource_id.url()) if resource_id is not None else None
+        return _resource_url(_call(node, "get_source"))
     except Exception:
         return None
+
+
+# -- a Fill's channels and content ----------------------------------------------------
+
+_unreadable = set()  # what has been logged once: unreadable source types, and "colour"
+
+
+def _value(obj, *names):
+    """The first of ``obj``'s attributes or methods called ``names`` that gives something."""
+    for name in names:
+        value = getattr(obj, name, None)
+        if callable(value):
+            try:
+                value = value()
+            except Exception:
+                value = None
+        if value is not None:
+            return value
+    return None
+
+
+def _rgb(colour, srgb):
+    """``(r, g, b)`` 0..1 of a ``colormanagement.Color``: as a colour picker shows it
+    (sRGB) for a colour channel, the raw value for a grey one (the runner writes a
+    grey value unconverted, a colour converted from sRGB)."""
+    names = ("sRGB", "srgb", "to_srgb", "value") if srgb else ("value", "linear")
+    value = _value(colour, *names)
+    if value is None:
+        value = colour
+    try:
+        values = [float(v) for v in value][:3]
+    except TypeError:
+        values = [float(_value(colour, n)) for n in ("r", "g", "b")]
+    return values if len(values) == 3 else values * 3
+
+
+def _read_source(node, channel):
+    """One channel's source (``channel`` a ChannelType; ``None`` for a mask's Fill) in a
+    Step's form: ``{"resource": url}``, ``{"color": "#rrggbb"}`` or ``{"value": n}``;
+    ``None`` if it cannot be read (logged once per kind of source)."""
+    try:
+        source = node.get_source(channel) if channel is not None else node.get_source()
+    except TypeError:
+        source = node.get_source(None)
+    url = _resource_url(source)
+    if url:
+        return {"resource": url}
+    colour = _value(source, "get_color", "color")
+    if colour is None:
+        kind = type(source).__name__
+        if kind not in _unreadable:
+            _unreadable.add(kind)
+            log.info("Recording: cannot read a %s source (%r); it is left out", kind, source)
+        return None
+    name = getattr(channel, "name", None)
+    if "colour" not in _unreadable:  # once: how this Painter's Color reads (for Copy diagnostics)
+        _unreadable.add("colour")
+        log.info(
+            "Recording: a uniform colour (%s) reads as value=%r sRGB=%r (%s)",
+            name, _value(colour, "value"), _value(colour, "sRGB", "srgb", "to_srgb"), type(colour).__name__,
+        )
+    if name is not None and is_colour(name):
+        r, g, b = _rgb(colour, srgb=True)
+        return {"color": "#{:02x}{:02x}{:02x}".format(*(round(min(max(v, 0), 1) * 255) for v in (r, g, b)))}
+    return {"value": round(_rgb(colour, srgb=False)[0], 3)}
+
+
+def _active_channels(node, order):
+    """The ChannelType objects switched on, in the texture set's order."""
+    active = list(_value(node, "active_channels") or [])
+    names = {getattr(c, "name", str(c)): c for c in active}
+    ordered = [names.pop(n) for n in order if n in names]
+    return ordered + [names[n] for n in sorted(names)]
+
+
+def _content(node, channels, on_mask):
+    """A Fill layer's or Fill effect's content in a Step's form."""
+    if on_mask:
+        source = _read_source(node, None)
+        return {"source": source} if source else {}
+    mode = _value(node, "source_mode", "get_source_mode")
+    if mode is not None and "material" in str(getattr(mode, "name", mode)).lower():
+        url = _resource_url(_call(node, "get_material_source"))
+        return {"material": url} if url else {}
+    sources = {}
+    for channel in channels:
+        try:
+            source = _read_source(node, channel)
+        except Exception:
+            log.debug("Recording: the %s source could not be read", getattr(channel, "name", channel), exc_info=True)
+            continue
+        if source:
+            sources[channel.name] = source
+    return {"sources": sources}
+
+
+def _fill_details(node, kind, order, on_mask=False):
+    """``channels`` and ``content`` of a Fill or Paint layer or a Fill effect (only what
+    it has); never raises, so a Painter that cannot tell just records less."""
+    details = {}
+    try:
+        channels = _active_channels(node, order) if not on_mask else []
+        if not on_mask:
+            details["channels"] = [c.name for c in channels] or None
+        if kind == "fill":
+            details["content"] = _content(node, channels, on_mask)
+    except Exception:
+        log.debug("Recording: the channels or content of %r could not be read", node, exc_info=True)
+    return details
 
 
 def _mask(layer):
@@ -89,14 +203,19 @@ def snapshot(ls, stack, layer_of):
         channels = list(stack.all_channels())
     except Exception:
         channels = []
+    order = [c.name for c in channels]
     nodes = []
 
     def add_effects(layer, uid, stack_name, method):
         for effect in _call(layer, method) or []:
-            nodes.append({
-                "uid": effect.uid(), "name": effect.get_name(), "kind": _kind(effect), "parent": uid,
-                "stack": stack_name, "source": _source_url(effect),
-            })
+            kind = _kind(effect)
+            entry = {
+                "uid": effect.uid(), "name": effect.get_name(), "kind": kind, "parent": uid, "stack": stack_name,
+                "source": _source_url(effect) if kind in ("generator", "filter") else None,
+            }
+            if kind == "fill":
+                entry.update(_fill_details(effect, kind, order, on_mask=stack_name == "mask"))
+            nodes.append(entry)
 
     def add_layer(layer, parent):
         uid = layer.uid()
@@ -107,10 +226,14 @@ def snapshot(ls, stack, layer_of):
                 opacity[channel.name] = float(layer.get_opacity(channel))
             except Exception:  # a channel this layer cannot have, or a folder without channels
                 continue
-        nodes.append({
-            "uid": uid, "name": layer.get_name(), "kind": _kind(layer), "parent": parent, "stack": "layers",
+        kind = _kind(layer)
+        entry = {
+            "uid": uid, "name": layer.get_name(), "kind": kind, "parent": parent, "stack": "layers",
             "mask": _mask(layer), "blend": blend, "opacity": opacity,
-        })
+        }
+        if kind in ("fill", "paint"):
+            entry.update(_fill_details(layer, kind, order))
+        nodes.append(entry)
         add_effects(layer, uid, "content", "content_effects")
         add_effects(layer, uid, "mask", "mask_effects")
         for child in _call(layer, "sub_layers") or []:

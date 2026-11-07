@@ -539,3 +539,126 @@ def test_only_the_last_rows_text_changing_is_a_merge():
 
     before = (("Add fill layer", "set blending opacity"), 2)
     assert history_event(before, (("Add fill layer", "set blending opacity 50%"), 2)) == (MERGE, None, 0)
+
+
+# -- a new layer's channels and content ------------------------------------------------
+
+from shelfplus_app.core.recording import CHANNELS, CONTENT  # noqa: E402
+from shelfplus_app.core.workflow_draft import incomplete  # noqa: E402
+
+ALL = ["BaseColor", "Height", "Roughness", "Metallic"]
+GREY = {"BaseColor": {"color": "#808080"}, "Height": {"value": 0}, "Roughness": {"value": 0.3}, "Metallic": {"value": 0}}
+
+
+def fill(uid=2, channels=ALL, content=None, kind="fill"):
+    node = layer(uid, "Fill layer 1", kind)
+    node["channels"] = list(channels)
+    if kind == "fill":
+        node["content"] = content if content is not None else {"sources": dict(GREY)}
+    return node
+
+
+def with_fill(*later):
+    """A new Fill layer, then each later state of it as one operation."""
+    s0 = snap(BASE, selected=1)
+    states = [snap(n, BASE, selected=2) for n in later]
+    ops, before = [], snap(fill(), BASE, selected=2)
+    ops.append(op("Add fill layer", s0, before))
+    for state in states:
+        ops.append(op("Set property", before, state))
+        before = state
+    return capture(s0, *ops)
+
+
+def test_channel_and_content_changes_are_seen():
+    before = snap(fill(), BASE)
+    after = snap(fill(channels=["BaseColor", "Roughness"], content={"sources": {**GREY, "Roughness": {"value": 0.9}}}), BASE)
+
+    assert {c.what for c in diff(before, after)} == {CHANNELS, CONTENT}
+
+
+def test_channels_switched_off_on_a_new_layer_are_its_channels():
+    result = with_fill(fill(channels=["BaseColor", "Roughness"]))
+
+    assert result.steps == [{"type": "add_layer", "layer": "fill", "channels": ["BaseColor", "Roughness"]}]
+    assert result.notices == []
+
+
+def test_channels_switched_back_on_leave_the_default():
+    result = with_fill(fill(channels=["BaseColor"]), fill())
+
+    assert result.steps == [{"type": "add_layer", "layer": "fill"}]
+
+
+def test_only_the_channels_whose_content_changed_are_stored():
+    red = {**GREY, "BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}}
+
+    (step,) = with_fill(fill(content={"sources": red})).steps
+
+    assert step == {
+        "type": "add_layer", "layer": "fill",
+        "sources": {"BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}},
+    }
+    assert incomplete(step) is None
+
+
+def test_a_channel_switched_off_takes_its_content_with_it():
+    red = {**GREY, "BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}}
+
+    (step,) = with_fill(fill(content={"sources": red}), fill(channels=["BaseColor", "Height"], content={"sources": red})).steps
+
+    assert step["channels"] == ["BaseColor", "Height"] and step["sources"] == {"BaseColor": {"color": "#e01010"}}
+    assert incomplete(step) is None
+
+
+def test_a_value_out_of_its_channels_range_is_kept_in_it():
+    (step,) = with_fill(fill(content={"sources": {**GREY, "Height": {"value": 1.7}}})).steps
+
+    assert step["sources"] == {"Height": {"value": 1}}
+
+
+def test_one_material_for_the_whole_layer():
+    (step,) = with_fill(fill(content={"material": RUST})).steps
+
+    assert step["material"] == {"resource": RUST} and "sources" not in step
+    assert incomplete(step) is None
+
+
+def test_a_paint_layer_records_its_channels_only():
+    s0 = snap(BASE, selected=1)
+    s1 = snap(fill(kind="paint"), BASE, selected=2)
+    s2 = snap(fill(kind="paint", channels=["BaseColor"]), BASE, selected=2)
+
+    steps = capture(s0, op("Add layer", s0, s1), op("Set property", s1, s2)).steps
+
+    assert steps == [{"type": "add_layer", "layer": "paint", "channels": ["BaseColor"]}]
+
+
+def test_a_fill_inside_a_new_layer_records_its_content():
+    base, add = new_fill()
+    on_layer = effect(3, "Fill", "fill", 2, stack="content") | {"channels": ALL, "content": {"sources": dict(GREY)}}
+    on_mask = effect(4, "Fill", "fill", 2, stack="mask") | {"content": {"source": {"value": 1}}}
+    s1 = snap(layer(2, "Fill layer 1", "fill", mask="black"), on_layer, on_mask, BASE)
+    s2 = snap(
+        layer(2, "Fill layer 1", "fill", mask="black"),
+        on_layer | {"channels": ["BaseColor"], "content": {"sources": {**GREY, "BaseColor": {"color": "#0000ff"}}}},
+        on_mask | {"content": {"source": {"value": 0.3}}},
+        BASE,
+    )
+
+    steps = capture(base, add, op("Add fill", add.after, s1), op("Set property", s1, s2)).steps
+
+    layer_fill = next(s for s in steps if s.get("target") == "layer")
+    mask_fill = next(s for s in steps if s.get("target") == "mask")
+    assert layer_fill["channels"] == ["BaseColor"] and layer_fill["sources"] == {"BaseColor": {"color": "#0000ff"}}
+    assert mask_fill["source"] == {"value": 0.3}
+    assert all(incomplete(s) is None for s in steps)
+
+
+def test_changing_an_existing_layers_content_is_skipped_with_a_notice():
+    before = snap(fill(uid=9), BASE, selected=9)
+    after = snap(fill(uid=9, channels=["BaseColor"]), BASE, selected=9)
+
+    result = capture(before, op("Set property", before, after))
+
+    assert result.steps == [] and len(result.notices) == 1

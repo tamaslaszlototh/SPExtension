@@ -92,7 +92,7 @@ def test_the_snapshot_lists_layers_effects_and_their_settings():
     assert snap["stack"] == "coat/" and snap["selected"] == fill.uid()
     by_name = {n["name"]: n for n in snap["nodes"]}
     assert [n["name"] for n in snap["nodes"]] == ["Fill layer 1", "Levels", "Dirt", "Folder", "Inner"]
-    assert by_name["Fill layer 1"] | {} == {
+    assert {k: v for k, v in by_name["Fill layer 1"].items() if k not in ("channels", "content")} == {
         "uid": fill.uid(), "name": "Fill layer 1", "kind": "fill", "parent": None, "stack": "layers", "mask": "on",
         "blend": {"BaseColor": "Normal", "Roughness": "Normal"}, "opacity": {"BaseColor": 0.5, "Roughness": 1.0},
     }
@@ -184,3 +184,79 @@ def test_a_resource_dropped_onto_painter_is_reported(qt_app):
     assert seen == [["resource://starter_assets/Rust Iron"]]
     target.deleteLater()
     own.deleteLater()
+
+
+# -- a Fill's channels and content --------------------------------------------------------
+
+
+class Colour:
+    """``colormanagement.Color`` as far as the snapshot reads it."""
+
+    def __init__(self, linear, srgb=None):
+        self.value = tuple(linear)
+        if srgb is not None:
+            self.sRGB = tuple(srgb)
+
+
+class Uniform:
+    def __init__(self, colour):
+        self._colour = colour
+
+    def get_color(self):
+        return self._colour
+
+
+class Texture:
+    def __init__(self, url):
+        self.resource_id = types.SimpleNamespace(url=lambda: url + "?version=1")
+
+
+class FillNode(Node):
+    def __init__(self, name, kind="FillLayer", sources=None, material=None, mask_source=None, **kw):
+        super().__init__(name, kind, **kw)
+        self.active_channels = {Enum("Roughness"), Enum("BaseColor")}
+        self.sources, self.material, self.mask_source = sources or {}, material, mask_source
+        self.source_mode = Enum("Material" if material else "Split")
+
+    def get_source(self, channel=None):
+        if channel is None:
+            return self.mask_source
+        return self.sources[channel.name]
+
+    def get_material_source(self):
+        return Texture(self.material)
+
+
+def test_a_fill_layers_channels_and_sources_are_read_in_the_texture_sets_order():
+    fill = FillNode("Fill layer 1", sources={
+        "BaseColor": Uniform(Colour((0.7, 0.01, 0.01), srgb=(0.878, 0.063, 0.063))),
+        "Roughness": Uniform(Colour((0.9, 0.9, 0.9))),
+    })
+
+    (node,) = snapshot(painter([fill], []), Stack(), lambda n: n)["nodes"]
+
+    assert node["channels"] == ["BaseColor", "Roughness"]
+    assert node["content"] == {"sources": {"BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}}}
+
+
+def test_a_fill_layer_with_one_material_and_a_texture_channel():
+    material = FillNode("Fill layer 1", material="resource://starter_assets/Rust Iron")
+    texture = FillNode("Fill layer 2", sources={
+        "BaseColor": Texture("resource://starter_assets/Clouds 1"),
+        "Roughness": object(),  # a kind of source the snapshot cannot read: left out
+    })
+
+    nodes = snapshot(painter([material, texture], []), Stack(), lambda n: n)["nodes"]
+
+    assert nodes[0]["content"] == {"material": "resource://starter_assets/Rust Iron"}
+    assert nodes[1]["content"] == {"sources": {"BaseColor": {"resource": "resource://starter_assets/Clouds 1"}}}
+
+
+def test_a_paint_layer_has_channels_only_and_a_mask_fill_its_grey_value():
+    mask_fill = FillNode("Fill", "FillEffect", mask_source=Uniform(Colour((0.3, 0.3, 0.3))))
+    paint = FillNode("Layer 1", "PaintLayer", mask=[mask_fill], has_mask=True)
+
+    nodes = snapshot(painter([paint], []), Stack(), lambda n: n)["nodes"]
+
+    assert nodes[0]["channels"] == ["BaseColor", "Roughness"] and "content" not in nodes[0]
+    assert nodes[1]["content"] == {"source": {"value": 0.3}} and nodes[1]["source"] is None

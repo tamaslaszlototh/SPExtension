@@ -1,10 +1,11 @@
-# Testing Recording (Shelf+ v0.8.1-rc.1)
+# Testing Recording (Shelf+ v0.8.2-rc.1)
 
 This build lets you **record a Workflow**: you do the Steps in Painter while the Panel watches, then you press **Stop** and check the Steps in the editor.
 
 - **+ → Recorded Workflow** in a Group row starts a Recording. A red **● REC** bar appears at the top of the Panel and counts the Steps.
 - **Stop** in the REC bar opens the editor with the recorded Steps. Save it as usual.
 - **● Continue** at the bottom of the editor records more Steps at the end of the Workflow that is open.
+- A new Fill or Paint layer's switched-on channels, and a Fill layer's content (colour, value, resource, material), are recorded too. What you paint onto a Paint layer is not.
 - Brushes cannot be recorded (Painter does not report them). Add them in the editor after Stop.
 
 Please run the checks once on **each machine**:
@@ -17,11 +18,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.8.1-rc.1.zip** from the [v0.8.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.1-rc.1).
+2. Download **ShelfPlus-v0.8.2-rc.1.zip** from the [v0.8.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.2-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.1**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.2**.
 
 ## 2. The checks
 
@@ -70,14 +71,32 @@ If anything goes wrong, click **☰ → Copy diagnostics** right away, before re
 
 A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 
+### G. A new layer's channels and content
+
+1. Start a Recording and add a **Fill layer**.
+2. In the Fill layer's properties, switch off the **Height** and **Metallic** channels.
+3. Set **BaseColor** to a strong red and **Roughness** to **0.9**.
+4. Drag a texture or procedural (for example *Clouds*) from the Assets window onto a third channel (for example **Normal**).
+5. Also add a **Paint layer**, and leave only **BaseColor** switched on there.
+6. Press **Stop** and click the Fill layer's row.
+   - Expected: under **Channels**, Height and Metallic are not ticked.
+   - Expected: **Content** is **Per channel**: BaseColor red, Roughness 0.9, the third channel the resource you chose.
+   - Expected: the Paint layer's row has only BaseColor ticked.
+   - Note it if the red is lighter or darker than the one you picked, or if a value is missing.
+7. Save it, select another layer and click the new Button once. Expected: the new Fill and Paint layers have the same channels and values as recorded.
+8. Optional: in a new Recording, switch a Fill layer to **Material** and drop a material into it. Expected: after Stop the row says **Fill layer: <material name>**.
+
+**Important:** after this check, click **☰ → Copy diagnostics** and send the text even if everything worked. It shows how Shelf+ read the colours from Painter.
+
 ## Results
 
 | Check | Home 11.1.0 | Work 12.2.0 | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.8.1 | | | |
+| 1. Install: ☰ shows v0.8.2 | | | |
 | A. 4 Steps, opacity exactly 50 | | | |
 | B. Smart mask marked, drop fills it | | | |
 | C. Select layer Step appears | | | |
 | D. Painting gives no Step, no message | | | |
 | E. Continue, add Save, run | | | |
 | F. Messages (move, project close, other texture set) | | | |
+| G. A new layer's channels and content (colour, value, resource, material) | | | |

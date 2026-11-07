@@ -1,10 +1,11 @@
-# A Recording tesztelése (Shelf+ v0.8.1-rc.1)
+# A Recording tesztelése (Shelf+ v0.8.2-rc.1)
 
 Ebben a verzióban már **fel lehet venni egy Workflow-t**: te elvégzed a lépéseket a Painterben, a Panel közben figyel, a végén megnyomod a **Stop** gombot, és a szerkesztőben átnézed a Step-eket.
 
 - Egy Group sorában a **+ → Recorded Workflow** elindítja a felvételt. A Panel tetején megjelenik egy piros **● REC** sáv, amely villog és számolja a Step-eket.
 - A REC sáv **Stop** gombja megnyitja a szerkesztőt a felvett Step-ekkel. Innen a szokásos módon menthetsz.
 - A szerkesztő alján a **● Continue** gomb további Step-eket vesz fel az éppen nyitott Workflow végére.
+- Egy új Fill vagy Paint layer bekapcsolt channelei és a Fill layer tartalma (szín, érték, resource, material) is bekerül. Amit egy Paint layerre festesz, az nem.
 - A brusht nem lehet felvenni, mert a Painter nem jelzi, ha brusht váltasz. A Stop után a szerkesztőben add hozzá kézzel.
 
 A Shelf+ felülete angol, ezért a gombok és feliratok nevét angolul írjuk, ahogy a képernyőn látod.
@@ -19,12 +20,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.8.1-rc.1.zip** fájlt a [v0.8.1-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.1-rc.1).
+2. Töltsd le a **ShelfPlus-v0.8.2-rc.1.zip** fájlt a [v0.8.2-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.2-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.1**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.1 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.2**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.2 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -89,19 +90,38 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 3. Ha több texture seted van: indíts egy felvételt, válts át egy másik texture setre, és ott adj hozzá egy layert.
    - ✅ A Panel ezt írja: *Changes in another texture set cannot be recorded…*, és a Stop után ez a layer nem szerepel a Step-ek között.
 
+### G. Egy új layer channeljei és tartalma
+
+1. Indíts egy felvételt, és adj hozzá egy **Fill layert**.
+2. A Fill layer tulajdonságainál kapcsold ki a **Height** és a **Metallic** channelt.
+3. A **BaseColor** színét állítsd erős pirosra, a **Roughness** értékét **0.9**-re.
+4. Egy harmadik channelre (például **Normal**) húzz rá egy textúrát vagy procedurált (például *Clouds*) az Assets ablakból.
+5. Adj hozzá egy **Paint layert** is, és ott csak a **BaseColor** maradjon bekapcsolva.
+6. Kattints a **Stop** gombra, és kattints a Fill layer sorára.
+   - ✅ A **Channels** alatt a Height és a Metallic nincs bepipálva.
+   - ✅ A **Content** **Per channel**: a BaseColor piros, a Roughness 0.9, a harmadik channelen a választott resource.
+   - ✅ A Paint layer sorára kattintva csak a BaseColor van bepipálva.
+   - Írd fel a Notes oszlopba, ha a piros világosabb vagy sötétebb, mint amit választottál, vagy ha valamelyik érték hiányzik.
+7. Mentsd, jelölj ki egy másik layert, és kattints egyszer a csempére.
+   - ✅ Az új Fill layer és Paint layer channelei és értékei ugyanazok, mint amiket felvettél.
+8. Nem kötelező: egy új felvételben válaszd a Fill layer **Material** módját, és húzz bele egy materialt. ✅ Stop után a Fill layer sorában **Fill layer: <material neve>** áll.
+
+**Fontos:** ennél a tesztnél a végén mindenképp kattints a **☰ → Copy diagnostics** pontra, és küldd el a kimásolt szöveget akkor is, ha minden sikerült. Benne van, hogyan olvasta ki a Shelf+ a színeket a Painterből.
+
 ## Eredmények
 
 Írd be: **Pass**, vagy **Fail** egy rövid megjegyzéssel arról, mi történt. A **Notes** oszlopba írj be mindent, ami furcsa volt, akkor is, ha a teszt sikerült: például villogás, lassúság, rossz helyre kerülő layer vagy Painter-figyelmeztetés.
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.8.1-t mutat | | | |
+| 1. Telepítés: a ☰ v0.8.2-t mutat | | | |
 | A. 4 Step, az opacity pontosan 50, futtatás | | | |
 | B. Smart mask ⚠-tel, a behúzás kitölti | | | |
 | C. Megjelenik a select layer Step | | | |
 | D. Festésből nincs Step és nincs üzenet | | | |
 | E. Continue, white mask, Save a végén, futtatás | | | |
 | F. Üzenetek: mozgatás, projekt bezárása, másik texture set | | | |
+| G. Új layer channelei és tartalma (szín, érték, resource, material) | | | |
 
 **Ha valami nem sikerül:**
 

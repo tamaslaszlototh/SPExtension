@@ -390,3 +390,43 @@ def test_a_drag_before_its_row_is_not_merged_into_the_row_before(adapter, record
     adapter.undo_history()
 
     assert recording.stop().steps == [{"type": "add_layer", "layer": "fill"}, {"type": "add_mask", "background": "black"}]
+
+
+# -- a new layer's channels and content, recorded and played back ----------------------
+
+
+def test_a_recorded_fill_layers_channels_and_content_play_back_the_same(adapter, recording):
+    from shelfplus_app.core.workflow import run_workflow
+
+    layer = add_fill(adapter)
+    layer.channels = ["BaseColor", "Roughness"]
+    adapter.push_history("Set channels")
+    layer.sources = {"BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}}
+    adapter.push_history("Set property")
+    steps = recording.stop().steps
+
+    assert steps == [{
+        "type": "add_layer", "layer": "fill", "channels": ["BaseColor", "Roughness"],
+        "sources": {"BaseColor": {"color": "#e01010"}, "Roughness": {"value": 0.9}},
+    }]
+    replay = FakeAdapter()
+    replay.project_is_open = True
+    replay.stack.layers = [FakeLayer("Base")]
+    replay.stack.selected = replay.stack.layers[0]
+    results = []
+    run_workflow(replay, steps, results.append, name="Recorded")
+    assert results[0].ok
+    made = replay.stack.layers[0]
+    assert (made.channels, made.sources) == (layer.channels, layer.sources)
+
+
+def test_a_fill_on_a_new_layers_mask_records_its_value(adapter, recording):
+    layer = add_fill(adapter)
+    add_mask(adapter, layer)
+    mask_fill = FakeEffect("mask", "fill")
+    layer.effect_nodes.append(mask_fill)
+    adapter.push_history("Add fill")
+    mask_fill.source = {"value": 0.3}
+    adapter.push_history("Set property")
+
+    assert recording.capture.steps[-1] == {"type": "add_effect", "effect": "fill", "target": "mask", "source": {"value": 0.3}}

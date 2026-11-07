@@ -14,6 +14,11 @@ The parts, all pure except the last:
   also has ``mask`` (``None``, ``"black"``, ``"white"``, or ``"on"`` when Painter does
   not say which), ``blend`` and ``opacity`` (channel -> blend mode name / 0..1); an
   effect has ``source`` (the generator's or filter's ``resource://`` URL, or ``None``).
+  A Fill or Paint layer and a Fill effect on a layer have ``channels`` (the ChannelType
+  names switched on); a Fill layer or Fill effect has ``content`` in a Step's own form:
+  ``{"material": url}``, ``{"sources": {channel: source}}`` or, a Fill on a mask,
+  ``{"source": source}``; a source is ``{"color": "#rrggbb"}``, ``{"value": n}`` or
+  ``{"resource": url}``.
 - ``diff(before, after)``: what changed, as ``Change``\\ s.
 - ``history_event(before, after)``: reading Painter's History (the ``QUndoView`` rows):
   a new row is an operation, the index going down is undo, up without a new row redo.
@@ -30,14 +35,15 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .workflow import SCOPE_PREFIX
+from .channels import value_range
 from .workflow_draft import resource_name
 
 log = logging.getLogger("ShelfPlus.app.recording")
 
 # -- diff --------------------------------------------------------------------------
 
-ADDED, REMOVED, MOVED, NAME, MASK, BLEND, OPACITY, SOURCE = (
-    "added", "removed", "moved", "name", "mask", "blend", "opacity", "source",
+ADDED, REMOVED, MOVED, NAME, MASK, BLEND, OPACITY, SOURCE, CHANNELS, CONTENT = (
+    "added", "removed", "moved", "name", "mask", "blend", "opacity", "source", "channels", "content",
 )
 LAYERS = "layers"  # a node's ``stack`` when it is a layer, not an effect
 DEFAULT_OPACITY = 1.0  # a channel a snapshot does not list
@@ -151,6 +157,10 @@ def diff(before, after):
             changes.append(Change(OPACITY, uid, was, now))
         if old.get("source") != new.get("source"):
             changes.append(Change(SOURCE, uid, old.get("source"), new.get("source")))
+        if old.get("channels") != new.get("channels"):
+            changes.append(Change(CHANNELS, uid, old.get("channels"), new.get("channels")))
+        if old.get("content") != new.get("content"):
+            changes.append(Change(CONTENT, uid, old.get("content"), new.get("content")))
 
     # Order: the nodes present in both, compared among themselves (an insertion or a
     # removal shifts the others but does not move them).
@@ -276,6 +286,7 @@ MOVING = NOT_RECORDED.format("Moving layers")
 DELETING = NOT_RECORDED.format("Deleting existing layers or effects")
 RENAMING = NOT_RECORDED.format("Renaming existing layers")
 EXISTING_EFFECT = NOT_RECORDED.format("Changing an existing effect")
+EXISTING_CONTENT = NOT_RECORDED.format("Changing the channels or content of an existing layer")
 TWIN_NAMES = "Several layers are named “{}”: the Select layer Step will stop there. Rename one of them."
 
 
@@ -312,6 +323,8 @@ class _Build:
         self.created = {}  # uid of a node made during the Recording -> its Step
         self.masks, self.blends, self.opacities = {}, {}, {}  # layer uid -> the Step
         self.origin = {}  # (uid, "blend") / (uid, "opacity", channel) -> the value before
+        # a new node's channels and content: what it started with, and what it has now
+        self.content_origin, self.content_now = {}, {}
         self.notices = notices
 
     def notice(self, text):
@@ -389,6 +402,7 @@ class _Build:
             return
         self.act(layer, step, op)
         self.created[change.uid] = step
+        self._remember(change.uid, node)
 
     def _new_layer(self, op, change):
         node, uid = change.new, change.uid
@@ -426,6 +440,55 @@ class _Build:
             self.origin.setdefault((uid, BLEND), mode)
         for channel, value in (node.get("opacity") or {}).items():
             self.origin.setdefault((uid, OPACITY, channel), _percent(value))
+        self._remember(uid, node)
+
+    # -- a new layer's channels and content ---------------------------------------------
+
+    def _remember(self, uid, node):
+        """What a new node started with: only what changes from it is recorded."""
+        start = {"channels": node.get("channels"), "content": node.get("content")}
+        self.content_origin[uid] = start
+        self.content_now[uid] = dict(start)
+
+    def _channels(self, op, change, smart_masks):
+        self._content_change(op, change, "channels")
+
+    def _content(self, op, change, smart_masks):
+        self._content_change(op, change, "content")
+
+    def _content_change(self, op, change, key):
+        uid = change.uid
+        if uid not in self.created:
+            self.notice(EXISTING_CONTENT if _snapshot(op.after).is_layer(uid) else EXISTING_EFFECT)
+            return
+        if uid in self.content_now:
+            self.content_now[uid][key] = change.new
+            self._sync_content(uid)
+
+    def _sync_content(self, uid):
+        """The new node's Step gets its channels and content as they are now, compared
+        with what it started with (switched back: nothing is stored)."""
+        step = self.created[uid]
+        takes_channels, takes_content = _content_slots(step)
+        origin, now = self.content_origin[uid], self.content_now[uid]
+        for key in ("channels", "material", "sources", "source"):
+            step.pop(key, None)
+        if takes_channels and now["channels"] and now["channels"] != origin["channels"]:
+            step["channels"] = list(now["channels"])
+        new, old = now["content"] or {}, origin["content"] or {}
+        if new == old:
+            return
+        if takes_content == "layer" and new.get("material"):
+            step["material"] = {"resource": new["material"]}
+        elif takes_content == "layer" and "sources" in new:
+            was = old.get("sources") or {}
+            changed = {ch: _in_range(ch, s) for ch, s in new["sources"].items() if was.get(ch) != s}
+            if "channels" in step:
+                changed = {ch: s for ch, s in changed.items() if ch in step["channels"]}
+            if changed:
+                step["sources"] = changed
+        elif takes_content == "mask" and new.get("source"):
+            step["source"] = _in_range(None, new["source"])
 
     def _removed(self, op, change, smart_masks):
         step = self.created.pop(change.uid, None)
@@ -541,6 +604,27 @@ class _Build:
             flat.append(block.header)
             flat.extend(block.steps)
         return [_copy(s) for s in flat]
+
+
+def _content_slots(step):
+    """``(takes channels, content kind)`` of a Step: a Fill layer and a Fill effect on a
+    layer take channels and ``"layer"`` content (a material or per-channel sources), a
+    Paint layer only channels, a Fill on a mask one ``"mask"`` source; others nothing."""
+    kind = step.get("type")
+    if kind == "add_layer":
+        return step["layer"] in ("fill", "paint"), "layer" if step["layer"] == "fill" else None
+    if kind == "add_effect" and step.get("effect") == "fill":
+        return (True, "layer") if step.get("target") == "layer" else (False, "mask")
+    return False, None
+
+
+def _in_range(channel, source):
+    """A uniform value kept inside its channel's range (a mask's: 0 to 1), rounded."""
+    if "value" not in source:
+        return dict(source)
+    low, high = value_range(channel) if channel is not None else (0, 1)
+    value = round(min(max(float(source["value"]), low), high), 3)
+    return {"value": int(value) if value == int(value) else value}
 
 
 def _copy(step):

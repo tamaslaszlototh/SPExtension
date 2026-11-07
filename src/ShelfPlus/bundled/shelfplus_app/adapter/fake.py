@@ -405,17 +405,35 @@ class FakeAdapter:
             raise self.snapshot_errors.pop(0)
         nodes = []
 
+        def content(holder):
+            if holder.material:
+                return {"material": holder.material}
+            return {"sources": {ch: dict(s) for ch, s in holder.sources.items()}}
+
         def add(layer, parent):
-            nodes.append({
+            entry = {
                 "uid": layer.uid, "name": layer.name, "kind": layer.kind, "parent": parent, "stack": "layers",
                 "mask": layer.mask, "blend": {"BaseColor": layer.blend},
                 "opacity": {channel: value / 100 for channel, value in layer.opacity.items()},
-            })
+            }
+            if layer.kind in ("fill", "paint"):
+                entry["channels"] = list(layer.channels) if layer.channels is not None else None
+            if layer.kind == "fill":
+                entry["content"] = content(layer)
+            nodes.append(entry)
             for node in reversed(layer.effect_nodes):  # the newest is on top
-                nodes.append({
+                entry = {
                     "uid": node.uid, "name": node.name, "kind": node.effect, "parent": layer.uid,
                     "stack": "mask" if node.target == "mask" else "content", "source": node.source,
-                })
+                }
+                if node.effect == "fill":  # a Fill's ``source`` is its content, not a resource
+                    entry["source"] = None
+                    if node.target == "mask":
+                        entry["content"] = {"source": dict(node.source)} if node.source else {}
+                    else:
+                        entry["channels"] = list(node.channels) if node.channels is not None else None
+                        entry["content"] = content(node)
+                nodes.append(entry)
             for child in layer.children:
                 add(child, layer.uid)
 
