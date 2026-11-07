@@ -99,8 +99,9 @@ SUBMENU_ROOM = "\u2003\u2003"
 class RowDelegate(QtWidgets.QStyledItemDelegate):
     """Draws a Step row as its name, then what it applies to in muted italics ("Fill",
     then *on mask*), then a ⚠ note. Qt draws the row's background and icon; the texts
-    are drawn here. (Never ``style()`` from Python: on Painter 11.1 its wrapper is
-    already deleted.)"""
+    of every Step row are drawn here, with or without a detail, so they all start at the
+    same place and the ├ / └ before them line up. (Never ``style()`` from Python: on
+    Painter 11.1 its wrapper is already deleted.)"""
 
     @staticmethod
     def detail_font(base):
@@ -109,16 +110,21 @@ class RowDelegate(QtWidgets.QStyledItemDelegate):
         font.setBold(False)
         return font
 
+    @staticmethod
+    def draws_text(index):
+        """A Step row (the Start and end title rows are left to Qt)."""
+        return index.data(QtCore.Qt.ItemDataRole.UserRole) is not None
+
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
-        if index.data(DETAIL_ROLE) or index.data(NOTE_ROLE):
+        if self.draws_text(index):
             option.text = ""  # drawn in paint()
 
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
-        detail, note = index.data(DETAIL_ROLE), index.data(NOTE_ROLE)
-        if not detail and not note:
+        if not self.draws_text(index):
             return
+        detail, note = index.data(DETAIL_ROLE), index.data(NOTE_ROLE)
         opt = QtWidgets.QStyleOptionViewItem(option)
         super().initStyleOption(opt, index)  # with its text and font
         selected = bool(option.state & QtWidgets.QStyle.StateFlag.State_Selected)

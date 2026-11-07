@@ -527,6 +527,27 @@ def test_a_rows_detail_is_drawn_apart_from_its_name_without_a_dash(app, qt_app):
     editor.tree.grab()  # the delegate draws without error
 
 
+def test_every_step_row_is_drawn_the_same_way_so_the_branches_line_up(app, qt_app):
+    """Rows with a detail ("on layer") and without one ("Black mask") once started their
+    text at different places, so the ├ / └ before the names were not in a straight line."""
+    editor = open_new(app, qt_app)
+    for label in ("Fill layer", "Black mask", "Fill on layer", "Blend mode"):
+        editor.add_step(label)
+    tree, delegate = editor.tree, editor.tree.itemDelegate()
+
+    texts = {}
+    for row in range(tree.count()):
+        index = tree.model().index(row, 0)
+        option = QtWidgets.QStyleOptionViewItem()
+        delegate.initStyleOption(option, index)
+        texts[tree.item(row).text().strip()] = option.text
+
+    step_rows = {k: v for k, v in texts.items() if k.startswith(("Fill layer", "├", "└"))}
+    assert len(step_rows) == 4 and all(v == "" for v in step_rows.values())  # all drawn by the delegate
+    assert texts["At the end of the Workflow"] == "At the end of the Workflow"  # title rows left to Qt
+    editor.tree.grab()
+
+
 def test_the_add_step_menu_keeps_its_section_names_off_the_submenu_arrows(app, qt_app):
     editor = open_new(app, qt_app)
 
