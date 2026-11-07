@@ -89,3 +89,11 @@ def test_a_resource_is_given_by_its_resource_id(adapter):
     adapter.set_channel_source(node, "Height", {"resource": "resource://a/Clouds"})
 
     assert node.sources["Height"].url == "resource://a/Clouds"
+
+
+def test_a_masks_fill_gets_its_grey_value_with_no_channel(adapter):
+    node = FillNode()
+
+    adapter.set_channel_source(node, None, {"value": 0.3})
+
+    assert node.sources[None].rgb == (0.3, 0.3, 0.3)

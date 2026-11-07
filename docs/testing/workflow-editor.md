@@ -119,6 +119,14 @@ This is what Painter's right-click **Add paint** / **Add fill** on a layer makes
 2. Save it, select a layer and click the tile once.
    - ✅ The new Fill layer has a **Paint** inside it (open the layer's arrow in the Layers window), and its mask has a **Fill** inside it, as if you had used Add paint and Add fill yourself.
    - ✅ One **Ctrl+Z** removes all of it.
+3. Open it again (double-click) and click the **└ Fill** row (the Fill on the mask). Set **Content** to **Value** and the value to **0.3**. Save and run it.
+   - ✅ The mask's Fill is a dark grey (0.3): the layer shows through only faintly.
+4. Open it again, set the mask Fill's **Content** to **Resource**, click **Choose…** (or drop a procedural from the Assets window onto it) and pick e.g. a *Clouds* procedural. Save and run it.
+   - ✅ The mask's Fill uses that resource.
+5. Add **+ Add Step → Effect → Fill on the layer** under the Fill layer and click it.
+   - ✅ It has the same **Channels** and **Content** settings as a Fill layer (check G).
+   - Set **Content** to **Per channel**, BaseColor to a strong blue. Save and run it.
+   - ✅ The Fill inside the layer is blue, on top of the Fill layer's own colour.
 
 ### I. Delete a Workflow from the editor
 
@@ -141,7 +149,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 | E. Select layer by name | | | |
 | F. Smart mask dropped from the Assets window | | | |
 | G. Layer channels; per-channel colour, value and resource; one material | | | |
-| H. Paint and Fill inside a layer | | | |
+| H. Paint and Fill inside a layer; a Fill's value, resource and channels | | | |
 | I. Delete from the editor asks first | | | |
 
 **If something fails:**

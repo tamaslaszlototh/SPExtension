@@ -281,7 +281,7 @@ class PainterAdapter:
         number}`` (in the channel's range, see ``core/channels.py``) or ``{"resource": url}``."""
         import substance_painter.textureset as ts
 
-        channel_type = _channel(ts, channel)
+        channel_type = None if channel is None else _channel(ts, channel)  # None: a mask's Fill
         if "resource" in source:
             layer.set_source(channel_type, self._resource_id(source["resource"]))
             return

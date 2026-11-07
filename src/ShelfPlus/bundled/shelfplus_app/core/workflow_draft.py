@@ -64,10 +64,10 @@ def needs_resource(step):
 
 
 def layer_resource_missing(step):
-    """A new layer whose material or a channel's resource is not chosen yet."""
-    if step.get("type") != "add_layer":
+    """A new layer or Fill effect whose material or a channel's resource is not chosen yet."""
+    if step.get("type") not in ("add_layer", "add_effect"):
         return False
-    slots = [step.get("material")] + list((step.get("sources") or {}).values())
+    slots = [step.get("material"), step.get("source")] + list((step.get("sources") or {}).values())
     return any(isinstance(s, dict) and "resource" in s and not s["resource"] for s in slots)
 
 
@@ -116,6 +116,10 @@ def short_name(step):
     if kind == "add_mask":
         return f"{str(step.get('background')).capitalize()} mask"
     if kind == "add_effect":
+        material = step.get("material") or {}
+        material_name = material.get("resource_name") or resource_name(material.get("resource"))
+        if material_name:
+            return f"{_EFFECTS.get(step.get('effect'), 'Effect')}: {material_name}"
         return resource or _EFFECTS.get(step.get("effect"), "Effect")
     if kind == "add_smart":
         return resource or f"Smart {step.get('smart')}"

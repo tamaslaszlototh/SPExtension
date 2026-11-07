@@ -29,6 +29,7 @@ class FakeLayer:
         self.children = list(children or [])
         self.mask = None
         self.effects = []  # (target, effect, resource url or None), oldest first
+        self.effect_nodes = []  # the FakeEffect of each, in the same order
         self.blend = "Normal"
         self.opacity = {}
         self.channels = None  # the active channels; None: Painter's default
@@ -37,6 +38,17 @@ class FakeLayer:
 
     def __repr__(self):
         return f"FakeLayer({self.name!r}, {self.kind!r})"
+
+
+class FakeEffect:
+    """An effect inside a layer (insert_effect's result); a Fill one has content."""
+
+    def __init__(self, target, effect):
+        self.target, self.effect = target, effect
+        self.channels = None
+        self.material = None
+        self.sources = {}
+        self.source = None  # a Fill on a mask: its one source
 
 
 class FakeLayerStack:
@@ -284,6 +296,9 @@ class FakeAdapter:
         if resource is not None:
             self._resource(resource)
         layer.effects.append((target, effect, resource))
+        node = FakeEffect(target, effect)
+        layer.effect_nodes.append(node)
+        return node
 
     def insert_smart_material(self, url, above=None):
         stack = self.stack
@@ -319,7 +334,11 @@ class FakeAdapter:
         self.stack.change("set_channel_source")
         if "resource" in source:
             self._resource(source["resource"])
-        layer.sources[channel] = {k: v for k, v in source.items() if k != "resource_name"}
+        source = {k: v for k, v in source.items() if k != "resource_name"}
+        if channel is None:  # a Fill on a mask
+            layer.source = source
+        else:
+            layer.sources[channel] = source
 
     def stack_channels(self):
         return self.texture_channels

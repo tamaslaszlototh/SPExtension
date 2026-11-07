@@ -455,3 +455,59 @@ def test_number_fields_keep_the_number_off_their_buttons(app, qt_app):
     assert margins(editor.fields["value_Roughness"]) == (6, 6)
     editor.select_step(1)  # the settings are rebuilt for the Opacity Step
     assert margins(editor.fields["opacity"]["BaseColor"][1]) == (6, 6)
+
+
+def test_a_fill_on_the_layer_has_the_fill_layer_settings(app, qt_app, adapter):
+    adapter.texture_channels = ["BaseColor", "Roughness"]
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Fill on the layer")
+    editor.select_step(1)
+
+    assert set(editor.fields["channels"]) == {"BaseColor", "Roughness"}
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+    editor.fields["value_Roughness"].setValue(0.8)
+
+    assert editor.draft.steps[1] == {
+        "type": "add_effect", "effect": "fill", "target": "layer",
+        "sources": {"BaseColor": {"color": "#808080"}, "Roughness": {"value": 0.8}},
+    }
+
+
+def test_a_fill_on_the_mask_takes_one_value_or_one_resource(app, qt_app, picks):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Black mask")
+    editor.add_step("Fill on the mask")
+    editor.select_step(2)
+    assert "channels" not in editor.fields
+
+    editor.fields["content"].setCurrentText("Value")
+    settled(qt_app)
+    editor.fields["value_mask"].setValue(0.25)
+    assert editor.draft.steps[2]["source"] == {"value": 0.25}
+
+    editor.fields["content"].setCurrentText("Resource")
+    settled(qt_app)
+    assert not editor.save_button.isEnabled()  # waiting for its resource
+    picks.append(DIRT)
+    editor.fields["choose_source"].click()
+    settled(qt_app)
+    assert editor.draft.steps[2]["source"] == {"resource": DIRT, "resource_name": "Dirt"}
+    assert editor.save_button.isEnabled()
+
+
+def test_moving_a_fill_between_layer_and_mask_drops_the_content_that_does_not_fit(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Fill on the mask")
+    editor.select_step(1)
+    editor.fields["content"].setCurrentText("Value")
+    settled(qt_app)
+
+    editor.fields["target"].setCurrentText("layer")
+    settled(qt_app)
+
+    assert editor.draft.steps[1] == {"type": "add_effect", "effect": "fill", "target": "layer"}
+    assert "channels" in editor.fields

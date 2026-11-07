@@ -103,16 +103,34 @@ def add_layer(adapter, step, current):
     switched on (unlike one made in Painter's own UI), so without chosen channels every
     channel of the texture set is switched on: what the editor shows as all ticked."""
     layer = adapter.insert_layer(step["layer"], above=current, name=step.get("name") or None)
-    channels = step.get("channels")
-    if channels is None and step["layer"] in ("fill", "paint"):
-        channels = _texture_channels(adapter)
-    if channels:
-        adapter.set_active_channels(layer, list(channels))
-    if "material" in step:
-        adapter.set_material(layer, step["material"]["resource"])
-    for channel, source in step.get("sources", {}).items():
-        adapter.set_channel_source(layer, channel, dict(source))
+    if step["layer"] in ("fill", "paint"):
+        set_content(adapter, layer, step)
     return layer
+
+
+def set_content(adapter, node, step):
+    """A new Fill or Paint layer's, or a Fill effect's, channels and content.
+
+    Without chosen channels every channel of the texture set is switched on (a node made
+    through Painter's Python API starts with none, unlike one made in Painter's UI). That
+    default is only logged if Painter refuses it; chosen channels that fail stop the Step.
+    A Fill on a mask has one grey ``source`` instead."""
+    if "source" in step:
+        adapter.set_channel_source(node, None, dict(step["source"]))
+        return
+    if "channels" in step:
+        adapter.set_active_channels(node, list(step["channels"]))
+    else:
+        channels = _texture_channels(adapter)
+        if channels:
+            try:
+                adapter.set_active_channels(node, channels)
+            except Exception:
+                log.warning("Could not switch on every channel of the new %s", step["type"], exc_info=True)
+    if "material" in step:
+        adapter.set_material(node, step["material"]["resource"])
+    for channel, source in step.get("sources", {}).items():
+        adapter.set_channel_source(node, channel, dict(source))
 
 
 def add_mask(adapter, step, current):
@@ -139,7 +157,11 @@ def add_effect(adapter, step, current):
     target = step["target"]
     if target == "mask" and not adapter.has_mask(layer):
         raise StepError(NO_MASK)
-    adapter.insert_effect(layer, target, step["effect"], resource=step.get("resource"))
+    node = adapter.insert_effect(layer, target, step["effect"], resource=step.get("resource"))
+    if step["effect"] == "fill" and target == "layer":
+        set_content(adapter, node, step)
+    elif step["effect"] == "fill" and "source" in step:
+        adapter.set_channel_source(node, None, dict(step["source"]))
     return current
 
 
@@ -202,7 +224,7 @@ def step_resources(step):
     urls = [step["resource"]] if step.get("resource") else []
     if isinstance(step.get("material"), dict):
         urls.append(step["material"]["resource"])
-    for source in (step.get("sources") or {}).values():
+    for source in [step.get("source"), *(step.get("sources") or {}).values()]:
         if isinstance(source, dict) and source.get("resource"):
             urls.append(source["resource"])
     return urls

@@ -80,6 +80,13 @@ def _sources(v):
     return isinstance(v, dict) and v != {} and all(_text(k) and _source(x, k) for k, x in v.items())
 
 
+def _mask_source(v):
+    """A mask's Fill: ``{"value": 0..1}`` or a resource (a mask is grey: no colour)."""
+    if isinstance(v, dict) and set(v) == {"value"}:
+        return _number_in(v["value"], 0, 1)
+    return _resource_ref(v)
+
+
 def _opacity(v):
     return isinstance(v, dict) and v != {} and all(
         isinstance(k, str) and isinstance(x, (int, float)) and not isinstance(x, bool) and 0 <= x <= 100
@@ -114,7 +121,14 @@ OPTIONAL_STEP_PARAMS = {
         "material": _resource_ref,
         "sources": _sources,
     },
-    "add_effect": {"resource_name": _text},
+    # A Fill effect's content: on the layer like a Fill layer's; on the mask one ``source``.
+    "add_effect": {
+        "resource_name": _text,
+        "channels": _channels,
+        "material": _resource_ref,
+        "sources": _sources,
+        "source": _mask_source,
+    },
     "add_smart": {"resource_name": _text},
     "select_brush": {"resource_name": _text},
 }
@@ -138,20 +152,46 @@ def step_problem(step):
         return f"Step 'add_effect' ({step['effect']}) is missing 'resource'"
     if kind == "add_layer":
         return _layer_content_problem(step)
+    if kind == "add_effect":
+        return _effect_content_problem(step)
+    return None
+
+
+CONTENT_KEYS = ("channels", "material", "sources", "source")
+
+
+def _content_problem(step, kind):
+    """``material`` xor ``sources``, and ``sources`` only on chosen ``channels``."""
+    if "material" in step and "sources" in step:
+        return f"Step '{kind}' has both 'material' and 'sources'"
+    if "channels" in step:
+        for channel in step.get("sources", {}):
+            if channel not in step["channels"]:
+                return f"Step '{kind}' sets '{channel}', which is not one of its channels"
     return None
 
 
 def _layer_content_problem(step):
+    if "source" in step:
+        return "Step 'add_layer' cannot have 'source'"
     has_content = "material" in step or "sources" in step
     if has_content and step["layer"] != "fill":
         return f"Step 'add_layer' ({step['layer']}) cannot have 'material' or 'sources'"
-    if "material" in step and "sources" in step:
-        return "Step 'add_layer' has both 'material' and 'sources'"
-    if "channels" in step:
-        for channel in step.get("sources", {}):
-            if channel not in step["channels"]:
-                return f"Step 'add_layer' sets '{channel}', which is not one of its channels"
-    return None
+    return _content_problem(step, "add_layer")
+
+
+def _effect_content_problem(step):
+    if not any(key in step for key in CONTENT_KEYS):
+        return None
+    if step["effect"] != "fill":
+        return f"Step 'add_effect' ({step['effect']}) has no content"
+    if step["target"] == "mask":
+        if any(key in step for key in ("channels", "material", "sources")):
+            return "Step 'add_effect' on the mask takes only 'source'"
+        return None
+    if "source" in step:
+        return "Step 'add_effect' on the layer cannot have 'source'"
+    return _content_problem(step, "add_effect")
 
 
 def _icon_ok(raw):

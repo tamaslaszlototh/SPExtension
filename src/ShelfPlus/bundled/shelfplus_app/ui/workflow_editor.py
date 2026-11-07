@@ -615,8 +615,17 @@ class WorkflowEditor(QtWidgets.QFrame):
             form.addRow("Background", combo)
         elif kind == "add_effect":
             combo = self._combo("target", ["mask", "layer"], step["target"])
-            combo.currentTextChanged.connect(lambda text: change(target=text))
+            if step["effect"] == "fill":  # the content of a layer's Fill and a mask's differ
+                combo.currentTextChanged.connect(
+                    lambda text: change(rebuild=True, target=text, channels=None, material=None, sources=None, source=None)
+                )
+            else:
+                combo.currentTextChanged.connect(lambda text: change(target=text))
             form.addRow("On the", combo)
+            if step["effect"] == "fill" and step["target"] == "layer":
+                self._layer_settings(step, change)
+            elif step["effect"] == "fill":
+                self._mask_fill_settings(step, change)
         elif kind == "set_blend":
             combo = self._combo("blend", BLEND_MODES, step["blend"], editable=True)
             combo.currentTextChanged.connect(lambda text: change(blend=text.strip() or None))
@@ -672,7 +681,7 @@ class WorkflowEditor(QtWidgets.QFrame):
     # -- a new layer's channels and content ----------------------------------------
 
     def _layer_settings(self, step, change):
-        """Active channels (Fill and Paint layers) and a Fill layer's content."""
+        """Active channels (Fill and Paint layers, a Fill on a layer) and a Fill's content."""
         form = self.settings_layout
         offered = self.app.texture_channels()
         active = step.get("channels")
@@ -701,7 +710,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         for box in checks.values():
             box.toggled.connect(lambda checked: channels_changed())
         form.addRow("Channels", grid_box)
-        if step["layer"] != "fill":
+        if step["type"] == "add_layer" and step["layer"] != "fill":  # a Paint layer has no content
             return
 
         mode = CONTENT_MATERIAL if "material" in step else CONTENT_CHANNELS if "sources" in step else CONTENT_DEFAULT
@@ -726,6 +735,33 @@ class WorkflowEditor(QtWidgets.QFrame):
         elif mode == CONTENT_CHANNELS:
             for channel, source in step["sources"].items():
                 form.addRow(channel, self._source_field(channel, source, change))
+
+    def _mask_fill_settings(self, step, change):
+        """A Fill on a mask: one grey value, or one resource."""
+        form = self.settings_layout
+        source = step.get("source")
+        mode = CONTENT_DEFAULT if source is None else SOURCE_RESOURCE if "resource" in source else SOURCE_VALUE
+        combo = self._combo("content", [CONTENT_DEFAULT, SOURCE_VALUE, SOURCE_RESOURCE], mode)
+
+        def content_changed(text):
+            new = {SOURCE_VALUE: {"value": 1}, SOURCE_RESOURCE: {"resource": ""}}.get(text)
+            change(rebuild=True, source=new)
+
+        combo.currentTextChanged.connect(content_changed)
+        form.addRow("Content", combo)
+        if mode == SOURCE_VALUE:
+            spin = padded(QtWidgets.QDoubleSpinBox())
+            spin.setObjectName(f"{OBJECT_NAME}Value")
+            spin.setRange(0, 1)  # a mask: black to white
+            spin.setDecimals(3)
+            spin.setSingleStep(0.05)
+            spin.setValue(source["value"])
+            spin.valueChanged.connect(lambda value: change(source={"value": value}))
+            self.fields["value_mask"] = spin
+            form.addRow("Value", spin)
+        elif mode == SOURCE_RESOURCE:
+            form.addRow("Resource", self._resource_field("source", source, lambda ref: change(rebuild=True, source=ref),
+                                                         "Choose a resource for the mask"))
 
     def _source_field(self, channel, source, change):
         """One channel of a Fill layer: Value (a colour or a grey) or Resource."""

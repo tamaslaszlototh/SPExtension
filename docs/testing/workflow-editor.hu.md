@@ -123,6 +123,14 @@ Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill**
 2. Mentsd, jelölj ki egy layert, és kattints egyszer a csempére.
    - ✅ Az új Fill layeren belül ott egy **Paint** (nyisd le a layer nyilát a Layers ablakban), a maszkjában pedig egy **Fill**, mintha te adtad volna hozzá Add painttel és Add fill-lel.
    - ✅ Egyetlen **Ctrl+Z** mindezt visszavonja.
+3. Nyisd meg újra (dupla kattintás), és kattints a **└ Fill** sorra (a maszkon lévő Fill). A **Content** legyen **Value**, az érték **0.3**. Mentsd és futtasd.
+   - ✅ A maszk Fillje sötétszürke (0.3): a layer csak halványan látszik.
+4. Nyisd meg újra, a maszk Filljénél a **Content** legyen **Resource**, kattints a **Choose…** gombra (vagy húzz rá egy procedurált az Assets ablakból), és válassz pl. egy *Clouds* procedurált. Mentsd és futtasd.
+   - ✅ A maszk Fillje azt a resource-t használja.
+5. Adj hozzá a Fill layer alá egy **+ Add Step → Effect → Fill on the layer** Stepet, és kattints rá.
+   - ✅ Ugyanazok a **Channels** és **Content** beállításai vannak, mint egy Fill layernek (G pont).
+   - A **Content** legyen **Per channel**, a BaseColor erős kék. Mentsd és futtasd.
+   - ✅ A layeren belüli Fill kék, a Fill layer saját színe fölött.
 
 ### I. Workflow törlése a szerkesztőből
 
@@ -145,7 +153,7 @@ Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill**
 | E. Layer kiválasztása név alapján | | | |
 | F. Smart mask behúzása az Assets ablakból | | | |
 | G. Layer channelek; channelenkénti szín, érték és resource; egy material | | | |
-| H. Paint és Fill egy layeren belül | | | |
+| H. Paint és Fill egy layeren belül; a Fill értéke, resource-a és channelei | | | |
 | I. A szerkesztőből törlés előtt rákérdez | | | |
 
 **Ha valami nem sikerül:**
