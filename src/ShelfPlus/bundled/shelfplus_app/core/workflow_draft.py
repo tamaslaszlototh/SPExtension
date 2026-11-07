@@ -29,10 +29,14 @@ _TEMPLATES = [
     ("Effect", "Filter on the mask", {"type": "add_effect", "effect": "filter", "target": "mask"}),
     ("Effect", "Levels on the mask", {"type": "add_effect", "effect": "levels", "target": "mask"}),
     ("Effect", "Anchor point on the mask", {"type": "add_effect", "effect": "anchor", "target": "mask"}),
+    ("Effect", "Paint on the mask", {"type": "add_effect", "effect": "paint", "target": "mask"}),
+    ("Effect", "Fill on the mask", {"type": "add_effect", "effect": "fill", "target": "mask"}),
     ("Effect", "Generator on the layer", {"type": "add_effect", "effect": "generator", "target": "layer"}),
     ("Effect", "Filter on the layer", {"type": "add_effect", "effect": "filter", "target": "layer"}),
     ("Effect", "Levels on the layer", {"type": "add_effect", "effect": "levels", "target": "layer"}),
     ("Effect", "Anchor point on the layer", {"type": "add_effect", "effect": "anchor", "target": "layer"}),
+    ("Effect", "Paint on the layer", {"type": "add_effect", "effect": "paint", "target": "layer"}),
+    ("Effect", "Fill on the layer", {"type": "add_effect", "effect": "fill", "target": "layer"}),
     ("Setting", "Blend mode", {"type": "set_blend", "blend": "Normal"}),
     ("Setting", "Opacity", {"type": "set_opacity", "opacity": {"BaseColor": 100}}),
     ("At the end", "Brush", {"type": "select_brush"}),
@@ -90,7 +94,14 @@ def resource_name(url):
 
 
 _LAYERS = {"fill": "Fill layer", "paint": "Paint layer", "folder": "Folder"}
-_EFFECTS = {"generator": "Generator", "filter": "Filter", "levels": "Levels", "anchor": "Anchor point"}
+_EFFECTS = {
+    "generator": "Generator",
+    "filter": "Filter",
+    "levels": "Levels",
+    "anchor": "Anchor point",
+    "fill": "Fill",
+    "paint": "Paint",
+}
 
 
 def short_name(step):

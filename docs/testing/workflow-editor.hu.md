@@ -1,4 +1,4 @@
-# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.5-rc.1)
+# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.6-rc.1)
 
 Ebben a verzióban már **saját Workflow-kat lehet összerakni a Panelen**, és a meglévőket is lehet javítani:
 
@@ -18,12 +18,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.7.5-rc.1.zip** fájlt a [v0.7.5-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.5-rc.1).
+2. Töltsd le a **ShelfPlus-v0.7.6-rc.1.zip** fájlt a [v0.7.6-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.6-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.5**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.5 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.6**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.6 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -114,7 +114,17 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 7. Csinálj egy Workflow-t **Paint layer**-rel, a **BaseColor** kivételével vedd ki az összes channel pipáját, mentsd és futtasd.
    - ✅ Az új Paint layeren csak a BaseColor van bekapcsolva. (Paint layernek nincs Content beállítása.)
 
-### H. Workflow törlése a szerkesztőből
+### H. Paint és Fill egy layeren belül
+
+Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill** csinál: a layer alatt beljebb húzva megjelenő Paint vagy Fill.
+
+1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, majd **+ Add Step → Effect → Paint on the layer**, majd **+ Add Step → Mask → Black mask**, majd **+ Add Step → Effect → Fill on the mask**.
+   - ✅ A sorok: **Fill layer**, **├ Paint**, **├ Black mask**, **└ Fill**.
+2. Mentsd, jelölj ki egy layert, és kattints egyszer a csempére.
+   - ✅ Az új Fill layeren belül ott egy **Paint** (nyisd le a layer nyilát a Layers ablakban), a maszkjában pedig egy **Fill**, mintha te adtad volna hozzá Add painttel és Add fill-lel.
+   - ✅ Egyetlen **Ctrl+Z** mindezt visszavonja.
+
+### I. Workflow törlése a szerkesztőből
 
 1. Nyisd meg a szerkesztőben az egyik általad készített Workflow-t, és kattints a név melletti **kuka** ikonra.
    - ✅ Rákérdez: *Delete "…"?*. A **No** mindent úgy hagy, ahogy volt.
@@ -127,7 +137,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.7.5-t mutat | | | |
+| 1. Telepítés: a ☰ v0.7.6-t mutat | | | |
 | A. Fill + Black mask + Dirt + Opacity 50% összerakása (Dirt a listából) és futtatása | | | |
 | B. Dupla kattintás újranyit; Opacity a Startba | | | |
 | C. A Save és a layer sor visszaugrik | | | |
@@ -135,7 +145,8 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 | E. Layer kiválasztása név alapján | | | |
 | F. Smart mask behúzása az Assets ablakból | | | |
 | G. Layer channelek; channelenkénti szín, érték és resource; egy material | | | |
-| H. A szerkesztőből törlés előtt rákérdez | | | |
+| H. Paint és Fill egy layeren belül | | | |
+| I. A szerkesztőből törlés előtt rákérdez | | | |
 
 **Ha valami nem sikerül:**
 

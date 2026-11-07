@@ -129,3 +129,10 @@ def test_a_fill_layer_with_a_material_is_named_after_it():
     rust = {"type": "add_layer", "layer": "fill", "material": {"resource": "resource://a/Rust_v2", "resource_name": "Rust"}}
 
     assert auto_name([rust, BLACK]) == "Fill layer: Rust + Black mask"
+
+
+def test_paint_and_fill_effects_are_in_the_catalog():
+    assert template("Paint on the layer") == {"type": "add_effect", "effect": "paint", "target": "layer"}
+    assert template("Fill on the mask") == {"type": "add_effect", "effect": "fill", "target": "mask"}
+    assert incomplete(template("Paint on the layer")) is None
+    assert auto_name([FILL, template("Paint on the layer")]) == "Fill layer + Paint"

@@ -1,4 +1,4 @@
-# Testing the Workflow editor (Shelf+ v0.7.5-rc.1)
+# Testing the Workflow editor (Shelf+ v0.7.6-rc.1)
 
 This build lets you **make your own Workflows on the Panel** and fix existing ones:
 
@@ -16,11 +16,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.7.5-rc.1.zip** from the [v0.7.5-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.5-rc.1).
+2. Download **ShelfPlus-v0.7.6-rc.1.zip** from the [v0.7.6-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.6-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.5**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.6**.
 
 Your own Layout stays as it is. This test adds a few Buttons, and you can delete them afterwards.
 
@@ -110,7 +110,17 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 7. Make a Workflow with **Paint layer**, untick all channels except **BaseColor**, save and run it.
    - ✅ The new Paint layer has only BaseColor switched on. (A Paint layer has no Content setting.)
 
-### H. Delete a Workflow from the editor
+### H. Paint and Fill inside a layer
+
+This is what Painter's right-click **Add paint** / **Add fill** on a layer makes: a Paint or Fill shown indented under the layer.
+
+1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, then **+ Add Step → Effect → Paint on the layer**, then **+ Add Step → Mask → Black mask**, then **+ Add Step → Effect → Fill on the mask**.
+   - ✅ The rows read **Fill layer**, **├ Paint**, **├ Black mask**, **└ Fill**.
+2. Save it, select a layer and click the tile once.
+   - ✅ The new Fill layer has a **Paint** inside it (open the layer's arrow in the Layers window), and its mask has a **Fill** inside it, as if you had used Add paint and Add fill yourself.
+   - ✅ One **Ctrl+Z** removes all of it.
+
+### I. Delete a Workflow from the editor
 
 1. Open the editor on one of the Workflows you made and click the **bin** next to the name.
    - ✅ You are asked *Delete "…"?*. **No** leaves everything as it was.
@@ -123,7 +133,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.7.5 | | | |
+| 1. Install: ☰ shows v0.7.6 | | | |
 | A. Build Fill + Black mask + Dirt + Opacity 50% (Dirt chosen from the list), run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |
@@ -131,7 +141,8 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 | E. Select layer by name | | | |
 | F. Smart mask dropped from the Assets window | | | |
 | G. Layer channels; per-channel colour, value and resource; one material | | | |
-| H. Delete from the editor asks first | | | |
+| H. Paint and Fill inside a layer | | | |
+| I. Delete from the editor asks first | | | |
 
 **If something fails:**
 

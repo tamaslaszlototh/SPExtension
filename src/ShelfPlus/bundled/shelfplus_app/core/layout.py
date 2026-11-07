@@ -90,7 +90,10 @@ def _opacity(v):
 STEP_PARAMS = {
     "add_layer": {"layer": _one_of("fill", "paint", "folder")},
     "add_mask": {"background": _one_of("black", "white")},
-    "add_effect": {"effect": _one_of("generator", "filter", "levels", "anchor"), "target": _one_of("mask", "layer")},
+    "add_effect": {
+        "effect": _one_of("generator", "filter", "levels", "anchor", "fill", "paint"),
+        "target": _one_of("mask", "layer"),
+    },
     "set_blend": {"blend": _text},
     "set_opacity": {"opacity": _opacity},
     "add_smart": {"smart": _one_of("material", "mask"), "resource": _resource},

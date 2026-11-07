@@ -191,7 +191,9 @@ class PainterAdapter:
 
     def insert_effect(self, layer, target, effect, resource=None):
         """On top of the layer's mask stack (``target`` mask) or content stack (layer).
-        ``effect``: generator / filter (with a ``resource`` URL), levels or anchor."""
+        ``effect``: generator / filter (with a ``resource`` URL), levels, anchor, or fill /
+        paint (what Painter's right-click "Add fill" / "Add paint" on a layer makes: the
+        same insert_fill / insert_paint as a layer, at a position inside it)."""
         import substance_painter.layerstack as ls
 
         stack = ls.NodeStack.Mask if target == "mask" else ls.NodeStack.Content
@@ -205,6 +207,10 @@ class PainterAdapter:
             return ls.insert_levels_effect(position)
         if effect == "anchor":
             return ls.insert_anchor_point_effect(position, ANCHOR_POINT_NAME)
+        if effect == "fill":
+            return ls.insert_fill(position)
+        if effect == "paint":
+            return ls.insert_paint(position)
         raise ValueError(f"Shelf+ cannot add a “{effect}” effect.")
 
     def insert_smart_material(self, url, above=None):

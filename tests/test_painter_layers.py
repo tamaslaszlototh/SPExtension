@@ -238,3 +238,16 @@ def test_select_mask_selects_the_layer_and_its_mask(painter):
     adapter.select_mask(nodes["base"])
 
     assert adapter.selection["nodes"] == [nodes["base"]] and adapter.selection_paintable() is True
+
+
+def test_paint_and_fill_effects_go_inside_the_layer_like_add_paint_and_add_fill(painter):
+    """Painter's right-click "Add paint" / "Add fill" on a layer: insert_paint / insert_fill
+    at a position inside the layer's content or mask stack."""
+    adapter, calls, nodes = painter
+    base = nodes["base"]
+    base.mask = "Black"
+
+    adapter.insert_effect(base, "layer", "paint")
+    adapter.insert_effect(base, "mask", "fill")
+
+    assert calls == [("inside", base, "Content"), ("inside", base, "Mask")]

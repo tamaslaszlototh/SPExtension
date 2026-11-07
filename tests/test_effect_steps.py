@@ -261,3 +261,25 @@ def test_step_labels():
     assert step_label(effect("anchor", "layer")) == "Add anchor point to the layer"
     assert step_label(smart("material", RUST)) == "Add smart material"
     assert step_label(smart("mask", EDGES)) == "Add smart mask"
+
+
+def test_paint_and_fill_effects_are_steps_on_the_current_layer():
+    from shelfplus_app.adapter.fake import FakeAdapter, FakeLayer
+    from shelfplus_app.core.layout import step_problem
+    from shelfplus_app.core.workflow import run_workflow, step_label
+
+    paint = {"type": "add_effect", "effect": "paint", "target": "layer"}
+    fill_mask = {"type": "add_effect", "effect": "fill", "target": "mask"}
+    assert step_problem(paint) is None and step_problem(fill_mask) is None
+    assert step_label(paint) == "Add paint to the layer"
+
+    adapter = FakeAdapter()
+    adapter.project_is_open = True
+    base = FakeLayer("Base")
+    adapter.stack.layers = [base]
+    adapter.stack.selected = base
+    results = []
+    run_workflow(adapter, [{"type": "add_mask", "background": "black"}, paint, fill_mask], results.append, name="W")
+
+    assert results[0].ok
+    assert base.effects == [("layer", "paint", None), ("mask", "fill", None)]

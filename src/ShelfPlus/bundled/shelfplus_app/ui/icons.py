@@ -252,6 +252,14 @@ def step_icon(step, action_png=None):
                 QtCore.QPointF(12, 14), QtCore.QPointF(52, 14), QtCore.QPointF(36, 34),
                 QtCore.QPointF(36, 52), QtCore.QPointF(28, 48), QtCore.QPointF(28, 34),
             ]))
+        elif effect == "fill":  # a filled square
+            painter.drawRoundedRect(14, 14, 36, 36, 4, 4)
+        elif effect == "paint":  # a brush stroke
+            painter.save()
+            painter.translate(32, 32)
+            painter.rotate(-35)
+            painter.drawRoundedRect(-22, -7, 44, 14, 7, 7)
+            painter.restore()
         elif effect == "levels":
             for x, h in ((14, 14), (24, 30), (34, 22), (44, 38)):
                 painter.drawRect(x, 52 - h, 7, h)
