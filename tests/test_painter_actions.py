@@ -116,16 +116,64 @@ class TestHiddenMenus:
         assert {(a.name, a.path) for a in seen} == {("recent_1", ("File", "Recent"))}
 
 
+def release_on(menu):
+    """A mouse release inside ``menu``, as when an entry is clicked."""
+    QtWidgets.QApplication.sendEvent(
+        menu,
+        QtGui.QMouseEvent(
+            QtCore.QEvent.Type.MouseButtonRelease, QtCore.QPointF(1, 1), QtCore.QPointF(1, 1),
+            QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+
+
+class TestMenuClicks:
+    """Painter 11.1 runs Window > Views > Log without the QAction's triggered signal
+    reaching a hook; the click in the menu is what shows it."""
+
+    def test_the_entry_clicked_in_a_menu_is_reported_with_its_place(self, painter):
+        views = painter.window.menuBar().addMenu("Window").addMenu("Views")
+        log = views.addAction("Log")
+        seen = []
+        stop = PainterActions().watch(seen.append)
+        views.setActiveAction(log)
+
+        release_on(views)
+        stop()
+
+        # first the click; any hook calls that follow are duplicates the core drops
+        assert (seen[0].label, seen[0].path, seen[0].handle is log) == ("Log", ("Window", "Views"), True)
+        assert {(a.label, a.path) for a in seen} == {("Log", ("Window", "Views"))}
+
+    def test_a_click_on_a_disabled_entry_or_a_submenu_is_not_reported(self, painter):
+        file_menu = painter.save.associatedObjects()[0]
+        seen = []
+        stop = PainterActions().watch(seen.append)
+        painter.save.setEnabled(False)
+        file_menu.setActiveAction(painter.save)
+        release_on(file_menu)
+        recent_entry = [a for a in file_menu.actions() if a.menu() is not None][0]
+        file_menu.setActiveAction(recent_entry)
+        release_on(file_menu)
+        stop()
+
+        assert seen == []
+
+    def test_clicks_in_the_panels_own_menus_are_not_reported(self, painter):
+        seen = []
+        stop = PainterActions().watch(seen.append)
+        painter.own_menu.setActiveAction(painter.own)
+
+        release_on(painter.own_menu)
+        stop()
+
+        assert seen == []
+
+
 class TestClickLog:
     def test_a_click_in_a_menu_is_logged_while_watching_and_not_after(self, painter, caplog):
         menu = painter.save.associatedObjects()[0]
-        release = lambda: QtWidgets.QApplication.sendEvent(  # noqa: E731
-            menu,
-            QtGui.QMouseEvent(
-                QtCore.QEvent.Type.MouseButtonRelease, QtCore.QPointF(1, 1), QtCore.QPointF(1, 1),
-                QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier,
-            ),
-        )
+        release = lambda: release_on(menu)  # noqa: E731
         caplog.set_level("DEBUG", logger="ShelfPlus.app.actions")
         stop = PainterActions().watch(lambda action: None)
 

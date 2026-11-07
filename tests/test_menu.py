@@ -164,6 +164,14 @@ class TestActionWatcher:
 
         assert seen == []
 
+    def test_the_plugins_own_entry_in_painters_python_menu_is_ignored(self):
+        seen = []
+        watcher = ActionWatcher(seen.append)
+
+        watcher.notify(MenuAction("", "ShelfPlus", ("Python",)))
+
+        assert seen == []
+
     def test_the_plugins_own_triggers_are_ignored(self):
         seen = []
         watcher = ActionWatcher(seen.append)

@@ -155,9 +155,33 @@ def describe(action, path=(), owner=""):
     return MenuAction(action.objectName(), action.text(), path, QtGui.QIcon(action.icon()), action, owner)
 
 
+def _clean_title(menu):
+    return menu.title().replace("&&", "\0").replace("&", "").replace("\0", "&")
+
+
+def menu_path(menu, keep):
+    """The titles of ``menu`` and the menus above it, outermost first, found through the
+    entry that opens each one (``menuAction().associatedObjects()``), not through
+    ``parentWidget()``. Every menu met is put into ``keep``."""
+    titles = []
+    while menu is not None and len(titles) < MAX_MENU_DEPTH:
+        keep[id(menu)] = menu
+        title = _clean_title(menu)
+        if title:
+            titles.append(title)
+        above = [o for o in menu.menuAction().associatedObjects() if isinstance(o, QtWidgets.QMenu) and o is not menu]
+        menu = above[0] if above else None
+    return tuple(reversed(titles))
+
+
 class _MenuClicks(QtCore.QObject):
-    """While watching: logs every mouse click inside a menu (which menu, which entry),
-    whatever Painter does with it. Evidence for when a click is not reported."""
+    """While watching: the entry clicked in any menu is reported, whatever Painter then
+    does with it. On Painter 11.1, Window > Views > Log runs without its QAction's
+    triggered signal reaching a hook. Every click is also logged."""
+
+    def __init__(self, watch):
+        super().__init__()
+        self.watch = watch
 
     def eventFilter(self, obj, event):
         try:
@@ -170,8 +194,10 @@ class _MenuClicks(QtCore.QObject):
                     action.objectName() if action is not None else None,
                     action is not None and action.menu() is not None,
                 )
+                if action is not None:
+                    self.watch.clicked(obj, action)
         except Exception:
-            log.debug("Logging a menu click failed", exc_info=True)
+            log.exception("Handling a menu click failed")
         return False
 
 
@@ -181,7 +207,7 @@ class _Watch:
     def __init__(self, callback, keep):
         self.callback = callback
         self._keep = keep
-        self._clicks = _MenuClicks()
+        self._clicks = _MenuClicks(self)
         app = QtWidgets.QApplication.instance()
         if app is not None:
             app.installEventFilter(self._clicks)
@@ -223,6 +249,18 @@ class _Watch:
                 "Watching Painter's menus: %d hooks (%d new; %d widgets, %d menus)",
                 len(self._hooked), len(self._hooked) - before, len(scan.widgets), len(scan.menus),
             )
+
+    def clicked(self, menu, action):
+        """An entry clicked in ``menu``: reported unless it opens a submenu, is disabled,
+        or belongs to the Panel. The hook calls that may follow are duplicates."""
+        if _is_own(menu) or _is_own(action) or not valid(action):
+            return
+        if action.menu() is not None or action.isSeparator() or not action.isEnabled():
+            return
+        self._keep[id(action)] = action
+        described = describe(action, menu_path(menu, self._keep))
+        log.debug("Clicked: %r objectName=%r id=%r", described.label, described.name, action_id(described))
+        self.callback(described)
 
     def _report(self, action, fallback=((), "", "unknown")):
         """``fallback``: where the command is if this watch has not found it itself."""

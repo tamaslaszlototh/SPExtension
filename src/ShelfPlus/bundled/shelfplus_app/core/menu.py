@@ -70,7 +70,8 @@ class MenuAction:
 
     @property
     def own(self):
-        return self.name.startswith(OWN_PREFIX)
+        """The plugin's own: its menus' entries, and its on/off entry in Painter's Python menu."""
+        return self.name.startswith(OWN_PREFIX) or action_label(self.text) == OWN_PREFIX
 
 
 _TAG = re.compile(r"<[^>]*>")
