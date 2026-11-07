@@ -1,5 +1,7 @@
 """An in-memory adapter for tests. Records what the App asked Painter to do."""
 
+from contextlib import contextmanager
+
 from ..core.brush import BrushResource
 from ..core.menu import action_id, same_action
 
@@ -16,6 +18,60 @@ class FakeTimer:
 
     def stop(self):
         self.active = False
+
+
+class FakeLayer:
+    """A layer of the fake stack. ``children`` (top first) only for a folder."""
+
+    def __init__(self, name, kind="paint", children=None):
+        self.name = name
+        self.kind = kind
+        self.children = list(children or [])
+        self.mask = None
+        self.blend = "Normal"
+        self.opacity = {}
+
+    def __repr__(self):
+        return f"FakeLayer({self.name!r}, {self.kind!r})"
+
+
+class FakeLayerStack:
+    """Painter's layer stack of the active texture set, as far as the runner sees it.
+
+    Like Painter, it refuses a selection change inside a ``ScopedModification``, and every
+    change outside one is an error here (Painter would make it a separate undo entry).
+    ``fail_on`` = an operation name (``"add_mask"``…) that raises, for mid-run failures.
+    """
+
+    def __init__(self, layers=None):
+        self.layers = list(layers or [])  # top of the stack first
+        self.selected = None
+        self.scopes = []  # the labels of every scope opened
+        self.in_scope = False
+        self.fail_on = None
+        self.changes = 0
+
+    def walk(self, layers=None):
+        for layer in self.layers if layers is None else layers:
+            yield layer
+            yield from self.walk(layer.children)
+
+    def siblings(self, layer):
+        if layer in self.layers:
+            return self.layers
+        return next(p.children for p in self.walk() if layer in p.children)
+
+    def names(self, layers=None):
+        """The stack as nested names, e.g. ``["Fill", ("Folder", ["Paint"])]``."""
+        layers = self.layers if layers is None else layers
+        return [(layer.name, self.names(layer.children)) if layer.kind == "folder" else layer.name for layer in layers]
+
+    def change(self, op):
+        if not self.in_scope:
+            raise AssertionError(f"{op} outside a ScopedModification")
+        if self.fail_on == op:
+            raise RuntimeError(f"{op} failed")
+        self.changes += 1
 
 
 class FakeAdapter:
@@ -57,6 +113,12 @@ class FakeAdapter:
         self.hooks = []  # the callbacks of watch_actions()
         self.project_is_open = False
         self.watch_error = None
+
+        # The project and its layer stack (the Workflow runner).
+        self.edition = True  # the open project is in edition state
+        self.stack = FakeLayerStack()
+        self.saves = 0
+        self.save_error = None
 
     def add_dock_widget(self, widget):
         if self.fail_on_dock:
@@ -165,6 +227,58 @@ class FakeAdapter:
         for _ in range(hook_calls):
             for callback in list(self.hooks):
                 callback(action)
+
+    # -- the project and its layer stack ----------------------------------------
+
+    def project_ready(self):
+        return self.project_is_open and self.edition
+
+    def selected_layer(self):
+        return self.stack.selected
+
+    @contextmanager
+    def layer_scope(self, label):
+        stack = self.stack
+        assert not stack.in_scope, "scopes do not nest"
+        stack.scopes.append(label)
+        stack.in_scope = True
+        try:
+            yield
+        finally:
+            stack.in_scope = False
+
+    def insert_layer(self, kind, above=None, name=None):
+        stack = self.stack
+        stack.change("insert_layer")
+        layer = FakeLayer(name or {"fill": "Fill layer", "paint": "Layer", "folder": "Folder"}[kind], kind)
+        siblings = stack.layers if above is None else stack.siblings(above)
+        siblings.insert(0 if above is None else siblings.index(above), layer)
+        return layer
+
+    def add_mask(self, layer, background):
+        self.stack.change("add_mask")
+        layer.mask = background
+
+    def set_blend(self, layer, mode):
+        self.stack.change("set_blend")
+        layer.blend = mode
+
+    def set_opacity(self, layer, channel, percent):
+        self.stack.change("set_opacity")
+        layer.opacity[channel] = percent
+
+    def find_layers(self, name):
+        return [layer for layer in self.stack.walk() if layer.name == name]
+
+    def select_layer(self, layer):
+        if self.stack.in_scope:
+            raise RuntimeError("The selection cannot change inside a ScopedModification")
+        self.stack.selected = layer
+
+    def save_project(self):
+        if self.save_error is not None:
+            raise self.save_error
+        self.saves += 1
 
     # -- timers --------------------------------------------------------------
 

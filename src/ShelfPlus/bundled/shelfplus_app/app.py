@@ -15,6 +15,7 @@ from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, r
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
+from .core.workflow import run_workflow
 
 log = logging.getLogger("ShelfPlus.app")
 
@@ -52,13 +53,12 @@ LIST_FAILED_MESSAGE = "Painter's commands could not be read. See the log."
 
 
 def button_steps(button):
-    """The Steps a Button runs. A Brush or Menu button is a one-Step Workflow. ``None``:
-    this Button kind cannot run yet."""
+    """The Steps a Button runs. A Brush or Menu button is a one-Step Workflow."""
     if button.kind == "brush":
         return [{"type": "select_brush", "resource": button.raw["resource"]}]
     if button.kind == "menu":
         return [{"type": "run_action", "action": button.raw["action"]}]
-    return None
+    return button.raw["steps"]
 
 
 class App:
@@ -84,7 +84,7 @@ class App:
         # Every hook call on Painter's commands goes through it; it also hides the
         # plugin's own trigger() calls (run_action).
         self.action_watcher = ActionWatcher(self._command_run)
-        # The UI Steps the App can run so far: Step type -> function(adapter, step, done).
+        # The UI Steps besides ``save``: Step type -> function(adapter, step, done).
         self.ui_steps = {"select_brush": select_brush, "run_action": partial(run_action, watcher=self.action_watcher)}
         self._capture_group_id = None  # capture mode: the Group a captured command goes to
         self.capture_note = None  # why the last command clicked in capture mode was refused
@@ -450,17 +450,14 @@ class App:
     # -- running ---------------------------------------------------------------
 
     def run_button(self, button):
-        """Clicking a Button: it runs as a Workflow (a Brush button as one ``select_brush`` Step)."""
+        """Clicking a Button: it runs as a Workflow (a Brush button as one ``select_brush``
+        Step, a Menu button as one ``run_action`` Step), so every kind has one error path."""
         if not button.valid:
             self.notify(f"“{button.name}” is invalid and cannot run: {button.problem}.")
             return
         steps = button_steps(button)
-        if steps is None:
-            log.info("Clicked %r (%s); running this kind is not available yet", button.name, button.kind)
-            return
         self._cancel_running()
-        # So far only one-Step Workflows of UI Steps run here; the Workflow runner takes over later.
-        (step,) = steps
+        log.info("Running %r (%s, %d Step(s))", button.name, button.kind, len(steps))
         reported = []
 
         def done(result):  # a cancelled Step never calls it, so it is always the running one
@@ -473,7 +470,7 @@ class App:
                 self.notify(NOT_YET_MESSAGE.format(name=button.name))
                 self.check_menu_buttons()  # keeps looking for it
                 return
-            if result.state == MISSING:
+            if result.state == MISSING and button.kind in ("brush", "menu"):
                 self._set_missing(button, True)
                 if button.kind == "menu":
                     self.check_menu_buttons()  # starts looking for it again
@@ -481,7 +478,8 @@ class App:
                 self.notify(result.message)
 
         # The handle is None when ``done`` was already called.
-        self._running = self.ui_steps[step["type"]](self.adapter, step, done)
+        name = button.name if button.kind == "workflow" else None
+        self._running = run_workflow(self.adapter, steps, done, ui_steps=self.ui_steps, name=name)
         if not any(r.state == MISSING for r in reported):
             self._set_missing(button, False)  # it was found this time
 

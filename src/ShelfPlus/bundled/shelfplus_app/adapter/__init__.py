@@ -30,5 +30,18 @@ Menu buttons (``core/menu.py``), Painter's commands as ``core.menu.MenuAction``:
 - ``watch_actions(callback) -> stop``: ``callback(action)`` for every hook call
   (``QAction.triggered``, ``QMenu.triggered``) until ``stop()``; duplicates included.
 
+The Workflow runner (``core/workflow.py``); layers are opaque handles to the core:
+
+- ``project_ready() -> bool``: a project is open and in edition state.
+- ``selected_layer() -> layer | None``: the selected layer of the active texture set.
+- ``layer_scope(label)``: a context manager, Painter's ``ScopedModification`` (one undo).
+- ``insert_layer(kind, above=None, name=None) -> layer``: ``kind`` fill / paint / folder,
+  above ``above`` in its folder, or on top of the stack when ``None``.
+- ``add_mask(layer, background)`` (black / white), ``set_blend(layer, mode)`` (all
+  channels), ``set_opacity(layer, channel, percent)``.
+- ``find_layers(name) -> [layer]``: exact name, whole stack, folders included.
+- ``select_layer(layer)``: never called inside ``layer_scope``.
+- ``save_project()``
+
 ``painter.PainterAdapter`` is the real one; ``fake.FakeAdapter`` is used by tests.
 """

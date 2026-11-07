@@ -129,6 +129,96 @@ class PainterAdapter:
     def trigger_action(self, action):
         return self.actions.trigger(action)
 
+    # -- the project and its layer stack (the Workflow runner) -------------------
+
+    def project_ready(self):
+        """A project is open and in edition state (not loading, baking or closing)."""
+        import substance_painter.project as project
+
+        return project.is_open() and project.is_in_edition_state()
+
+    def selected_layer(self):
+        """The selected layer of the active texture set, or ``None``. With a mask or an
+        effect selected, its layer; with several layers selected, the first."""
+        import substance_painter.layerstack as ls
+
+        selected = ls.get_selected_nodes(ls.get_active_stack())
+        if not selected:
+            return None
+        if len(selected) > 1:
+            log.info("%d nodes are selected; the Workflow starts at the first", len(selected))
+        return _layer_of(ls, selected[0])
+
+    def layer_scope(self, label):
+        import substance_painter.layerstack as ls
+
+        return ls.ScopedModification(label)
+
+    def insert_layer(self, kind, above=None, name=None):
+        import substance_painter.layerstack as ls
+
+        if above is None:
+            position = ls.InsertPosition.from_textureset_stack(ls.get_active_stack())
+        else:
+            position = ls.InsertPosition.above_node(above)
+        insert = {"fill": ls.insert_fill, "paint": ls.insert_paint, "folder": ls.insert_group}[kind]
+        node = insert(position)
+        if name:
+            node.set_name(name)
+        return node
+
+    def add_mask(self, layer, background):
+        import substance_painter.layerstack as ls
+
+        layer.add_mask({"black": ls.MaskBackground.Black, "white": ls.MaskBackground.White}[background])
+
+    def set_blend(self, layer, mode):
+        """``mode`` is a ``BlendingMode`` name (``Multiply``), set on every channel."""
+        import substance_painter.layerstack as ls
+
+        value = _enum_member(ls.BlendingMode, mode)
+        if value is None:
+            raise ValueError(f"Painter has no blend mode “{mode}”.")
+        channels = list(getattr(layer, "active_channels", None) or [])
+        if not channels:
+            layer.set_blending_mode(value)
+            return
+        for channel in channels:
+            layer.set_blending_mode(value, channel)
+
+    def set_opacity(self, layer, channel, percent):
+        """``channel`` is a ``ChannelType`` name (``BaseColor``); ``percent`` 0–100."""
+        import substance_painter.textureset as ts
+
+        value = _enum_member(ts.ChannelType, channel)
+        if value is None:
+            raise ValueError(f"Painter has no channel “{channel}”.")
+        layer.set_opacity(percent / 100.0, value)
+
+    def find_layers(self, name):
+        """Every layer of the active texture set named exactly ``name``, folders included."""
+        import substance_painter.layerstack as ls
+
+        found = []
+        pending = list(ls.get_root_layer_nodes(ls.get_active_stack()))
+        while pending:
+            node = pending.pop()
+            if node.get_name() == name:
+                found.append(node)
+            if node.get_type() == ls.NodeType.GroupLayer:
+                pending.extend(node.sub_layers())
+        return found
+
+    def select_layer(self, layer):
+        import substance_painter.layerstack as ls
+
+        ls.set_selected_nodes([layer])
+
+    def save_project(self):
+        import substance_painter.project as project
+
+        project.save()
+
     # -- timers --------------------------------------------------------------
 
     def repeat(self, interval_ms, callback):
@@ -139,6 +229,30 @@ class PainterAdapter:
         timer.timeout.connect(callback)
         timer.start()
         return timer
+
+
+_LAYER_TYPES = ("FillLayer", "PaintLayer", "GroupLayer", "InstanceLayer")
+
+
+def _layer_of(ls, node):
+    """The layer a selected node belongs to: the node itself, or the layer above its
+    mask or effect."""
+    layer_types = [getattr(ls.NodeType, t) for t in _LAYER_TYPES if hasattr(ls.NodeType, t)]
+    while node is not None and node.get_type() not in layer_types:
+        node = node.get_parent()
+    return node
+
+
+def _enum_member(enum, name):
+    """The member of a Painter enum called ``name`` (also ignoring case), or ``None``."""
+    member = getattr(enum, name, None)
+    if member is not None:
+        return member
+    wanted = name.replace(" ", "").lower()
+    for attr in dir(enum):
+        if not attr.startswith("_") and attr.lower() == wanted:
+            return getattr(enum, attr)
+    return None
 
 
 def _is_brush(res, resource):
