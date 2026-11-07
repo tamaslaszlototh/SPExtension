@@ -97,3 +97,24 @@ def test_a_masks_fill_gets_its_grey_value_with_no_channel(adapter):
     adapter.set_channel_source(node, None, {"value": 0.3})
 
     assert node.sources[None].rgb == (0.3, 0.3, 0.3)
+
+
+class AnchorPointEffectNode:
+    def __init__(self, name):
+        self.name = name
+
+
+def test_an_anchor_point_source_is_the_one_anchor_with_that_name(adapter, monkeypatch):
+    edges = AnchorPointEffectNode("Edges")
+    monkeypatch.setattr(adapter, "find_anchors", lambda name: [edges] if name == "Edges" else [], raising=False)
+    node = FillNode()
+    node.set_source = lambda channel, source: node.sources.__setitem__(channel, source)
+
+    adapter.set_channel_source(node, "Height", {"anchor": "Edges"})
+
+    assert node.sources["Height"] is edges
+    with pytest.raises(ValueError, match="No anchor point named “Rim”"):
+        adapter.set_channel_source(node, "Height", {"anchor": "Rim"})
+    monkeypatch.setattr(adapter, "find_anchors", lambda name: [edges, edges], raising=False)
+    with pytest.raises(ValueError, match="Several anchor points"):
+        adapter.set_channel_source(node, "Height", {"anchor": "Edges"})

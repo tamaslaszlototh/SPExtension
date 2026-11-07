@@ -430,3 +430,84 @@ def test_a_fill_on_a_new_layers_mask_records_its_value(adapter, recording):
     adapter.push_history("Set property")
 
     assert recording.capture.steps[-1] == {"type": "add_effect", "effect": "fill", "target": "mask", "source": {"value": 0.3}}
+
+
+# -- anchor points and an existing layer's Fill content (#35), recorded and played back ----
+
+EDGES = {"anchor": "Edges"}
+
+
+def project_copy(build):
+    """A second adapter with the same project, as a copy of it would be."""
+    copy = FakeAdapter()
+    copy.project_is_open = True
+    build(copy)
+    return copy
+
+
+def existing_project(adapter):
+    """Base (with an anchor point "Edges"), under an existing Fill layer, which is selected."""
+    base = FakeLayer("Base")
+    base.effect_nodes.append(FakeEffect("layer", "anchor", name="Edges"))
+    old = FakeLayer("Old fill", "fill")
+    old.channels = ["BaseColor", "Roughness"]
+    old.sources = {"BaseColor": {"color": "#808080"}, "Roughness": {"value": 0.3}}
+    adapter.stack.layers = [old, base]
+    adapter.stack.selected = old
+    return old
+
+
+def test_an_existing_fill_layers_anchor_source_records_and_plays_back(adapter, clock, events):
+    from shelfplus_app.core.workflow import run_workflow
+
+    old = existing_project(adapter)
+    recording = Recording(adapter, notify=events["notices"].append, now=clock)
+    assert recording.start() is None
+    old.sources = {**old.sources, "BaseColor": dict(EDGES)}
+    adapter.push_history("Set source")
+    capture = recording.stop()
+
+    assert capture.steps == [{"type": "set_fill", "sources": {"BaseColor": EDGES}}]
+    assert capture.notices == []
+    copy = project_copy(existing_project)
+    results = []
+    run_workflow(copy, capture.steps, results.append, name="Recorded")
+    assert results[0].ok, results[0].message
+    assert copy.stack.layers[0].sources == old.sources
+
+
+def test_a_named_anchor_and_a_fill_using_it_play_back_once(adapter, recording):
+    from shelfplus_app.core.workflow import run_workflow
+
+    base = adapter.stack.layers[0]
+    anchor = FakeEffect("layer", "anchor")
+    base.effect_nodes.append(anchor)
+    adapter.push_history("Add anchor point")
+    anchor.name = "Edges"
+    adapter.push_history("Rename")
+    layer = add_fill(adapter)
+    layer.channels = ["Height"]
+    adapter.push_history("Set channels")
+    layer.sources = {"Height": dict(EDGES)}
+    adapter.push_history("Set source")
+    steps = recording.stop().steps
+
+    assert steps == [
+        {"type": "add_effect", "effect": "anchor", "target": "layer", "name": "Edges"},
+        {"type": "add_layer", "layer": "fill", "channels": ["Height"], "sources": {"Height": EDGES}},
+    ]
+
+    def fresh(copy):
+        copy.stack.layers = [FakeLayer("Base")]
+        copy.stack.selected = copy.stack.layers[0]
+
+    copy = project_copy(fresh)
+    results = []
+    run_workflow(copy, steps, results.append, name="Edges")
+    assert results[-1].ok, results[-1].message
+    assert copy.stack.layers[0].sources == {"Height": EDGES}
+    copy.stack.selected = copy.stack.layers[-1]  # Base again
+    run_workflow(copy, steps, results.append, name="Edges")
+    assert results[-1].message == (
+        "“Edges” did not start: Step 1 (Add anchor point to the layer): An anchor point named “Edges” already exists."
+    )

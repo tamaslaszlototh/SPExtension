@@ -8,12 +8,11 @@ import substance_painter.application
 import substance_painter.ui
 
 from ..core.brush import BrushResource, versionless_url
+from ..core.workflow import ANCHOR_POINT_NAME, NO_ANCHOR, TWIN_ANCHORS
 from .actions import PainterActions
 from .assets import AssetsWindow
 
 log = logging.getLogger("ShelfPlus.app.adapter")
-
-ANCHOR_POINT_NAME = "Anchor point"
 
 
 class PainterAdapter:
@@ -189,9 +188,10 @@ class PainterAdapter:
     def has_mask(self, layer):
         return bool(layer.has_mask())
 
-    def insert_effect(self, layer, target, effect, resource=None):
+    def insert_effect(self, layer, target, effect, resource=None, name=None):
         """On top of the layer's mask stack (``target`` mask) or content stack (layer).
-        ``effect``: generator / filter (with a ``resource`` URL), levels, anchor, or fill /
+        ``effect``: generator / filter (with a ``resource`` URL), levels, anchor (named
+        ``name``, else Painter's default name), or fill /
         paint (what Painter's right-click "Add fill" / "Add paint" on a layer makes: the
         same insert_fill / insert_paint as a layer, at a position inside it)."""
         import substance_painter.layerstack as ls
@@ -206,7 +206,7 @@ class PainterAdapter:
         if effect == "levels":
             return ls.insert_levels_effect(position)
         if effect == "anchor":
-            return ls.insert_anchor_point_effect(position, ANCHOR_POINT_NAME)
+            return ls.insert_anchor_point_effect(position, name or ANCHOR_POINT_NAME)
         if effect == "fill":
             return ls.insert_fill(position)
         if effect == "paint":
@@ -278,10 +278,17 @@ class PainterAdapter:
 
     def set_channel_source(self, layer, channel, source):
         """A Fill layer's source for one channel: ``{"color": "#rrggbb"}``, ``{"value":
-        number}`` (in the channel's range, see ``core/channels.py``) or ``{"resource": url}``."""
+        number}`` (in the channel's range, see ``core/channels.py``), ``{"resource": url}``
+        or ``{"anchor": name}`` (the one anchor point of the stack with that name)."""
         import substance_painter.textureset as ts
 
         channel_type = None if channel is None else _channel(ts, channel)  # None: a mask's Fill
+        if "anchor" in source:
+            found = self.find_anchors(source["anchor"])
+            if len(found) != 1:
+                raise ValueError((TWIN_ANCHORS if found else NO_ANCHOR).format(source["anchor"]))
+            layer.set_source(channel_type, found[0])
+            return
         if "resource" in source:
             layer.set_source(channel_type, self._resource_id(source["resource"]))
             return
@@ -315,6 +322,42 @@ class PainterAdapter:
 
     def layer_name(self, layer):
         return layer.get_name()
+
+    def layer_kind(self, layer):
+        """``fill``, ``paint``, ``folder`` or ``instance`` (else Painter's NodeType name)."""
+        name = getattr(layer.get_type(), "name", str(layer.get_type()))
+        return _LAYER_KINDS.get(name, name)
+
+    def active_channels(self, layer):
+        """The ChannelType names switched on in a Fill or Paint layer."""
+        return [getattr(c, "name", str(c)) for c in (getattr(layer, "active_channels", None) or [])]
+
+    def find_anchors(self, name):
+        """Every anchor point of the active texture set named exactly ``name``: in any
+        layer's content or mask, folders included."""
+        return [node for node in self._anchor_points() if node.get_name() == name]
+
+    def anchor_names(self):
+        """The names of the active texture set's anchor points (the Workflow editor offers them)."""
+        return sorted({node.get_name() for node in self._anchor_points()}, key=str.lower)
+
+    def _anchor_points(self):
+        import substance_painter.layerstack as ls
+
+        anchor = getattr(ls.NodeType, "AnchorPointEffect", None)
+        found = []
+        pending = list(ls.get_root_layer_nodes(_active_stack()))
+        while pending:
+            layer = pending.pop()
+            for method in ("content_effects", "mask_effects"):
+                try:  # a layer without a mask (or a folder's content) may have none to give
+                    effects = list(getattr(layer, method)())
+                except Exception:
+                    continue
+                found.extend(e for e in effects if e.get_type() == anchor)
+            if layer.get_type() == ls.NodeType.GroupLayer:
+                pending.extend(layer.sub_layers())
+        return found
 
     def select_layer(self, layer):
         import substance_painter.layerstack as ls
@@ -434,6 +477,7 @@ def _active_stack():
 
 
 _LAYER_TYPES = ("FillLayer", "PaintLayer", "GroupLayer", "InstanceLayer")
+_LAYER_KINDS = {"FillLayer": "fill", "PaintLayer": "paint", "GroupLayer": "folder", "InstanceLayer": "instance"}
 
 
 def _layer_of(ls, node):

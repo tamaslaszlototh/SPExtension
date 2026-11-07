@@ -1,4 +1,4 @@
-# Testing Recording (Shelf+ v0.8.2-rc.1)
+# Testing Recording (Shelf+ v0.8.3-rc.1)
 
 This build lets you **record a Workflow**: you do the Steps in Painter while the Panel watches, then you press **Stop** and check the Steps in the editor.
 
@@ -6,6 +6,7 @@ This build lets you **record a Workflow**: you do the Steps in Painter while the
 - **Stop** in the REC bar opens the editor with the recorded Steps. Save it as usual.
 - **● Continue** at the bottom of the editor records more Steps at the end of the Workflow that is open.
 - A new Fill or Paint layer's switched-on channels, and a Fill layer's content (colour, value, resource, material), are recorded too. What you paint onto a Paint layer is not.
+- New in v0.8.3: an **anchor point** keeps its name, a Fill channel can use an anchor point as its source, and changing the channels or content of an **existing** Fill or Paint layer becomes a **Fill content** Step.
 - Brushes cannot be recorded (Painter does not report them). Add them in the editor after Stop.
 
 Please run the checks once on **each machine**:
@@ -18,11 +19,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.8.2-rc.1.zip** from the [v0.8.2-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.2-rc.1).
+2. Download **ShelfPlus-v0.8.3-rc.1.zip** from the [v0.8.3-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.3-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.2**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.3**.
 
 ## 2. The checks
 
@@ -88,11 +89,29 @@ A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 
 **Important:** after this check, click **☰ → Copy diagnostics** and send the text even if everything worked. It shows how Shelf+ read the colours from Painter.
 
+### H. Anchor points and an existing layer's Fill content
+
+You need a project with an **existing Fill layer** and an **existing anchor point** (any layer's content or mask; right-click → *Add anchor point* makes one). Use a copy of the project.
+
+1. Select the existing Fill layer. Start a Recording.
+2. In the Fill layer's properties, click **BaseColor**, open the **Anchor points** tab and choose the existing anchor point.
+3. Press **Stop**.
+   - Expected: a **Start** block (or a *select layer* block) with a **Fill content** Step. Its row says **BaseColor anchor “<name>”**, with the anchor point's name.
+   - Click the Step: under **Content**, BaseColor is **Anchor point** with that name.
+4. Save it. Undo the change in Painter (or open the copy again), select the same Fill layer and click the new Button once.
+   - Expected: BaseColor uses the anchor point again.
+5. Start a new Recording. Add an **anchor point** to any layer and rename it **Edges**. Then add a **Fill layer** and set its **Height** source to **Edges** (*Anchor points* tab). Press **Stop**.
+   - Expected: the anchor point's row says **Anchor point “Edges”**; the Fill layer's row says **anchor “Edges”**.
+6. Save it, undo the Recording's changes in Painter, select a layer and click the new Button. Expected: it works.
+7. Click it a second time. Expected: nothing changes, and the message says *An anchor point named “Edges” already exists.*
+
+**Important:** after this check, click **☰ → Copy diagnostics** and send the text even if everything worked. It shows how Shelf+ read the anchor point from Painter.
+
 ## Results
 
 | Check | Home 11.1.0 | Work 12.2.0 | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.8.2 | | | |
+| 1. Install: ☰ shows v0.8.3 | | | |
 | A. 4 Steps, opacity exactly 50 | | | |
 | B. Smart mask marked, drop fills it | | | |
 | C. Select layer Step appears | | | |
@@ -100,3 +119,4 @@ A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 | E. Continue, add Save, run | | | |
 | F. Messages (move, project close, other texture set) | | | |
 | G. A new layer's channels and content (colour, value, resource, material) | | | |
+| H. Anchor point source on an existing Fill layer; "Edges" runs once, then refuses | | | |

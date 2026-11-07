@@ -286,6 +286,12 @@ def step_icon(step, action_png=None):
                 if (row + col) % 2 == 0:
                     painter.setBrush(QtGui.QColor(255, 255, 255, 60 + 60 * col))
                     painter.drawRect(12 + col * 10, 12 + row * 10, 10, 10)
+    elif kind == "set_fill":  # a filled square, half of it changed
+        pixmap, painter = _tile(STEP_COLOURS["setting"])
+        painter.setBrush(QtGui.QColor(255, 255, 255, 200))
+        painter.drawRoundedRect(14, 14, 36, 36, 4, 4)
+        painter.setBrush(QtGui.QColor(32, 32, 32, 160))
+        painter.drawPolygon(QtGui.QPolygonF([QtCore.QPointF(50, 14), QtCore.QPointF(50, 50), QtCore.QPointF(14, 50)]))
     elif kind == "save":
         pixmap, painter = _tile(STEP_COLOURS["save"])
         painter.setBrush(QtGui.QColor("#ffffff"))  # a floppy disk

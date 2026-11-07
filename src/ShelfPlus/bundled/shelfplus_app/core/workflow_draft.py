@@ -9,8 +9,8 @@ resource, ``select_layer`` without a name…) block saving.
 from urllib.parse import unquote
 
 from . import blocks
-from .layout import step_problem
-from .workflow import step_label
+from .layout import SET_FILL_KEYS, step_problem
+from .workflow import ANCHOR_POINT_NAME, step_label
 
 NEW_NAME = "New Workflow"
 
@@ -39,6 +39,7 @@ _TEMPLATES = [
     ("Effect", "Fill on layer", {"type": "add_effect", "effect": "fill", "target": "layer"}),
     ("Setting", "Blend mode", {"type": "set_blend", "blend": "Normal"}),
     ("Setting", "Opacity", {"type": "set_opacity", "opacity": {"BaseColor": 100}}),
+    ("Setting", "Fill content", {"type": "set_fill"}),
     ("At the end", "Brush", {"type": "select_brush"}),
     ("At the end", "Menu command", {"type": "run_action", "action": ""}),
     ("At the end", "Save", {"type": "save"}),
@@ -63,12 +64,20 @@ def needs_resource(step):
     return takes_resource(step) and not step.get("resource")
 
 
+def _content_slots(step):
+    if step.get("type") not in ("add_layer", "add_effect", "set_fill"):
+        return []
+    return [step.get("material"), step.get("source")] + list((step.get("sources") or {}).values())
+
+
 def layer_resource_missing(step):
-    """A new layer or Fill effect whose material or a channel's resource is not chosen yet."""
-    if step.get("type") not in ("add_layer", "add_effect"):
-        return False
-    slots = [step.get("material"), step.get("source")] + list((step.get("sources") or {}).values())
-    return any(isinstance(s, dict) and "resource" in s and not s["resource"] for s in slots)
+    """A layer's or Fill effect's material or a channel's resource is not chosen yet."""
+    return any(isinstance(s, dict) and "resource" in s and not s["resource"] for s in _content_slots(step))
+
+
+def anchor_name_missing(step):
+    """A channel's anchor point source has no name yet."""
+    return any(isinstance(s, dict) and "anchor" in s and not s["anchor"] for s in _content_slots(step))
 
 
 def incomplete(step):
@@ -78,6 +87,10 @@ def incomplete(step):
         return None
     if needs_resource(step) or layer_resource_missing(step):
         return "⚠ choose resource"
+    if anchor_name_missing(step):
+        return "⚠ enter an anchor point name"
+    if step.get("type") == "set_fill" and not any(key in step for key in SET_FILL_KEYS):
+        return "⚠ choose what to change"
     if step.get("type") == "select_layer":
         return "⚠ enter a name"
     if step.get("type") == "run_action":
@@ -120,6 +133,8 @@ def short_name(step):
         material_name = material.get("resource_name") or resource_name(material.get("resource"))
         if material_name:
             return f"{_EFFECTS.get(step.get('effect'), 'Effect')}: {material_name}"
+        if step.get("effect") == "anchor" and step.get("name") not in (None, "", ANCHOR_POINT_NAME):
+            return f"Anchor point “{step['name']}”"
         return resource or _EFFECTS.get(step.get("effect"), "Effect")
     if kind == "add_smart":
         return resource or f"Smart {step.get('smart')}"
@@ -128,6 +143,8 @@ def short_name(step):
     if kind == "set_opacity":
         values = set((step.get("opacity") or {}).values())
         return f"Opacity {values.pop():g}%" if len(values) == 1 else "Opacity"
+    if kind == "set_fill":
+        return "Fill content"
     if kind == "select_layer":
         return f"“{step['name']}”" if step.get("name") else "Select layer"
     if kind == "select_brush":
@@ -144,16 +161,49 @@ def _count(items, one):
     return items[0] if len(items) == 1 else f"{len(items)} {one}s"
 
 
+def source_text(source):
+    """One source in a word or two: ``value 0.3``, ``#ff0000``, ``Clouds 1``, ``anchor “Edges”``."""
+    if not isinstance(source, dict):
+        return None
+    if "value" in source:
+        return f"value {source['value']:g}"
+    if "color" in source:
+        return source["color"]
+    if source.get("anchor"):
+        return f"anchor “{source['anchor']}”"
+    if source.get("resource"):
+        return source.get("resource_name") or resource_name(source["resource"])
+    return None
+
+
+def _anchors(sources):
+    names = dict.fromkeys(s["anchor"] for s in sources if isinstance(s, dict) and s.get("anchor"))
+    return ", ".join(f"anchor “{name}”" for name in names) or None
+
+
 def _content_detail(step):
     """A Fill's content in a word or two (a material is already in the name)."""
     if "sources" in step:
-        return "per channel"
-    source = step.get("source")
-    if isinstance(source, dict) and "value" in source:
-        return f"value {source['value']:g}"
-    if isinstance(source, dict) and source.get("resource"):
-        return source.get("resource_name") or resource_name(source["resource"])
-    return None
+        return ", ".join(p for p in ("per channel", _anchors(step["sources"].values())) if p)
+    return source_text(step.get("source"))
+
+
+def _fill_change_detail(step):
+    """What a ``set_fill`` Step changes: ``BaseColor anchor “Edges”``, ``Height on``…"""
+    parts = []
+    material = step.get("material")
+    if material:
+        parts.append(f"material {material.get('resource_name') or resource_name(material.get('resource')) or '?'}")
+    sources = step.get("sources") or {}
+    if len(sources) == 1:
+        (channel, source), = sources.items()
+        parts.append(" ".join(p for p in (channel, source_text(source)) if p))
+    elif sources:
+        parts.append(f"{len(sources)} channels set")
+    for key, word in (("channels_on", "on"), ("channels_off", "off")):
+        if step.get(key):
+            parts.append(f"{_count(step[key], 'channel')} {word}")
+    return parts
 
 
 def row_detail(step):
@@ -180,6 +230,8 @@ def row_detail(step):
             parts.append(f"smart {step.get('smart')}")
     elif kind == "set_opacity":
         parts.append(_count((step.get("opacity") or {}).keys(), "channel") if step.get("opacity") else None)
+    elif kind == "set_fill":
+        parts.extend(_fill_change_detail(step))
     elif kind == "select_layer":
         if step.get("name"):
             parts.append("select layer")

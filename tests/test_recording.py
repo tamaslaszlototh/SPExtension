@@ -655,10 +655,109 @@ def test_a_fill_inside_a_new_layer_records_its_content():
     assert all(incomplete(s) is None for s in steps)
 
 
-def test_changing_an_existing_layers_content_is_skipped_with_a_notice():
-    before = snap(fill(uid=9), BASE, selected=9)
-    after = snap(fill(uid=9, channels=["BaseColor"]), BASE, selected=9)
+# -- an existing layer's channels and content: set_fill ---------------------------------
+
+EDGES = {"anchor": "Edges"}
+
+
+def on_existing(*later, uid=9, kind="fill", selected=9):
+    """An existing layer (selected at the start unless ``selected`` says otherwise), then
+    each later state of it as one operation."""
+    states = [snap(n, BASE, selected=selected) for n in (fill(uid=uid, kind=kind), *later)]
+    ops = [op("Set property", a, b) for a, b in zip(states, states[1:])]
+    return capture(states[0], *ops)
+
+
+def test_an_existing_fill_layers_source_set_to_an_anchor_is_a_set_fill_step():
+    result = on_existing(fill(uid=9, content={"sources": {**GREY, "BaseColor": EDGES}}))
+
+    assert result.steps == [{"type": "set_fill", "sources": {"BaseColor": EDGES}}]
+    assert result.notices == []
+    assert incomplete(result.steps[0]) is None
+
+
+def test_another_existing_layer_is_selected_first():
+    result = on_existing(fill(uid=9, content={"sources": {**GREY, "Height": {"value": 0.5}}}), selected=1)
+
+    assert result.steps == [
+        {"type": "select_layer", "name": "Fill layer 1"},
+        {"type": "set_fill", "sources": {"Height": {"value": 0.5}}},
+    ]
+
+
+def test_channels_are_stored_as_a_change():
+    result = on_existing(fill(uid=9, channels=["BaseColor", "Roughness", "Metallic", "Normal"]))
+
+    assert result.steps == [{"type": "set_fill", "channels_on": ["Normal"], "channels_off": ["Height"]}]
+
+
+def test_a_paint_layer_switches_channels():
+    result = on_existing(fill(uid=9, kind="paint", channels=["BaseColor"]), kind="paint")
+
+    assert result.steps == [{"type": "set_fill", "channels_off": ["Height", "Roughness", "Metallic"]}]
+
+
+def test_changes_to_one_layer_merge_into_one_step_with_the_final_values():
+    red = {**GREY, "BaseColor": {"color": "#e01010"}}
+    result = on_existing(
+        fill(uid=9, content={"sources": red}),
+        fill(uid=9, channels=["BaseColor", "Height", "Roughness"], content={"sources": red}),
+        fill(uid=9, channels=["BaseColor", "Height", "Roughness"], content={"sources": {**red, "BaseColor": EDGES}}),
+    )
+
+    assert result.steps == [{"type": "set_fill", "channels_off": ["Metallic"], "sources": {"BaseColor": EDGES}}]
+
+
+def test_a_change_set_back_is_dropped():
+    result = on_existing(
+        fill(uid=9, channels=["BaseColor"], content={"sources": {**GREY, "BaseColor": EDGES}}),
+        fill(uid=9),
+    )
+
+    assert result.steps == []
+    assert result.notices == []
+
+
+def test_one_material_on_an_existing_fill_layer():
+    result = on_existing(fill(uid=9, content={"material": RUST}))
+
+    assert result.steps == [{"type": "set_fill", "material": {"resource": RUST}}]
+
+
+def test_a_fill_effect_inside_an_existing_layer_is_still_skipped_with_a_notice():
+    inner = effect(4, "Fill", "fill", 1, stack="content") | {"channels": ALL, "content": {"sources": dict(GREY)}}
+    before = snap(BASE, inner, selected=1)
+    after = snap(BASE, inner | {"content": {"sources": {**GREY, "BaseColor": EDGES}}}, selected=1)
 
     result = capture(before, op("Set property", before, after))
 
     assert result.steps == [] and len(result.notices) == 1
+
+
+def test_a_new_layers_anchor_source_is_recorded():
+    (step,) = with_fill(fill(content={"sources": {**GREY, "Height": EDGES}})).steps
+
+    assert step["sources"] == {"Height": EDGES}
+
+
+# -- an anchor point's name -------------------------------------------------------------
+
+
+def test_a_new_anchor_point_stores_its_name_even_the_default_one():
+    s0 = snap(BASE, selected=1)
+    s1 = snap(BASE, effect(5, "Anchor point", "anchor", 1, stack="content"), selected=1)
+
+    (step,) = capture(s0, op("Add anchor point", s0, s1)).steps
+
+    assert step == {"type": "add_effect", "effect": "anchor", "target": "layer", "name": "Anchor point"}
+
+
+def test_a_renamed_anchor_point_stores_its_final_name():
+    s0 = snap(BASE, selected=1)
+    s1 = snap(BASE, effect(5, "Anchor point", "anchor", 1), selected=1)
+    s2 = snap(BASE, effect(5, "Edges", "anchor", 1), selected=1)
+
+    (step,) = capture(s0, op("Add anchor point", s0, s1), op("Rename", s1, s2)).steps
+
+    assert step == {"type": "add_effect", "effect": "anchor", "target": "mask", "name": "Edges"}
+    assert capture(s0, op("Add anchor point", s0, s1), op("Rename", s1, s2)).notices == []

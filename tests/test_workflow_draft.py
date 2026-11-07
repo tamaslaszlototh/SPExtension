@@ -160,3 +160,44 @@ def test_a_rows_detail_says_what_the_step_applies_to():
     assert row_detail(FILL) is None and row_detail(BLACK) is None and row_detail(SAVE) is None
     named = {"type": "add_layer", "layer": "paint", "name": "Dirt pass", "channels": ["BaseColor", "Roughness"]}
     assert row_detail(named) == "Paint layer, 2 channels"
+
+
+# -- anchor points and Fill content (#35) ----------------------------------------------
+
+EDGES = {"anchor": "Edges"}
+
+
+def test_fill_content_is_a_setting_in_the_catalog_and_starts_incomplete():
+    assert ("Setting", "Fill content") in CATALOG
+    step = template("Fill content")
+
+    assert step == {"type": "set_fill"}
+    assert incomplete(step) == "⚠ choose what to change"
+
+
+def test_an_anchor_source_without_a_name_is_incomplete():
+    step = {"type": "add_layer", "layer": "fill", "sources": {"Height": {"anchor": ""}}}
+
+    assert incomplete(step) == "⚠ enter an anchor point name"
+    assert incomplete({"type": "set_fill", "sources": {"Height": {"anchor": ""}}}) == "⚠ enter an anchor point name"
+
+
+def test_rows_show_anchor_names():
+    from shelfplus_app.core.workflow_draft import row_detail, short_name
+
+    anchor = {"type": "add_effect", "effect": "anchor", "target": "mask"}
+    assert short_name(anchor) == "Anchor point"
+    assert short_name({**anchor, "name": "Anchor point"}) == "Anchor point"
+    assert short_name({**anchor, "name": "Edges"}) == "Anchor point “Edges”"
+    assert row_detail({"type": "add_effect", "effect": "fill", "target": "mask", "source": EDGES}) == "on mask, anchor “Edges”"
+    assert row_detail({"type": "add_layer", "layer": "fill", "sources": {"Height": EDGES}}) == "per channel, anchor “Edges”"
+
+
+def test_a_fill_content_row_says_what_it_changes():
+    from shelfplus_app.core.workflow_draft import row_detail, short_name
+
+    assert short_name({"type": "set_fill"}) == "Fill content"
+    assert row_detail({"type": "set_fill", "sources": {"BaseColor": EDGES}}) == "BaseColor anchor “Edges”"
+    assert row_detail({"type": "set_fill", "sources": {"BaseColor": {"color": "#ff0000"}, "Height": {"value": 0.5}}}) == "2 channels set"
+    assert row_detail({"type": "set_fill", "material": {"resource": "resource://a/Rust"}}) == "material Rust"
+    assert row_detail({"type": "set_fill", "channels_on": ["Height"], "channels_off": ["Roughness", "Metallic"]}) == "Height on, 2 channels off"

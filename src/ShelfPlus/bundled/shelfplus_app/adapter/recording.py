@@ -101,10 +101,28 @@ def _rgb(colour, srgb):
     return values if len(values) == 3 else values * 3
 
 
+def _anchor_name(source):
+    """The name of the anchor point a source refers to, or ``None`` if it is not an anchor
+    point source. The first one read is logged with what the source offers: Painter's API
+    for it could not be checked without Painter (Copy diagnostics shows the log)."""
+    kind = type(source).__name__
+    named_anchor = "anchor" in kind.lower()
+    getters = ("get_anchor_point", "anchor_point", "get_anchor", "anchor") + (("get_node", "node") if named_anchor else ())
+    anchor = _value(source, *getters)
+    if anchor is None and not named_anchor:
+        return None
+    name = _value(anchor, "get_name", "name") if anchor is not None else None
+    if "anchor" not in _unreadable:
+        _unreadable.add("anchor")
+        public = [a for a in dir(source) if not a.startswith("_")]
+        log.info("Recording: an anchor point source (%s, offers %s) reads as %r named %r", kind, public, anchor, name)
+    return str(name) if name else None
+
+
 def _read_source(node, channel):
     """One channel's source (``channel`` a ChannelType; ``None`` for a mask's Fill) in a
-    Step's form: ``{"resource": url}``, ``{"color": "#rrggbb"}`` or ``{"value": n}``;
-    ``None`` if it cannot be read (logged once per kind of source)."""
+    Step's form: ``{"resource": url}``, ``{"color": "#rrggbb"}``, ``{"value": n}`` or
+    ``{"anchor": name}``; ``None`` if it cannot be read (logged once per kind of source)."""
     try:
         source = node.get_source(channel) if channel is not None else node.get_source()
     except TypeError:
@@ -112,12 +130,16 @@ def _read_source(node, channel):
     url = _resource_url(source)
     if url:
         return {"resource": url}
+    anchor = _anchor_name(source)
+    if anchor:
+        return {"anchor": anchor}
     colour = _value(source, "get_color", "color")
     if colour is None:
         kind = type(source).__name__
         if kind not in _unreadable:
             _unreadable.add(kind)
-            log.info("Recording: cannot read a %s source (%r); it is left out", kind, source)
+            public = [a for a in dir(source) if not a.startswith("_")]
+            log.info("Recording: cannot read a %s source (%r, offers %s); it is left out", kind, source, public)
         return None
     name = getattr(channel, "name", None)
     if "colour" not in _unreadable:  # once: how this Painter's Color reads (for Copy diagnostics)

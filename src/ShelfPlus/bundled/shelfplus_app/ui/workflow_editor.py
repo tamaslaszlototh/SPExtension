@@ -18,6 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import blocks
 from ..core.channels import default_source, value_range
+from ..core.workflow import ANCHOR_POINT_NAME
 from ..core.workflow_draft import (
     CATALOG,
     incomplete,
@@ -49,7 +50,9 @@ BLEND_MODES = [
 CHANNELS = ["BaseColor", "Height", "Roughness", "Metallic", "Normal", "Emissive", "Opacity", "Specular"]
 # A Fill layer's content, as the settings offer it
 CONTENT_DEFAULT, CONTENT_MATERIAL, CONTENT_CHANNELS = "Painter's default", "One material", "Per channel"
-SOURCE_VALUE, SOURCE_RESOURCE = "Value", "Resource"
+SOURCE_VALUE, SOURCE_RESOURCE, SOURCE_ANCHOR = "Value", "Resource", "Anchor point"
+# Fill content (``set_fill``): what it leaves as it is, and a channel switched on or off
+UNCHANGED, SWITCH_ON, SWITCH_OFF = "Unchanged", "On", "Off"
 
 
 NUMBER_PADDING = 6  # px between a number field's text and its edges and buttons
@@ -94,6 +97,13 @@ ROW_BUTTONS_WIDTH = 66  # the ↑ ↓ ✕ over a row's right end: its text stops
 # Room between a submenu's title and its arrow in the "+ Add Step" menu (em spaces: no
 # stylesheet, which would replace how Painter's style draws its menus).
 SUBMENU_ROOM = "\u2003\u2003"
+
+
+def _source_kind(source):
+    """How the settings show a source: Value (a colour or a grey), Resource or Anchor point."""
+    if "anchor" in source:
+        return SOURCE_ANCHOR
+    return SOURCE_RESOURCE if "resource" in source else SOURCE_VALUE
 
 
 class RowDelegate(QtWidgets.QStyledItemDelegate):
@@ -709,7 +719,12 @@ class WorkflowEditor(QtWidgets.QFrame):
             else:
                 combo.currentTextChanged.connect(lambda text: change(target=text))
             form.addRow("On the", combo)
-            if step["effect"] == "fill" and step["target"] == "layer":
+            if step["effect"] == "anchor":
+                edit = self._line("name", step.get("name", ""), ANCHOR_POINT_NAME)
+                edit.setToolTip("Later Steps use the anchor point by this name")
+                edit.textEdited.connect(lambda text: change(name=text.strip() or None))
+                form.addRow("Name", edit)
+            elif step["effect"] == "fill" and step["target"] == "layer":
                 self._layer_settings(step, change)
             elif step["effect"] == "fill":
                 self._mask_fill_settings(step, change)
@@ -719,6 +734,8 @@ class WorkflowEditor(QtWidgets.QFrame):
             form.addRow("Blend mode", combo)
         elif kind == "set_opacity":
             self._opacity_rows(step, change)
+        elif kind == "set_fill":
+            self._set_fill_settings(step, change)
         elif kind == "select_layer":
             edit = self._line("name", step.get("name", ""), "The exact name of the layer")
             edit.textEdited.connect(lambda text: change(name=text))
@@ -824,14 +841,14 @@ class WorkflowEditor(QtWidgets.QFrame):
                 form.addRow(channel, self._source_field(channel, source, change))
 
     def _mask_fill_settings(self, step, change):
-        """A Fill on a mask: one grey value, or one resource."""
+        """A Fill on a mask: one grey value, one resource or an anchor point."""
         form = self.settings_layout
         source = step.get("source")
-        mode = CONTENT_DEFAULT if source is None else SOURCE_RESOURCE if "resource" in source else SOURCE_VALUE
-        combo = self._combo("content", [CONTENT_DEFAULT, SOURCE_VALUE, SOURCE_RESOURCE], mode)
+        mode = CONTENT_DEFAULT if source is None else _source_kind(source)
+        combo = self._combo("content", [CONTENT_DEFAULT, SOURCE_VALUE, SOURCE_RESOURCE, SOURCE_ANCHOR], mode)
 
         def content_changed(text):
-            new = {SOURCE_VALUE: {"value": 1}, SOURCE_RESOURCE: {"resource": ""}}.get(text)
+            new = {SOURCE_VALUE: {"value": 1}, SOURCE_RESOURCE: {"resource": ""}, SOURCE_ANCHOR: {"anchor": ""}}.get(text)
             change(rebuild=True, source=new)
 
         combo.currentTextChanged.connect(content_changed)
@@ -849,26 +866,54 @@ class WorkflowEditor(QtWidgets.QFrame):
         elif mode == SOURCE_RESOURCE:
             form.addRow("Resource", self._resource_field("source", source, lambda ref: change(rebuild=True, source=ref),
                                                          "Choose a resource for the mask"))
+        elif mode == SOURCE_ANCHOR:
+            form.addRow("Anchor point", self._anchor_field("mask", source["anchor"], lambda name: change(source={"anchor": name})))
 
-    def _source_field(self, channel, source, change):
-        """One channel of a Fill layer: Value (a colour or a grey) or Resource."""
+    def _anchor_field(self, key, name, picked):
+        """An anchor point's name: the active texture set's anchor points are offered, but
+        any name can be typed. ``picked(name)`` on every change."""
+        combo = QtWidgets.QComboBox()
+        combo.setObjectName(f"{OBJECT_NAME}Anchor")
+        combo.setEditable(True)
+        combo.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
+        combo.addItems(self.app.anchor_names())
+        combo.setCurrentText(name)
+        combo.lineEdit().setPlaceholderText("The anchor point's exact name")
+        combo.setToolTip("Found by this exact name in the texture set's layer stack when the Workflow runs")
+        combo.currentTextChanged.connect(lambda text: picked(text.strip()))
+        self.fields[f"anchor_{key}"] = combo
+        return combo
+
+    def _source_field(self, channel, source, change, optional=False):
+        """One channel of a Fill layer: Value (a colour or a grey), Resource or Anchor point.
+        ``optional`` (Fill content): Unchanged too, which leaves the channel's source alone
+        (``source`` is then ``None``)."""
         box = QtWidgets.QWidget()
         row = QtWidgets.QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(4)
 
         def set_source(new, rebuild=False):
-            sources = dict(self.draft.selected_step["sources"])
-            sources[channel] = new
-            change(rebuild=rebuild, sources=sources)
+            sources = dict(self.draft.selected_step.get("sources") or {})
+            if new is None:
+                sources.pop(channel, None)
+            else:
+                sources[channel] = new
+            change(rebuild=rebuild, sources=sources or None)
 
-        kind = self._combo(f"kind_{channel}", [SOURCE_VALUE, SOURCE_RESOURCE],
-                           SOURCE_RESOURCE if "resource" in source else SOURCE_VALUE)
-        kind.currentTextChanged.connect(
-            lambda text: set_source({"resource": ""} if text == SOURCE_RESOURCE else default_source(channel), True)
-        )
+        def kind_changed(text):
+            new = {SOURCE_RESOURCE: {"resource": ""}, SOURCE_ANCHOR: {"anchor": ""}, UNCHANGED: None}
+            set_source(new[text] if text in new else default_source(channel), True)
+
+        kinds = ([UNCHANGED] if optional else []) + [SOURCE_VALUE, SOURCE_RESOURCE, SOURCE_ANCHOR]
+        kind = self._combo(f"kind_{channel}", kinds, UNCHANGED if source is None else _source_kind(source))
+        kind.currentTextChanged.connect(kind_changed)
         row.addWidget(kind)
-        if "resource" in source:
+        if source is None:  # Unchanged: no field
+            return box
+        if "anchor" in source:
+            row.addWidget(self._anchor_field(channel, source["anchor"], lambda name: set_source({"anchor": name})), 1)
+        elif "resource" in source:
             row.addWidget(self._resource_field(f"source_{channel}", source,
                                                lambda ref: set_source(ref, True),
                                                f"Choose a resource for {channel}"), 1)
@@ -897,6 +942,68 @@ class WorkflowEditor(QtWidgets.QFrame):
             self.fields[f"value_{channel}"] = spin
             row.addWidget(spin, 1)
         return box
+
+    # -- Fill content: an existing layer's channels and content ----------------------------
+
+    def _set_fill_settings(self, step, change):
+        """Each channel Unchanged, On or Off (only the change is stored), then the content:
+        Unchanged, one material, or per channel a source (or Unchanged). A channel given a
+        source is switched on by it, so it is never Off at the same time."""
+        form = self.settings_layout
+        offered = self.app.texture_channels()
+        named = [*step.get("channels_on", []), *step.get("channels_off", []), *step.get("sources", {})]
+        offered += [c for c in dict.fromkeys(named) if c not in offered]
+
+        def fill_change(rebuild=False, **values):
+            now = {**self.draft.selected_step, **values}
+            sources = now.get("sources") or {}
+            off = [c for c in now.get("channels_off") or [] if c not in sources]
+            change(rebuild=rebuild, **values, channels_off=off or None)
+
+        def switched(channel, text):
+            current = self.draft.selected_step
+            on = set(current.get("channels_on", [])) - {channel}
+            off = set(current.get("channels_off", [])) - {channel}
+            (on if text == SWITCH_ON else off if text == SWITCH_OFF else set()).add(channel)
+            sources = {c: s for c, s in (current.get("sources") or {}).items() if c not in off}
+            change(
+                rebuild=True,
+                channels_on=[c for c in offered if c in on] or None,
+                channels_off=[c for c in offered if c in off] or None,
+                sources=sources or None,
+            )
+
+        grid_box = QtWidgets.QWidget()
+        grid = QtWidgets.QGridLayout(grid_box)
+        grid.setContentsMargins(0, 0, 0, 0)
+        for number, channel in enumerate(offered):
+            state = SWITCH_ON if channel in step.get("channels_on", []) else SWITCH_OFF if channel in step.get("channels_off", []) else UNCHANGED
+            combo = self._combo(f"switch_{channel}", [UNCHANGED, SWITCH_ON, SWITCH_OFF], state)
+            combo.currentTextChanged.connect(lambda text, channel=channel: switched(channel, text))
+            grid.addWidget(QtWidgets.QLabel(channel), number, 0)
+            grid.addWidget(combo, number, 1)
+        form.addRow("Channels", grid_box)
+
+        mode = CONTENT_MATERIAL if "material" in step else CONTENT_CHANNELS if "sources" in step else UNCHANGED
+        combo = self._combo("content", [UNCHANGED, CONTENT_MATERIAL, CONTENT_CHANNELS], mode)
+
+        def content_changed(text):
+            if text == CONTENT_MATERIAL:
+                fill_change(rebuild=True, material={"resource": ""}, sources=None)
+            elif text == CONTENT_CHANNELS:  # one channel to start with; the others stay Unchanged
+                first = next((c for c in offered if c not in step.get("channels_off", [])), offered[0])
+                fill_change(rebuild=True, material=None, sources={first: default_source(first)})
+            else:
+                fill_change(rebuild=True, material=None, sources=None)
+
+        combo.currentTextChanged.connect(content_changed)
+        form.addRow("Content", combo)
+        if mode == CONTENT_MATERIAL:
+            form.addRow("Material", self._resource_field("material", step["material"],
+                                                         lambda ref: change(rebuild=True, material=ref), "Choose a material"))
+        elif mode == CONTENT_CHANNELS:
+            for channel in offered:
+                form.addRow(channel, self._source_field(channel, step["sources"].get(channel), fill_change, optional=True))
 
     def _after_setting(self):
         """A setting changed: redraw the rows and the name, keep the fields."""

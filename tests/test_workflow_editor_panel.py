@@ -555,3 +555,109 @@ def test_the_add_step_menu_keeps_its_section_names_off_the_submenu_arrows(app, q
 
     assert [t.strip() for t in titles] == ["Layer", "Mask", "Effect", "Setting", "At the end"]
     assert all(len(t) > len(t.rstrip()) for t in titles)  # room before the arrow
+
+
+# -- anchor points and Fill content (#35) ----------------------------------------------
+
+
+def typed(field, text):
+    """Text typed into a line edit (``setText`` alone does not send ``textEdited``)."""
+    field.setText(text)
+    field.textEdited.emit(text)
+
+
+def with_anchor(adapter, name="Edges"):
+    from shelfplus_app.adapter.fake import FakeEffect
+
+    adapter.stack.layers[0].effect_nodes.append(FakeEffect("layer", "anchor", name=name))
+
+
+def test_an_anchor_points_name_is_edited(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Anchor point on layer")
+    editor.select_step(0)
+
+    assert editor.fields["name"].placeholderText() == "Anchor point"
+    typed(editor.fields["name"], "Edges")
+
+    assert editor.draft.steps[0] == {"type": "add_effect", "effect": "anchor", "target": "layer", "name": "Edges"}
+    assert any(row.endswith("Anchor point “Edges” on layer") for row in editor.visible_rows())
+    typed(editor.fields["name"], "  ")
+    assert "name" not in editor.draft.steps[0]
+
+
+def test_a_fill_layer_channel_takes_an_anchor_point_by_name(app, qt_app, adapter):
+    adapter.texture_channels = ["BaseColor", "Height"]
+    with_anchor(adapter)
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+
+    editor.fields["kind_Height"].setCurrentText("Anchor point")
+    settled(qt_app)
+    assert editor.draft.problem == "Step 1 (Add Fill layer) is incomplete: ⚠ enter an anchor point name"
+    field = editor.fields["anchor_Height"]
+    assert [field.itemText(i) for i in range(field.count())] == ["Edges"]
+    field.setCurrentText("Edges")
+    settled(qt_app)
+
+    assert editor.draft.steps[0]["sources"]["Height"] == {"anchor": "Edges"}
+    assert editor.visible_rows()[0] == "Fill layer per channel, anchor “Edges”"
+    field.setCurrentText("Not offered")  # any name can be typed
+    assert editor.draft.steps[0]["sources"]["Height"] == {"anchor": "Not offered"}
+
+
+def test_a_mask_fill_takes_an_anchor_point(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Black mask")
+    editor.add_step("Fill on mask")
+    editor.select_step(2)
+
+    editor.fields["content"].setCurrentText("Anchor point")
+    settled(qt_app)
+    editor.fields["anchor_mask"].setCurrentText("Edges")
+
+    assert editor.draft.steps[2]["source"] == {"anchor": "Edges"}
+
+
+def test_fill_content_switches_channels_and_sets_sources_on_the_current_layer(app, qt_app, adapter):
+    adapter.texture_channels = ["BaseColor", "Height", "Roughness"]
+    with_anchor(adapter)
+    old = FakeLayer("Old fill", "fill")
+    old.channels = ["BaseColor", "Roughness"]
+    adapter.stack.layers.insert(0, old)
+    adapter.stack.selected = old
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill content")
+    editor.select_step(0)
+    assert not editor.save_button.isEnabled()
+
+    editor.fields["switch_Roughness"].setCurrentText("Off")
+    settled(qt_app)
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+    editor.fields["kind_BaseColor"].setCurrentText("Anchor point")
+    settled(qt_app)
+    editor.fields["anchor_BaseColor"].setCurrentText("Edges")
+    settled(qt_app)
+    editor.fields["kind_Roughness"].setCurrentText("Value")  # a source switches it back on
+    settled(qt_app)
+
+    step = editor.draft.steps[0]
+    assert step == {"type": "set_fill", "sources": {"BaseColor": {"anchor": "Edges"}, "Roughness": {"value": 0.3}}}
+    assert editor.fields["switch_Roughness"].currentText() == "Unchanged"
+    editor.fields["kind_Roughness"].setCurrentText("Unchanged")
+    settled(qt_app)
+    editor.fields["switch_Height"].setCurrentText("On")
+    settled(qt_app)
+    assert editor.draft.steps[0] == {"type": "set_fill", "channels_on": ["Height"], "sources": {"BaseColor": {"anchor": "Edges"}}}
+    assert any("Fill content" in row for row in editor.visible_rows())
+
+    editor.save_button.click()
+    qt_app.processEvents()
+    app.run_button(app.layout.groups[0].buttons[-1])
+    assert old.channels == ["BaseColor", "Roughness", "Height"]
+    assert old.sources == {"BaseColor": {"anchor": "Edges"}}

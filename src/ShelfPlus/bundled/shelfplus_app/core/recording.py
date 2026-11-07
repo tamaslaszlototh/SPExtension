@@ -17,8 +17,8 @@ The parts, all pure except the last:
   A Fill or Paint layer and a Fill effect on a layer have ``channels`` (the ChannelType
   names switched on); a Fill layer or Fill effect has ``content`` in a Step's own form:
   ``{"material": url}``, ``{"sources": {channel: source}}`` or, a Fill on a mask,
-  ``{"source": source}``; a source is ``{"color": "#rrggbb"}``, ``{"value": n}`` or
-  ``{"resource": url}``.
+  ``{"source": source}``; a source is ``{"color": "#rrggbb"}``, ``{"value": n}``,
+  ``{"resource": url}`` or ``{"anchor": name}`` (an anchor point, by its name).
 - ``diff(before, after)``: what changed, as ``Change``\\ s.
 - ``history_event(before, after)``: reading Painter's History (the ``QUndoView`` rows):
   a new row is an operation, the index going down is undo, up without a new row redo.
@@ -34,7 +34,8 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .workflow import SCOPE_PREFIX
+from .layout import SET_FILL_KEYS
+from .workflow import ANCHOR_POINT_NAME, SCOPE_PREFIX
 from .channels import value_range
 from .workflow_draft import resource_name
 
@@ -286,7 +287,6 @@ MOVING = NOT_RECORDED.format("Moving layers")
 DELETING = NOT_RECORDED.format("Deleting existing layers or effects")
 RENAMING = NOT_RECORDED.format("Renaming existing layers")
 EXISTING_EFFECT = NOT_RECORDED.format("Changing an existing effect")
-EXISTING_CONTENT = NOT_RECORDED.format("Changing the channels or content of an existing layer")
 TWIN_NAMES = "Several layers are named “{}”: the Select layer Step will stop there. Rename one of them."
 
 
@@ -325,6 +325,9 @@ class _Build:
         self.origin = {}  # (uid, "blend") / (uid, "opacity", channel) -> the value before
         # a new node's channels and content: what it started with, and what it has now
         self.content_origin, self.content_now = {}, {}
+        # an existing layer's: its ``set_fill`` Step, and (uid, "channels" / "content") ->
+        # the value before its first change / now
+        self.fills, self.fill_origin, self.fill_now = {}, {}, {}
         self.notices = notices
 
     def notice(self, text):
@@ -393,6 +396,8 @@ class _Build:
             step = {"type": "add_smart", "smart": "mask"}
         elif node.get("kind") in EFFECTS:
             step = {"type": "add_effect", "effect": node["kind"], "target": "mask" if node.get("stack") == "mask" else "layer"}
+            if node["kind"] == "anchor":  # always stored: later Steps refer to it by name
+                step["name"] = node.get("name") or ANCHOR_POINT_NAME
             if node.get("source"):
                 step["resource"] = node["source"]
                 if node.get("name"):
@@ -459,7 +464,11 @@ class _Build:
     def _content_change(self, op, change, key):
         uid = change.uid
         if uid not in self.created:
-            self.notice(EXISTING_CONTENT if _snapshot(op.after).is_layer(uid) else EXISTING_EFFECT)
+            after = _snapshot(op.after)
+            if after.is_layer(uid):  # a Fill or Paint layer: only they have channels and content
+                self._existing_fill(op, change, key, after.node(uid).get("kind"))
+            else:
+                self.notice(EXISTING_EFFECT)  # a Fill effect cannot be found again reliably
             return
         if uid in self.content_now:
             self.content_now[uid][key] = change.new
@@ -490,6 +499,39 @@ class _Build:
         elif takes_content == "mask" and new.get("source"):
             step["source"] = _in_range(None, new["source"])
 
+    # -- an existing layer's channels and content: one set_fill Step per layer ---------------
+
+    def _existing_fill(self, op, change, key, kind):
+        uid = change.uid
+        self.fill_origin.setdefault((uid, key), change.old)
+        self.fill_now[(uid, key)] = change.new
+        step = self.fills.get(uid)
+        if step is None:
+            step = {"type": "set_fill"}
+            self.act(uid, step, op)
+            self.fills[uid] = step
+        for name in SET_FILL_KEYS:
+            step.pop(name, None)
+        if (uid, "channels") in self.fill_origin:
+            was, now = self.fill_origin[(uid, "channels")] or [], self.fill_now[(uid, "channels")] or []
+            on, off = [c for c in now if c not in was], [c for c in was if c not in now]
+            if on:
+                step["channels_on"] = on
+            if off:
+                step["channels_off"] = off
+        if (uid, "content") not in self.fill_origin or kind != "fill":
+            return
+        old, new = self.fill_origin[(uid, "content")] or {}, self.fill_now[(uid, "content")] or {}
+        if new == old:
+            return
+        if new.get("material"):
+            step["material"] = {"resource": new["material"]}
+        elif "sources" in new:
+            was, off = old.get("sources") or {}, step.get("channels_off", [])
+            changed = {ch: _in_range(ch, s) for ch, s in new["sources"].items() if was.get(ch) != s and ch not in off}
+            if changed:
+                step["sources"] = changed
+
     def _removed(self, op, change, smart_masks):
         step = self.created.pop(change.uid, None)
         if step is None:
@@ -508,9 +550,13 @@ class _Build:
         self.notice(MOVING)
 
     def _name(self, op, change, smart_masks):
-        if not _snapshot(op.after).is_layer(change.uid):
-            return  # effects rename themselves (``Generator (empty)`` -> ``Dirt``)
         step = self.created.get(change.uid)
+        if not _snapshot(op.after).is_layer(change.uid):
+            # effects rename themselves (``Generator (empty)`` -> ``Dirt``); an anchor
+            # point's name is what later Steps refer to it by
+            if step is not None and step.get("effect") == "anchor" and change.new:
+                step["name"] = change.new
+            return
         if step is None:
             self.notice(RENAMING)
         elif step["type"] == "add_layer":
@@ -586,6 +632,9 @@ class _Build:
                 del values[channel]
             if not values:
                 self.remove(step)
+        for step in self.fills.values():
+            if not any(key in step for key in SET_FILL_KEYS):
+                self.remove(step)  # every change set back
         # a select_layer with nothing after it in its block, and no new layer after it
         self.blocks = [
             b for i, b in enumerate(self.blocks)

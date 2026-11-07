@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 from ..core.brush import BrushResource
 from ..core.menu import action_id, same_action
+from ..core.workflow import ANCHOR_POINT_NAME
 
 
 def FakeResource(url, gui_name, is_brush=True):
@@ -52,7 +53,7 @@ class FakeEffect:
     def __init__(self, target, effect, name=None, source=None):
         self.uid = next(_uids)
         self.target, self.effect = target, effect
-        self.name = name or effect.capitalize()
+        self.name = name or (ANCHOR_POINT_NAME if effect == "anchor" else effect.capitalize())
         self.source = source  # a generator's or filter's resource URL
         self.channels = None
         self.material = None
@@ -308,14 +309,14 @@ class FakeAdapter:
             raise ValueError(f"No resource {url}")
         return self.resources[url]
 
-    def insert_effect(self, layer, target, effect, resource=None):
+    def insert_effect(self, layer, target, effect, resource=None, name=None):
         self.stack.change("insert_effect")
         if target == "mask" and layer.mask is None:
             raise RuntimeError("The layer has no mask")
         if resource is not None:
             self._resource(resource)
         layer.effects.append((target, effect, resource))
-        node = FakeEffect(target, effect, source=resource)
+        node = FakeEffect(target, effect, name=name, source=resource)
         layer.effect_nodes.append(node)
         return node
 
@@ -353,6 +354,8 @@ class FakeAdapter:
         self.stack.change("set_channel_source")
         if "resource" in source:
             self._resource(source["resource"])
+        if "anchor" in source and len(self.find_anchors(source["anchor"])) != 1:
+            raise ValueError(f"No single anchor point named {source['anchor']!r}")
         source = {k: v for k, v in source.items() if k != "resource_name"}
         if channel is None:  # a Fill on a mask
             layer.source = source
@@ -361,6 +364,20 @@ class FakeAdapter:
 
     def stack_channels(self):
         return self.texture_channels
+
+    def layer_kind(self, layer):
+        return layer.kind
+
+    def active_channels(self, layer):
+        return list(layer.channels or [])
+
+    def find_anchors(self, name):
+        """Every anchor point of the stack named exactly ``name``, inside any layer."""
+        return [n for layer in self.stack.walk() for n in layer.effect_nodes if n.effect == "anchor" and n.name == name]
+
+    def anchor_names(self):
+        names = [n.name for layer in self.stack.walk() for n in layer.effect_nodes if n.effect == "anchor"]
+        return sorted(set(names), key=str.lower)
 
     def search_resources(self, query):
         words = query.lower().split()

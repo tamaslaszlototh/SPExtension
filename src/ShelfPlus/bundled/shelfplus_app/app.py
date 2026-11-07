@@ -626,6 +626,15 @@ class App:
             channels = None
         return list(channels) if channels else list(DEFAULT_CHANNELS)
 
+    def anchor_names(self):
+        """The active texture set's anchor point names (offered for an anchor source), or
+        none when Painter cannot tell."""
+        try:
+            return list(self.adapter.anchor_names())
+        except Exception:
+            log.info("Could not list the anchor points", exc_info=True)
+            return []
+
     def step_action_png(self, step):
         """The icon of a ``run_action`` Step's command (PNG bytes), or ``None``."""
         if step.get("type") != "run_action" or not step.get("action"):

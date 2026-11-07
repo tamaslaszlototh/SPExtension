@@ -39,16 +39,21 @@ The Workflow runner (``core/workflow.py``); layers are opaque handles to the cor
   above ``above`` in its folder, or on top of the stack when ``None``.
 - ``add_mask(layer, background)`` (black / white), ``has_mask(layer) -> bool``,
   ``set_blend(layer, mode)`` (all channels), ``set_opacity(layer, channel, percent)``.
-- ``insert_effect(layer, target, effect, resource=None)``: on top of the mask stack
-  (``target`` mask) or the content stack (layer); ``effect`` generator / filter (with a
-  ``resource://`` URL), levels or anchor.
+- ``insert_effect(layer, target, effect, resource=None, name=None)``: on top of the mask
+  stack (``target`` mask) or the content stack (layer); ``effect`` generator / filter
+  (with a ``resource://`` URL), levels or anchor (``name``: the anchor point's).
+- ``find_anchors(name) -> [anchor]``: exact name, every layer's content and mask, folders
+  included; ``anchor_names() -> [str]`` (the Workflow editor offers them).
+- ``layer_kind(layer) -> str`` (fill / paint / folder / instance) and
+  ``active_channels(layer) -> [ChannelType name]``: what ``set_fill`` acts on.
 - ``insert_smart_material(url, above=None) -> layer``: placed like ``insert_layer``.
 - ``insert_smart_mask(layer, url)``: into the layer's mask (a black one if it has none).
 - ``find_layers(name) -> [layer]``: exact name, whole stack, folders included.
 - ``layer_name(layer) -> str`` (the Workflow editor's "Use selected layer's name").
 - A new layer's setup: ``set_active_channels(layer, [ChannelType name])``, and for a Fill
   layer ``set_material(layer, url)`` or ``set_channel_source(layer, channel, source)``
-  (``{"color": "#rrggbb"}``, ``{"value": 0..1}`` or ``{"resource": url}``).
+  (``{"color": "#rrggbb"}``, ``{"value": 0..1}``, ``{"resource": url}`` or
+  ``{"anchor": name}``); ``set_fill`` uses the same calls on an existing layer.
 - ``stack_channels() -> [ChannelType name] | None``: the active texture set's channels.
 - ``search_resources(query) -> [core.brush.BrushResource]``: the resource picker.
 - ``select_layer(layer)``, ``select_mask(layer)``: never called inside ``layer_scope``.

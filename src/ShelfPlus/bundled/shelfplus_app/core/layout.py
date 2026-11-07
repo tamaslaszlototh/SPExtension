@@ -64,11 +64,18 @@ def _resource_ref(v):
     )
 
 
+def _anchor_ref(v):
+    """``{"anchor": name}``: the anchor point of that exact name in the texture set's stack."""
+    return isinstance(v, dict) and set(v) == {"anchor"} and _text(v["anchor"])
+
+
 def _source(v, channel):
-    """One channel of a Fill layer: ``{"color": "#rrggbb"}``, ``{"value": 0..1}`` or a resource. A value is
-    checked against the channel's own range (``channels.value_range``)."""
+    """One channel of a Fill layer: ``{"color": "#rrggbb"}``, ``{"value": 0..1}``, a resource or an
+    anchor point. A value is checked against the channel's own range (``channels.value_range``)."""
     if not isinstance(v, dict) or len(v) == 0:
         return False
+    if "anchor" in v:
+        return _anchor_ref(v)
     if set(v) == {"color"}:
         return isinstance(v["color"], str) and _HEX_COLOUR.fullmatch(v["color"]) is not None
     if set(v) == {"value"}:
@@ -81,9 +88,11 @@ def _sources(v):
 
 
 def _mask_source(v):
-    """A mask's Fill: ``{"value": 0..1}`` or a resource (a mask is grey: no colour)."""
+    """A mask's Fill: ``{"value": 0..1}``, a resource or an anchor point (a mask is grey: no colour)."""
     if isinstance(v, dict) and set(v) == {"value"}:
         return _number_in(v["value"], 0, 1)
+    if isinstance(v, dict) and "anchor" in v:
+        return _anchor_ref(v)
     return _resource_ref(v)
 
 
@@ -103,6 +112,7 @@ STEP_PARAMS = {
     },
     "set_blend": {"blend": _text},
     "set_opacity": {"opacity": _opacity},
+    "set_fill": {},
     "add_smart": {"smart": _one_of("material", "mask"), "resource": _resource},
     "select_layer": {"name": _text},
     "select_brush": {"resource": _resource},
@@ -122,12 +132,22 @@ OPTIONAL_STEP_PARAMS = {
         "sources": _sources,
     },
     # A Fill effect's content: on the layer like a Fill layer's; on the mask one ``source``.
+    # ``name``: an anchor point's (Painter's default name without it).
     "add_effect": {
+        "name": _text,
         "resource_name": _text,
         "channels": _channels,
         "material": _resource_ref,
         "sources": _sources,
         "source": _mask_source,
+    },
+    # The Current layer's channels switched on and off (only those; the others stay as they
+    # are), and a Fill layer's content in a new Fill layer's form.
+    "set_fill": {
+        "channels_on": _channels,
+        "channels_off": _channels,
+        "material": _resource_ref,
+        "sources": _sources,
     },
     "add_smart": {"resource_name": _text},
     "select_brush": {"resource_name": _text},
@@ -154,6 +174,8 @@ def step_problem(step):
         return _layer_content_problem(step)
     if kind == "add_effect":
         return _effect_content_problem(step)
+    if kind == "set_fill":
+        return _set_fill_problem(step)
     return None
 
 
@@ -181,6 +203,8 @@ def _layer_content_problem(step):
 
 
 def _effect_content_problem(step):
+    if "name" in step and step["effect"] != "anchor":
+        return f"Step 'add_effect' ({step['effect']}) cannot have 'name'"
     if not any(key in step for key in CONTENT_KEYS):
         return None
     if step["effect"] != "fill":
@@ -192,6 +216,26 @@ def _effect_content_problem(step):
     if "source" in step:
         return "Step 'add_effect' on the layer cannot have 'source'"
     return _content_problem(step, "add_effect")
+
+
+SET_FILL_KEYS = ("channels_on", "channels_off", "material", "sources")
+
+
+def _set_fill_problem(step):
+    if "source" in step or "channels" in step:
+        return f"Step 'set_fill' cannot have '{'source' if 'source' in step else 'channels'}'"
+    if not any(key in step for key in SET_FILL_KEYS):
+        return "Step 'set_fill' changes nothing"
+    on, off = step.get("channels_on", []), step.get("channels_off", [])
+    both = next((c for c in on if c in off), None)
+    if both:
+        return f"Step 'set_fill' switches '{both}' both on and off"
+    if "material" in step and "sources" in step:
+        return "Step 'set_fill' has both 'material' and 'sources'"
+    switched_off = next((c for c in step.get("sources", {}) if c in off), None)
+    if switched_off:
+        return f"Step 'set_fill' sets '{switched_off}', which it switches off"
+    return None
 
 
 def _icon_ok(raw):

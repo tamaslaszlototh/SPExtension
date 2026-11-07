@@ -23,7 +23,8 @@ stays and is undone with one Ctrl+Z.
 The layer side of the adapter (see ``adapter/__init__.py``): ``project_ready``,
 ``selected_layer``, ``layer_scope``, ``insert_layer``, ``add_mask``, ``has_mask``,
 ``insert_effect``, ``insert_smart_material``, ``insert_smart_mask``, ``set_blend``,
-``set_opacity``, ``find_layers``, ``select_layer`` and ``save_project``.
+``set_opacity``, ``find_layers``, ``select_layer`` and ``save_project``; for anchor points
+``find_anchors``, for ``set_fill`` ``layer_kind`` and ``active_channels``.
 """
 
 import logging
@@ -45,6 +46,12 @@ SELECTION_UNREADABLE = "Painter's selected layer could not be read. See the log.
 LAYER_NAMES = {"fill": "Fill layer", "paint": "Paint layer", "folder": "folder"}
 EFFECT_NAMES = {"anchor": "anchor point"}
 NO_MASK = "The Current layer has no mask. Add a mask before this Step."
+ANCHOR_POINT_NAME = "Anchor point"  # what Painter names a new anchor point
+ANCHOR_EXISTS = "An anchor point named “{}” already exists."
+NO_ANCHOR = "No anchor point named “{}”."
+TWIN_ANCHORS = "Several anchor points named “{}”."
+NEEDS_FILL = "needs a Fill layer."
+NEEDS_FILL_OR_PAINT = "needs a Fill or Paint layer."
 
 
 class StepError(Exception):
@@ -67,6 +74,8 @@ def step_label(step):
         return f"Set blend mode to {step.get('blend')}"
     if kind == "set_opacity":
         return "Set opacity"
+    if kind == "set_fill":
+        return "Set Fill content"
     if kind == "select_layer":
         return f"Select layer “{step.get('name')}”"
     if kind == "select_brush":
@@ -81,7 +90,7 @@ def step_label(step):
 def needs_current_layer(step):
     """Whether the Step acts on the Current layer (rather than creating or picking one)."""
     kind = step["type"]
-    return kind in ("add_mask", "add_effect", "set_blend", "set_opacity") or (
+    return kind in ("add_mask", "add_effect", "set_blend", "set_opacity", "set_fill") or (
         kind == "add_smart" and step.get("smart") == "mask"
     )
 
@@ -133,6 +142,50 @@ def set_content(adapter, node, step):
         adapter.set_channel_source(node, channel, dict(source))
 
 
+def anchor_name(step):
+    """The name an anchor point Step gives its anchor point, or ``None`` for another Step."""
+    if step.get("type") == "add_effect" and step.get("effect") == "anchor":
+        return step.get("name") or ANCHOR_POINT_NAME
+    return None
+
+
+def anchor_sources(step):
+    """The names of the anchor points a Step uses as Fill sources, in order, once each."""
+    sources = [step.get("source"), *(step.get("sources") or {}).values()]
+    names = [s["anchor"] for s in sources if isinstance(s, dict) and s.get("anchor")]
+    return list(dict.fromkeys(names))
+
+
+def fill_target_problem(kind, step):
+    """Why ``set_fill`` cannot act on a layer of ``kind`` (fill, paint, folder…), or ``None``."""
+    if ("material" in step or "sources" in step) and kind != "fill":
+        return NEEDS_FILL
+    if kind not in ("fill", "paint"):
+        return NEEDS_FILL_OR_PAINT
+    return None
+
+
+def set_fill(adapter, step, current):
+    """An existing layer's channels and content: only the channels named are switched on
+    or off (a channel given a source is switched on too); then a Fill layer's material or
+    per-channel sources."""
+    layer = _require(current)
+    problem = fill_target_problem(adapter.layer_kind(layer), step)
+    if problem:
+        raise StepError(problem)
+    off = step.get("channels_off", [])
+    on = [c for c in dict.fromkeys([*step.get("channels_on", []), *step.get("sources", {})]) if c not in off]
+    active = list(adapter.active_channels(layer) or [])
+    wanted = [c for c in active if c not in off] + [c for c in on if c not in active]
+    if wanted != active:
+        adapter.set_active_channels(layer, wanted)
+    if "material" in step:
+        adapter.set_material(layer, step["material"]["resource"])
+    for channel, source in step.get("sources", {}).items():
+        adapter.set_channel_source(layer, channel, dict(source))
+    return current
+
+
 def add_mask(adapter, step, current):
     adapter.add_mask(_require(current), step["background"])
     return current
@@ -157,7 +210,10 @@ def add_effect(adapter, step, current):
     target = step["target"]
     if target == "mask" and not adapter.has_mask(layer):
         raise StepError(NO_MASK)
-    node = adapter.insert_effect(layer, target, step["effect"], resource=step.get("resource"))
+    if step["effect"] == "anchor":
+        node = adapter.insert_effect(layer, target, "anchor", name=anchor_name(step))
+    else:
+        node = adapter.insert_effect(layer, target, step["effect"], resource=step.get("resource"))
     if step["effect"] == "fill" and target == "layer":
         set_content(adapter, node, step)
     elif step["effect"] == "fill" and "source" in step:
@@ -191,6 +247,7 @@ LAYER_STEPS = {
     "add_smart": add_smart,
     "set_blend": set_blend,
     "set_opacity": set_opacity,
+    "set_fill": set_fill,
     "select_layer": select_layer,
 }
 
@@ -242,6 +299,15 @@ def _check_resources(adapter, step):
                 return brush.missing_message(url)
             return f"This resource is not available on this machine: {url}"
     return None
+
+
+def _named_channels(step):
+    """The channels a Step names (a new layer's, or those ``set_fill`` switches or sets)."""
+    if step["type"] == "add_layer":
+        return list(step.get("channels", []))
+    if step["type"] == "set_fill":
+        return list(dict.fromkeys([*step.get("channels_on", []), *step.get("channels_off", []), *step.get("sources", {})]))
+    return []
 
 
 def _texture_channels(adapter):
@@ -352,19 +418,75 @@ class WorkflowRun:
         if index is not None:
             return self._problem(index, BRUSH_NEEDS_PAINT_TARGET), None
 
-        wanted = [(i, s) for i, s in enumerate(steps) if s["type"] == "add_layer" and "channels" in s]
+        index, problem = self._fill_target_problem()
+        if problem:
+            return self._problem(index, problem), None
+
+        wanted = [(i, _named_channels(s)) for i, s in enumerate(steps) if _named_channels(s)]
         available = _texture_channels(self.adapter) if wanted else None
         if available is not None:
-            for index, step in wanted:
-                missing = next((c for c in step["channels"] if c not in available), None)
+            for index, channels in wanted:
+                missing = next((c for c in channels if c not in available), None)
                 if missing:
                     return self._problem(index, f"uses the {missing} channel, which this texture set does not have."), None
+
+        index, problem = self._anchor_problem()
+        if problem:
+            return self._not_started(FAILED, problem, index), None
 
         for index, step in enumerate(steps):
             missing = _check_resources(self.adapter, step)
             if missing:
                 return self._not_started(MISSING, missing, index), None
         return None, start
+
+    def _fill_target_problem(self):
+        """``(index, problem)`` of a ``set_fill`` Step on a layer the Workflow itself made
+        and that cannot take it (a source on a new Paint layer…); ``(None, None)`` if none.
+        The start layer and a picked layer are checked when the Step runs."""
+        kind = None  # unknown until a Step creates a layer
+        for index, step in enumerate(self.steps[: self.first_ui]):
+            if step["type"] == "add_layer":
+                kind = step["layer"]
+            elif step["type"] == "add_smart" and step["smart"] == "material":
+                kind = "folder"
+            elif step["type"] == "select_layer":
+                kind = None
+            elif step["type"] == "set_fill" and kind is not None:
+                problem = fill_target_problem(kind, step)
+                if problem:
+                    return index, problem
+        return None, None
+
+    def _anchor_problem(self):
+        """``(index, problem)``: an anchor point Step whose name is taken already (in the
+        stack, or by an earlier Step), or an anchor source that is not exactly one anchor
+        point of the stack or made by an earlier Step; ``(None, None)`` if none."""
+        counts = {}
+
+        def count(name):
+            if name not in counts:
+                try:
+                    counts[name] = len(list(self.adapter.find_anchors(name)))
+                except Exception:
+                    log.exception("Could not look for the anchor point %r", name)
+                    counts[name] = None  # unknown: the Step finds out when it runs
+            return counts[name]
+
+        made = set()
+        for index, step in enumerate(self.steps[: self.first_ui]):
+            for name in anchor_sources(step):
+                found = 1 if name in made else count(name)
+                if found == 0:
+                    return index, NO_ANCHOR.format(name)
+                if found is not None and found > 1:
+                    return index, TWIN_ANCHORS.format(name)
+            name = anchor_name(step)
+            if name is not None:
+                if name in made or count(name):
+                    return index, ANCHOR_EXISTS.format(name)
+                made.add(name)
+        return None, None
 
     def _brush_without_paint_target(self):
         """The index of a ``select_brush`` Step that surely has nothing to paint on: the
