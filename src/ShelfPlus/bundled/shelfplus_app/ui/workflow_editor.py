@@ -86,6 +86,67 @@ def _resource_text(mime):
     return text if "resource://" in text else ""
 
 
+DETAIL_ROLE = QtCore.Qt.ItemDataRole.UserRole + 1  # "on mask", "generator on mask"…
+NOTE_ROLE = QtCore.Qt.ItemDataRole.UserRole + 2  # "⚠ choose resource"
+TEXT_GAP = 6  # px between the icon and the text, and before the detail
+DETAIL_ALPHA = 150  # how muted the detail is (of 255)
+ROW_BUTTONS_WIDTH = 66  # the ↑ ↓ ✕ over a row's right end: its text stops before them
+# Room between a submenu's title and its arrow in the "+ Add Step" menu (em spaces: no
+# stylesheet, which would replace how Painter's style draws its menus).
+SUBMENU_ROOM = "\u2003\u2003"
+
+
+class RowDelegate(QtWidgets.QStyledItemDelegate):
+    """Draws a Step row as its name, then what it applies to in muted italics ("Fill",
+    then *on mask*), then a ⚠ note. Qt draws the row's background and icon; the texts
+    are drawn here. (Never ``style()`` from Python: on Painter 11.1 its wrapper is
+    already deleted.)"""
+
+    @staticmethod
+    def detail_font(base):
+        font = QtGui.QFont(base)
+        font.setItalic(True)
+        font.setBold(False)
+        return font
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        if index.data(DETAIL_ROLE) or index.data(NOTE_ROLE):
+            option.text = ""  # drawn in paint()
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        detail, note = index.data(DETAIL_ROLE), index.data(NOTE_ROLE)
+        if not detail and not note:
+            return
+        opt = QtWidgets.QStyleOptionViewItem(option)
+        super().initStyleOption(opt, index)  # with its text and font
+        selected = bool(option.state & QtWidgets.QStyle.StateFlag.State_Selected)
+        role = QtGui.QPalette.ColorRole.HighlightedText if selected else QtGui.QPalette.ColorRole.Text
+        colour = option.palette.color(role)
+        muted = QtGui.QColor(colour)
+        muted.setAlpha(DETAIL_ALPHA)
+        rect = option.rect
+        x = rect.left() + TEXT_GAP + opt.decorationSize.width() + TEXT_GAP
+        right = rect.right() - TEXT_GAP - ROW_BUTTONS_WIDTH
+        painter.save()
+        for text, font, pen in (
+            (opt.text, opt.font, colour),
+            (detail, self.detail_font(opt.font), muted),
+            (note, opt.font, colour),
+        ):
+            if not text or x >= right:
+                continue
+            metrics = QtGui.QFontMetrics(font)
+            shown = metrics.elidedText(text, QtCore.Qt.TextElideMode.ElideRight, right - x)
+            painter.setFont(font)
+            painter.setPen(pen)
+            painter.drawText(QtCore.QRect(x, rect.top(), right - x, rect.height()),
+                             int(QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignLeft), shown)
+            x += metrics.horizontalAdvance(shown) + TEXT_GAP
+        painter.restore()
+
+
 class StepTree(QtWidgets.QListWidget):
     """The block tree: one item per ``blocks.rows(steps, dragging=True)`` row."""
 
@@ -101,6 +162,7 @@ class StepTree(QtWidgets.QListWidget):
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.DragDrop)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
         self.drag_source = None  # the flat index of the Step being dragged
+        self.setItemDelegate(RowDelegate(self))
 
     def startDrag(self, actions):
         item = self.currentItem()
@@ -395,7 +457,7 @@ class WorkflowEditor(QtWidgets.QFrame):
             step = self.draft.steps[row.index]
             note = incomplete(step)
             detail = row_detail(step)
-            label = short_name(step) + (f" — {detail}" if detail else "") + (f"  {note}" if note else "")
+            label = short_name(step)
             if row.kind == blocks.HEADER:
                 text = label
             else:
@@ -408,7 +470,9 @@ class WorkflowEditor(QtWidgets.QFrame):
                 font.setBold(True)
                 item.setFont(font)
             item.setData(QtCore.Qt.ItemDataRole.UserRole, row.index)
-            item.setToolTip(label)
+            item.setData(DETAIL_ROLE, detail)
+            item.setData(NOTE_ROLE, note)
+            item.setToolTip(" ".join(t for t in (label, detail, note) if t))
             item.setFlags(
                 QtCore.Qt.ItemFlag.ItemIsEnabled
                 | QtCore.Qt.ItemFlag.ItemIsSelectable
@@ -431,12 +495,22 @@ class WorkflowEditor(QtWidgets.QFrame):
         self.tree.setRowHidden(0, not (dragging or has_start))
 
     def visible_rows(self):
-        """The text of every row not hidden (tests read the tree with it)."""
-        return [
-            self.tree.item(i).text().strip()
-            for i in range(self.tree.count())
-            if not self.tree.isRowHidden(i)
-        ]
+        """Every row not hidden as plain text: name, detail, "  " note (tests read the
+        tree with it)."""
+        rows = []
+        for i in range(self.tree.count()):
+            if self.tree.isRowHidden(i):
+                continue
+            item = self.tree.item(i)
+            text = " ".join(t for t in (item.text().strip(), item.data(DETAIL_ROLE)) if t)
+            note = item.data(NOTE_ROLE)
+            rows.append(f"{text}  {note}" if note else text)
+        return rows
+
+    def row_parts(self, number):
+        """(name as drawn, detail) of row ``number``."""
+        item = self.tree.item(number)
+        return item.text(), item.data(DETAIL_ROLE)
 
     def _sync_name(self):
         """The name field follows the automatic name; a name being typed is left alone."""
@@ -459,7 +533,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         sections = {}
         for section, label in CATALOG:
             if section not in sections:
-                sub = menu.addMenu(section)
+                sub = menu.addMenu(section + SUBMENU_ROOM)
                 sub.setObjectName(OBJECT_NAME + "AddSubMenu")
                 sections[section] = sub
             action = sections[section].addAction(label)

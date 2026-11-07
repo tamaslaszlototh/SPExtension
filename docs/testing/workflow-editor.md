@@ -1,4 +1,4 @@
-# Testing the Workflow editor (Shelf+ v0.7.7-rc.1)
+# Testing the Workflow editor (Shelf+ v0.7.8-rc.1)
 
 This build lets you **make your own Workflows on the Panel** and fix existing ones:
 
@@ -16,11 +16,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.7.7-rc.1.zip** from the [v0.7.7-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.7-rc.1).
+2. Download **ShelfPlus-v0.7.8-rc.1.zip** from the [v0.7.8-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.8-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.7**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.8**.
 
 Your own Layout stays as it is. This test adds a few Buttons, and you can delete them afterwards.
 
@@ -29,6 +29,7 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 ### A. Build "Fill layer + Black mask + Dirt + Opacity 50%" by hand
 
 1. Click **+** in the *General* row, then **Workflow button**. The editor replaces the Groups.
+   - Click **+ Add Step**: ✅ in the menu, the section names (Layer, Mask, Effect, Setting, At the end) do not touch the ► arrows.
    - ✅ **Save** is greyed out, and the text above it says *Add a Step first.*
 2. Click **+ Add Step → Layer → Fill layer**, then **+ Add Step → Mask → Black mask**.
    - ✅ *Black mask* is indented under *Fill layer*.
@@ -37,7 +38,7 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 4. With that row selected, click the **Choose…** button on the **Resource** line below the Steps. Type `dirt` in the search box. (Generators cannot be dragged out of the Assets window, so this list is the way to choose one.)
    - ✅ The list shows Painter's resources whose name contains *dirt*, each with its type after it.
    - Pick the **Dirt generator**: hover the rows, and choose the one whose address ends in `mg_dirt`. Click **Choose**.
-   - ✅ The row now says **Dirt — generator on mask**, the ⚠ is gone, and the button now reads **Dirt** instead of *Choose…*.
+   - ✅ The row now says **Dirt** *generator on mask*, the ⚠ is gone, and the button now reads **Dirt** instead of *Choose…*.
    - Write down in Notes what type the list showed next to it.
    - Click the **Dirt** button again: ✅ the list opens again, so you could pick another one. Click **Cancel**.
 5. Click **+ Add Step → Setting → Opacity**. Below the Steps, keep **BaseColor** ticked and set it to **50 %**.
@@ -115,12 +116,12 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 This is what Painter's right-click **Add paint** / **Add fill** on a layer makes: a Paint or Fill shown indented under the layer.
 
 1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, then **+ Add Step → Effect → Paint on layer**, then **+ Add Step → Mask → Black mask**, then **+ Add Step → Effect → Fill on mask**.
-   - ✅ The rows read **Fill layer**, **├ Paint — on layer**, **├ Black mask**, **└ Fill — on mask**: each row says what it applies to.
+   - ✅ The rows read **Fill layer**, **├ Paint** *on layer*, **├ Black mask**, **└ Fill** *on mask*: each row says in muted italics what it applies to.
 2. Save it, select a layer and click the tile once.
    - ✅ The new Fill layer has a **Paint** inside it (open the layer's arrow in the Layers window), and its mask has a **Fill** inside it, as if you had used Add paint and Add fill yourself.
    - ✅ One **Ctrl+Z** removes all of it.
-3. Open it again (double-click) and click the **└ Fill — on mask** row. Set **Content** to **Value** and the value to **0.3**. Save and run it.
-   - ✅ The row now reads **Fill — on mask, value 0.3**.
+3. Open it again (double-click) and click the **└ Fill** *on mask* row. Set **Content** to **Value** and the value to **0.3**. Save and run it.
+   - ✅ The row now reads **Fill** *on mask, value 0.3*.
    - ✅ The mask's Fill is a dark grey (0.3): the layer shows through only faintly.
 4. Open it again, set the mask Fill's **Content** to **Resource**, click **Choose…** (or drop a procedural from the Assets window onto it) and pick e.g. a *Clouds* procedural. Save and run it.
    - ✅ The mask's Fill uses that resource.
@@ -142,7 +143,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.7.7 | | | |
+| 1. Install: ☰ shows v0.7.8 | | | |
 | A. Build Fill + Black mask + Dirt + Opacity 50% (Dirt chosen from the list), run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |

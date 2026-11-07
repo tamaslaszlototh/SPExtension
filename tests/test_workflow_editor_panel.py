@@ -102,8 +102,8 @@ def test_building_fill_black_mask_dirt_opacity_by_hand(app, qt_app, adapter):
     assert editor.visible_rows() == [
         "Fill layer",
         "├ Black mask",
-        "├ Generator — on mask  ⚠ choose resource",
-        "└ Opacity 100% — BaseColor",
+        "├ Generator on mask  ⚠ choose resource",
+        "└ Opacity 100% BaseColor",
         "At the end of the Workflow",
     ]
     assert not editor.save_button.isEnabled()
@@ -355,7 +355,7 @@ def test_a_generator_is_chosen_from_the_picker(app, qt_app, picks):
     editor.fields["choose_resource"].click()
     settled(qt_app)
 
-    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt — generator on mask"
+    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt generator on mask"
 
 
 def test_the_resource_picker_lists_matches_by_name(app, qt_app):
@@ -511,3 +511,26 @@ def test_moving_a_fill_between_layer_and_mask_drops_the_content_that_does_not_fi
 
     assert editor.draft.steps[1] == {"type": "add_effect", "effect": "fill", "target": "layer"}
     assert "channels" in editor.fields
+
+
+def test_a_rows_detail_is_drawn_apart_from_its_name_without_a_dash(app, qt_app):
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.add_step("Fill on mask")
+
+    name, detail = editor.row_parts(2)  # the rows: Start (hidden), Fill layer, Fill on mask
+
+    assert (name.strip(), detail) == ("└ Fill", "on mask")
+    assert "—" not in "".join(editor.visible_rows())
+    font = editor.tree.itemDelegate().detail_font(editor.tree.font())
+    assert font.italic()
+    editor.tree.grab()  # the delegate draws without error
+
+
+def test_the_add_step_menu_keeps_its_section_names_off_the_submenu_arrows(app, qt_app):
+    editor = open_new(app, qt_app)
+
+    titles = [action.text() for action in editor.add_menu.actions()]
+
+    assert [t.strip() for t in titles] == ["Layer", "Mask", "Effect", "Setting", "At the end"]
+    assert all(len(t) > len(t.rstrip()) for t in titles)  # room before the arrow
