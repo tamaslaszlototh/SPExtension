@@ -44,7 +44,7 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
    - ✅ Hover over the tile: its name is the command's name.
    - ✅ The box at the top of the Panel is gone.
 3. Do it again with a second command, for example **File → Save**.
-4. **Work (12.2) only:** add a third command from a **submenu**, for example from **Window → Views** or another menu with a ▸ arrow.
+4. Add a third command from a **submenu** (a menu you reach through an entry with a ▸ arrow), for example **Window → Views → Log**, if you did not use that in step 2.
    - ✅ The tile appears, as in step 2.
 
 ### B. Cancel
@@ -60,11 +60,16 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 
 1. Click **+ → Menu button**, then **Choose from list…**.
    - ✅ A window opens with a long list of Painter's commands. Each row shows the command and the menu it is in, for example *Log — Window › Views*.
-2. Type a few letters of a command's name into the search field, for example `export`.
-   - ✅ Only matching commands stay in the list.
-3. **Home (11.1):** pick a command that is inside a **submenu** (a menu with a ▸ arrow). On 11.1 this is the only way to add one. **Work (12.2):** pick any command.
-4. Double-click it, or select it and click **Add**.
-   - ✅ The window closes and the tile appears at the end of the Group.
+2. Type `export` into the search field at the top of the window.
+   - ✅ Only rows with "export" in them stay in the list.
+3. Delete what you typed, and type `views` instead.
+   - ✅ The list now shows the commands of the **Window → Views** submenu. You can tell a command in a submenu by its row: after the dash it names **two** menus, for example *Log — Window › Views*.
+   - Pick one of these rows that is **not** on the Panel yet, for example *History* or *Layers*.
+4. Click that row **once**, so it is highlighted. Then click **Add** in the bottom right corner of the window. (Double-clicking the row does the same in one step.)
+   - ✅ The window closes, and a new tile appears at the end of the Group.
+   - ✅ Hover over the tile: its name is the command's name from the row.
+
+Some rows end with a name in square brackets, for example *Save — File [SAVE_PROJECT]*. That is Painter's internal name for the command; you can ignore it.
 
 ### D. Running the Buttons
 
@@ -101,7 +106,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 |---|---|---|---|
 | 1. Install: ☰ shows v0.4.6 | | | |
 | A. Capture from the menu | | | |
-| A4. Capture from a submenu | — | | |
+| A4. Capture from a submenu | | | |
 | B. Cancel (button, Esc, Esc in a menu) | | | |
 | C. Add from the list | | | |
 | D. Running the Buttons | | | |
