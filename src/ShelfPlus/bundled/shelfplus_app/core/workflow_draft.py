@@ -139,6 +139,60 @@ def short_name(step):
     return str(kind)
 
 
+def _count(items, one):
+    items = list(items)
+    return items[0] if len(items) == 1 else f"{len(items)} {one}s"
+
+
+def _content_detail(step):
+    """A Fill's content in a word or two (a material is already in the name)."""
+    if "sources" in step:
+        return "per channel"
+    source = step.get("source")
+    if isinstance(source, dict) and "value" in source:
+        return f"value {source['value']:g}"
+    if isinstance(source, dict) and source.get("resource"):
+        return source.get("resource_name") or resource_name(source["resource"])
+    return None
+
+
+def row_detail(step):
+    """What the Step applies to, shown after its name in the editor's rows ("on the mask",
+    "generator on the mask", "BaseColor"…), or ``None`` when the name says it all. Not
+    part of the automatic Workflow name."""
+    kind = step.get("type")
+    parts = []
+    if kind == "add_layer":
+        if step.get("name"):  # its own name hides what kind of layer it is
+            parts.append(_LAYERS.get(step.get("layer"), "Layer"))
+        parts.append(_content_detail(step))
+        if "channels" in step:
+            parts.append(_count(step["channels"], "channel"))
+    elif kind == "add_effect":
+        target = f"on the {step.get('target')}"
+        named = step.get("resource") or step.get("material")  # the name is the resource's
+        parts.append(f"{_EFFECTS.get(step.get('effect'), 'effect').lower()} {target}" if named and "material" not in step else target)
+        parts.append(_content_detail(step))
+        if "channels" in step:
+            parts.append(_count(step["channels"], "channel"))
+    elif kind == "add_smart":
+        if step.get("resource"):  # without one the name is "Smart mask" already
+            parts.append(f"smart {step.get('smart')}")
+    elif kind == "set_opacity":
+        parts.append(_count((step.get("opacity") or {}).keys(), "channel") if step.get("opacity") else None)
+    elif kind == "select_layer":
+        if step.get("name"):
+            parts.append("select layer")
+    elif kind == "select_brush":
+        if step.get("resource"):
+            parts.append("brush")
+    elif kind == "run_action":
+        if step.get("action"):
+            parts.append("menu command")
+    parts = [p for p in parts if p]
+    return ", ".join(parts) or None
+
+
 def auto_name(steps):
     """"Fill layer + Black mask + Dirt": the name of a Workflow the user has not named."""
     return " + ".join(short_name(s) for s in steps) or NEW_NAME

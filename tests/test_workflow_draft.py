@@ -136,3 +136,27 @@ def test_paint_and_fill_effects_are_in_the_catalog():
     assert template("Fill on the mask") == {"type": "add_effect", "effect": "fill", "target": "mask"}
     assert incomplete(template("Paint on the layer")) is None
     assert auto_name([FILL, template("Paint on the layer")]) == "Fill layer + Paint"
+
+
+def test_a_rows_detail_says_what_the_step_applies_to():
+    from shelfplus_app.core.workflow_draft import row_detail
+
+    def effect(kind, target, **extra):
+        return {"type": "add_effect", "effect": kind, "target": target, **extra}
+
+    assert row_detail(effect("fill", "mask")) == "on the mask"
+    assert row_detail(effect("paint", "layer")) == "on the layer"
+    assert row_detail(effect("generator", "mask", resource="resource://a/Dirt", resource_name="Dirt")) == "generator on the mask"
+    assert row_detail(effect("generator", "mask")) == "on the mask"  # no resource yet: the name says generator
+    assert row_detail(effect("fill", "mask", source={"value": 0.3})) == "on the mask, value 0.3"
+    assert row_detail(effect("fill", "layer", sources={"BaseColor": {"color": "#0000ff"}})) == "on the layer, per channel"
+    assert row_detail({"type": "add_smart", "smart": "material", "resource": "resource://a/Rust"}) == "smart material"
+    assert row_detail({"type": "add_smart", "smart": "mask"}) is None  # "Smart mask" says it already
+    assert row_detail(OPACITY) == "BaseColor"
+    assert row_detail({"type": "set_opacity", "opacity": {"BaseColor": 50, "Height": 50}}) == "2 channels"
+    assert row_detail({"type": "select_layer", "name": "Base"}) == "select layer"
+    assert row_detail({"type": "select_brush", "resource": "resource://a/Hard"}) == "brush"
+    assert row_detail({"type": "run_action", "action": "SAVE_PROJECT"}) == "menu command"
+    assert row_detail(FILL) is None and row_detail(BLACK) is None and row_detail(SAVE) is None
+    named = {"type": "add_layer", "layer": "paint", "name": "Dirt pass", "channels": ["BaseColor", "Roughness"]}
+    assert row_detail(named) == "Paint layer, 2 channels"

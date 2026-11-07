@@ -1,4 +1,4 @@
-# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.6-rc.1)
+# A Workflow-szerkesztő tesztelése (Shelf+ v0.7.7-rc.1)
 
 Ebben a verzióban már **saját Workflow-kat lehet összerakni a Panelen**, és a meglévőket is lehet javítani:
 
@@ -18,12 +18,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.7.6-rc.1.zip** fájlt a [v0.7.6-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.6-rc.1).
+2. Töltsd le a **ShelfPlus-v0.7.7-rc.1.zip** fájlt a [v0.7.7-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.7-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.6**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.6 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.7.7**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.7.7 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -41,7 +41,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 4. Amíg ez a sor ki van jelölve, kattints a Step-ek alatti **Resource** sorban a **Choose…** gombra, és írd be a keresőbe: `dirt`. (Generatort nem lehet kihúzni az Assets ablakból, ezért ebből a listából lehet kiválasztani.)
    - ✅ A lista a Painter azon resource-ait mutatja, amelyek nevében benne van a *dirt*, mindegyik után a típusával.
    - Válaszd a **Dirt generatort**: vidd az egeret a sorok fölé, és azt válaszd, amelyiknek a címe `mg_dirt`-re végződik. Kattints a **Choose** gombra.
-   - ✅ A sorban most **Dirt** áll, eltűnt a ⚠, és a gombon is **Dirt** áll *Choose…* helyett.
+   - ✅ A sorban most **Dirt — generator on the mask** áll, eltűnt a ⚠, és a gombon is **Dirt** áll *Choose…* helyett.
    - Írd fel a Notes oszlopba, milyen típust mutatott mellette a lista.
    - Kattints újra a **Dirt** gombra: ✅ újra megnyílik a lista, vagyis választhatnál mást is. Kattints a **Cancel** gombra.
 5. Kattints a **+ Add Step → Setting → Opacity** pontra. A Step-ek alatt hagyd bepipálva a **BaseColor** sort, és állítsd **50 %**-ra.
@@ -119,11 +119,12 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill** csinál: a layer alatt beljebb húzva megjelenő Paint vagy Fill.
 
 1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, majd **+ Add Step → Effect → Paint on the layer**, majd **+ Add Step → Mask → Black mask**, majd **+ Add Step → Effect → Fill on the mask**.
-   - ✅ A sorok: **Fill layer**, **├ Paint**, **├ Black mask**, **└ Fill**.
+   - ✅ A sorok: **Fill layer**, **├ Paint — on the layer**, **├ Black mask**, **└ Fill — on the mask**: minden sor mutatja, mire vonatkozik.
 2. Mentsd, jelölj ki egy layert, és kattints egyszer a csempére.
    - ✅ Az új Fill layeren belül ott egy **Paint** (nyisd le a layer nyilát a Layers ablakban), a maszkjában pedig egy **Fill**, mintha te adtad volna hozzá Add painttel és Add fill-lel.
    - ✅ Egyetlen **Ctrl+Z** mindezt visszavonja.
-3. Nyisd meg újra (dupla kattintás), és kattints a **└ Fill** sorra (a maszkon lévő Fill). A **Content** legyen **Value**, az érték **0.3**. Mentsd és futtasd.
+3. Nyisd meg újra (dupla kattintás), és kattints a **└ Fill — on the mask** sorra. A **Content** legyen **Value**, az érték **0.3**. Mentsd és futtasd.
+   - ✅ A sorban most ez áll: **Fill — on the mask, value 0.3**.
    - ✅ A maszk Fillje sötétszürke (0.3): a layer csak halványan látszik.
 4. Nyisd meg újra, a maszk Filljénél a **Content** legyen **Resource**, kattints a **Choose…** gombra (vagy húzz rá egy procedurált az Assets ablakból), és válassz pl. egy *Clouds* procedurált. Mentsd és futtasd.
    - ✅ A maszk Fillje azt a resource-t használja.
@@ -145,7 +146,7 @@ Ez az, amit a Painterben egy layeren jobb klikk → **Add paint** / **Add fill**
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.7.6-t mutat | | | |
+| 1. Telepítés: a ☰ v0.7.7-t mutat | | | |
 | A. Fill + Black mask + Dirt + Opacity 50% összerakása (Dirt a listából) és futtatása | | | |
 | B. Dupla kattintás újranyit; Opacity a Startba | | | |
 | C. A Save és a layer sor visszaugrik | | | |

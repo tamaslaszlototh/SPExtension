@@ -102,8 +102,8 @@ def test_building_fill_black_mask_dirt_opacity_by_hand(app, qt_app, adapter):
     assert editor.visible_rows() == [
         "Fill layer",
         "├ Black mask",
-        "├ Generator  ⚠ choose resource",
-        "└ Opacity 100%",
+        "├ Generator — on the mask  ⚠ choose resource",
+        "└ Opacity 100% — BaseColor",
         "At the end of the Workflow",
     ]
     assert not editor.save_button.isEnabled()
@@ -355,7 +355,7 @@ def test_a_generator_is_chosen_from_the_picker(app, qt_app, picks):
     editor.fields["choose_resource"].click()
     settled(qt_app)
 
-    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt"
+    assert editor.draft.steps[1]["resource"] == DIRT and editor.visible_rows()[1] == "└ Dirt — generator on the mask"
 
 
 def test_the_resource_picker_lists_matches_by_name(app, qt_app):

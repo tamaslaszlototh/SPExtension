@@ -22,6 +22,7 @@ from ..core.workflow_draft import (
     CATALOG,
     incomplete,
     resource_name,
+    row_detail,
     short_name,
     takes_resource,
     template,
@@ -393,7 +394,8 @@ class WorkflowEditor(QtWidgets.QFrame):
                 continue
             step = self.draft.steps[row.index]
             note = incomplete(step)
-            label = short_name(step) + (f"  {note}" if note else "")
+            detail = row_detail(step)
+            label = short_name(step) + (f" — {detail}" if detail else "") + (f"  {note}" if note else "")
             if row.kind == blocks.HEADER:
                 text = label
             else:
