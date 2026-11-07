@@ -23,6 +23,7 @@ Brush buttons (``core/brush.py``):
 Menu buttons (``core/menu.py``), Painter's commands as ``core.menu.MenuAction``:
 
 - ``list_actions() -> [MenuAction]``: every command found (``actions.PainterActions``).
+- ``project_open() -> bool``: a project is open (many menus exist only then).
 - ``find_action(name) -> MenuAction | None``: the command with that ``objectName``.
 - ``action_icon_png(action) -> bytes | None``: its icon, or ``None`` if it has none.
 - ``trigger_action(action) -> bool``: run it; ``False`` if Painter has disabled it.

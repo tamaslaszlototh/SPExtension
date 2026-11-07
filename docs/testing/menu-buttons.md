@@ -1,4 +1,4 @@
-# Testing Menu buttons (Shelf+ v0.4.6-rc.1)
+# Testing Menu buttons (Shelf+ v0.4.7-rc.1)
 
 This build adds **Menu buttons**. A Menu button runs one of Painter's own menu commands (for example *File → Save*) with one click on its tile.
 
@@ -24,12 +24,12 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.4.6-rc.1.zip** from the [v0.4.6-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.4.6-rc.1).
+2. Download **ShelfPlus-v0.4.7-rc.1.zip** from the [v0.4.7-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.4.7-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.4.6**.
-   - If it says an older version, or Painter showed "Shelf+ v0.4.6 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.4.7**.
+   - If it says an older version, or Painter showed "Shelf+ v0.4.7 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
 
 ## 2. The checks
@@ -81,10 +81,12 @@ Click each of your three new tiles.
 
 ### E. After a restart
 
-1. Restart Painter and open a project again.
-2. Click each of the three tiles.
+1. Restart Painter. Watch the Panel while Painter starts up.
+   - ✅ No Menu button shows the yellow warning triangle, not even for a moment.
+2. Open a project again, and wait a few seconds.
+   - ✅ Still no warning triangle on any of your Menu buttons.
+3. Click each of the three tiles.
    - ✅ Each one still works, as in check D.
-   - ✅ No tile shows the yellow warning triangle.
 
 ### F. A missing command
 
@@ -94,9 +96,11 @@ Click each of your three new tiles.
    `"action": "SAVE_PROJECT",`
 4. Add `XYZ` to the end of the name inside the quotes, so it reads `"action": "SAVE_PROJECTXYZ",`. Save the file.
 5. Start Painter.
-   - ✅ That tile has a small yellow warning triangle in its corner. Hovering over it says *(not available in this Painter version)*.
+   - ✅ Before you open a project, that tile has **no** warning triangle. Clicking it only says it *is not available yet*.
+6. Open a project, and wait about 10 seconds.
+   - ✅ Now that tile has a small yellow warning triangle in its corner. Hovering over it says *(not available in this Painter version)*.
    - ✅ Clicking it only shows a message: *This menu command is not available in this Painter version: …*. Nothing else happens.
-6. To clean up, delete that tile: drag it onto **Delete**.
+7. To clean up, delete that tile: drag it onto **Delete**.
 
 ## Results
 
@@ -104,7 +108,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.4.6 | | | |
+| 1. Install: ☰ shows v0.4.7 | | | |
 | A. Capture from the menu | | | |
 | A4. Capture from a submenu | | | |
 | B. Cancel (button, Esc, Esc in a menu) | | | |

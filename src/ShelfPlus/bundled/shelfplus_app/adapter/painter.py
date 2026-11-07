@@ -109,6 +109,11 @@ class PainterAdapter:
 
     # -- Painter's commands (QActions) ----------------------------------------
 
+    def project_open(self):
+        import substance_painter.project
+
+        return substance_painter.project.is_open()
+
     def list_actions(self):
         return self.actions.all()
 

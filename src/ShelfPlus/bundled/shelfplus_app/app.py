@@ -36,9 +36,17 @@ SETTLE_CHECKS = 15
 LOADING_CHECKS = 60
 LOADING_MESSAGE = "Painter is still loading its brushes. Try again in a moment."
 
-# Some of Painter's commands exist only once a project is open, so a Menu button with the
-# "unavailable" badge is looked up again this often until its command is found.
-MENU_CHECK_MS = 10000
+# Painter builds many of its menus only once a project is open, so a Menu button whose
+# command is not found is badged only after a project has been open for
+# MENU_SETTLE_CHECKS checks in a row, MENU_CHECK_MS apart. Until then nothing is shown.
+# After that, a badged Button is looked up again every MENU_RECHECK_MS.
+MENU_CHECK_MS = 2000
+MENU_SETTLE_CHECKS = 3
+MENU_RECHECK_MS = 10000
+NOT_YET_MESSAGE = (
+    "“{name}” is not available yet. Painter may still be building its menus, "
+    "or the command needs an open project."
+)
 WATCH_FAILED_MESSAGE = "Painter's menu cannot be watched. Use “Choose from list…” instead."
 LIST_FAILED_MESSAGE = "Painter's commands could not be read. See the log."
 
@@ -82,6 +90,8 @@ class App:
         self.capture_note = None  # why the last command clicked in capture mode was refused
         self._stop_watching = None  # disconnects the hooks on Painter's commands
         self._menu_timer = None  # looks for missing commands again
+        self._menu_timer_ms = None
+        self._project_checks = 0  # timer checks in a row with a project open
         self._running = None  # the Step in progress (its handle has ``cancel()``)
         self._stop_listening = None  # disconnects from Painter's "resources loaded" event
         self._loading_timer = None
@@ -267,10 +277,28 @@ class App:
 
     # -- Menu buttons ------------------------------------------------------------
 
+    def _project_open(self):
+        try:
+            return bool(self.adapter.project_open())
+        except Exception:
+            log.exception("Could not ask whether a project is open")
+            return False
+
+    def _menus_settled(self):
+        """Whether a command not found now is really missing: a project has been open for
+        MENU_SETTLE_CHECKS timer checks in a row, so Painter has built its menus, and it
+        is still open (the count is not updated while the timer is stopped)."""
+        return self._project_checks >= MENU_SETTLE_CHECKS and self._project_open()
+
+    def _menu_tick(self):
+        self._project_checks = self._project_checks + 1 if self._project_open() else 0
+        self.check_menu_buttons()
+
     def check_menu_buttons(self):
-        """Badge every Menu button whose command is not in this Painter, and clear the
-        badge of those found. While any is badged, the check runs again on a slow timer:
-        some commands appear only once a project is open."""
+        """Clear the badge of every Menu button whose command is found. The others are
+        badged only once Painter has settled (``_menus_settled``); until then nothing is
+        shown, and the check runs every MENU_CHECK_MS. While any Button is badged, it
+        runs every MENU_RECHECK_MS: a command may still appear."""
         buttons = self._buttons_of_kind("menu")
         if not buttons:
             self._stop_menu_timer()
@@ -280,19 +308,31 @@ class App:
         except Exception:
             log.exception("Could not list Painter's commands")
             return
-        unavailable = 0
+        settled = self._menus_settled()
+        not_found = 0
         for button in buttons:
             here = any(same_action(f, button.raw["action"]) for f in found)
-            self._set_missing(button, not here)
-            unavailable += not here
-        if unavailable and self._menu_timer is None:
-            log.info("%d Menu button(s) have no command in this Painter (yet)", unavailable)
-            self._menu_timer = self.adapter.repeat(MENU_CHECK_MS, self.check_menu_buttons)
-        elif not unavailable and self._menu_timer is not None:
+            if here:
+                self._set_missing(button, False)
+            elif settled:
+                self._set_missing(button, True)
+            not_found += not here
+        if not not_found:
             self._stop_menu_timer()
+            return
+        interval = MENU_RECHECK_MS if settled else MENU_CHECK_MS
+        if self._menu_timer is None or self._menu_timer_ms != interval:
+            if settled:
+                log.info("%d Menu button(s) have no command in this Painter", not_found)
+            else:
+                log.info("%d Menu button(s) not found yet; waiting for Painter to settle", not_found)
+            self._stop_menu_timer()
+            self._menu_timer = self.adapter.repeat(interval, self._menu_tick)
+            self._menu_timer_ms = interval
 
     def _stop_menu_timer(self):
         timer, self._menu_timer = self._menu_timer, None
+        self._menu_timer_ms = None
         if timer is not None:
             timer.stop()
 
@@ -428,6 +468,10 @@ class App:
             self._running = None
             if result.state == MISSING and button.kind == "brush" and not self._can_confirm_missing():
                 self.notify(LOADING_MESSAGE)
+                return
+            if result.state == MISSING and button.kind == "menu" and not self._menus_settled():
+                self.notify(NOT_YET_MESSAGE.format(name=button.name))
+                self.check_menu_buttons()  # keeps looking for it
                 return
             if result.state == MISSING:
                 self._set_missing(button, True)

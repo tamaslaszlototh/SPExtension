@@ -12,7 +12,7 @@ from PySide6 import QtCore, QtGui  # noqa: E402
 
 from shelfplus_app.adapter.actions import PainterActions  # noqa: E402
 from shelfplus_app.adapter.fake import FakeAdapter  # noqa: E402
-from shelfplus_app.app import App  # noqa: E402
+from shelfplus_app.app import MENU_SETTLE_CHECKS, App  # noqa: E402
 from shelfplus_app.core.menu import MenuAction  # noqa: E402
 from shelfplus_app.ui.panel import ActionPicker, QtPanelView  # noqa: E402
 
@@ -138,7 +138,10 @@ class TestCaptureBar:
 
 
 class TestBadges:
-    def test_a_menu_button_without_its_command_shows_unavailable(self, app):
+    def test_a_menu_button_without_its_command_shows_unavailable(self, app, adapter):
+        adapter.project_is_open = True
+        for _ in range(MENU_SETTLE_CHECKS):
+            adapter.fire_timers()
         save, bake = app.view.group_boxes[0].tiles
 
         assert save.toolTip() == "Save" and not save.missing

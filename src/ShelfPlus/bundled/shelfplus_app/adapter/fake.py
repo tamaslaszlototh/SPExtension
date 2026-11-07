@@ -55,6 +55,7 @@ class FakeAdapter:
         self.disabled = set()  # objectNames Painter has disabled right now
         self.triggered = []  # objectNames, in the order they were triggered
         self.hooks = []  # the callbacks of watch_actions()
+        self.project_is_open = False
         self.watch_error = None
 
     def add_dock_widget(self, widget):
@@ -123,6 +124,9 @@ class FakeAdapter:
         self.clicks.append(rect)
 
     # -- Painter's commands (QActions) ----------------------------------------
+
+    def project_open(self):
+        return self.project_is_open
 
     def list_actions(self):
         if self.action_error is not None:

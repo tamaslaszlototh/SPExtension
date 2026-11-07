@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from shelfplus_app.adapter.fake import FakeAdapter
-from shelfplus_app.app import App
+from shelfplus_app.app import MENU_SETTLE_CHECKS, NOT_YET_MESSAGE, App
 from shelfplus_app.core.menu import MenuAction
 from shelfplus_app.core.storage import READ_ONLY_MESSAGE
 
@@ -72,6 +72,14 @@ def start(env, adapter):
     app = App(env, adapter, FakeView)
     app.start()
     return app
+
+
+def settle(adapter):
+    """A project is open and Painter's menus have had time to be built: from now on a
+    command not found is really missing."""
+    adapter.project_is_open = True
+    for _ in range(MENU_SETTLE_CHECKS):
+        adapter.fire_timers()
 
 
 def saved(env):
@@ -278,15 +286,76 @@ class TestRunning:
         assert adapter.triggered == ["SAVE_PROJECT"]
         assert app.view.notes == []
 
-    def test_a_command_missing_from_this_painter_version_gets_the_unavailable_badge_at_start(self, env, adapter):
+    def test_no_badge_at_start_while_no_project_is_open(self, env, adapter):
+        # Painter builds many of its menus only once a project is open.
+        app = start(env, adapter)
+        for _ in range(MENU_SETTLE_CHECKS * 3):
+            adapter.fire_timers()
+
+        assert not any(app.is_missing(b) for b in group(app, "g1").buttons)
+
+    def test_a_missing_command_is_badged_once_a_project_has_been_open_for_a_few_checks(self, env, adapter):
         app = start(env, adapter)
         save, bake = group(app, "g1").buttons
+        adapter.project_is_open = True
+        for _ in range(MENU_SETTLE_CHECKS - 1):
+            adapter.fire_timers()
+        assert not app.is_missing(bake)
 
-        assert not app.is_missing(save)
-        assert app.is_missing(bake)
+        adapter.fire_timers()
+
+        assert app.is_missing(bake) and not app.is_missing(save)
+
+    def test_a_command_that_appears_while_the_project_opens_is_never_badged(self, env, adapter):
+        app = start(env, adapter)
+        bake = group(app, "g1").buttons[1]
+        adapter.project_is_open = True
+        adapter.fire_timers()
+        adapter.actions.append(MenuAction("bake_all", "Bake all"))
+
+        settle(adapter)
+
+        assert not app.is_missing(bake)
+        assert not any(t.active for t in adapter.timers)
+
+    def test_closing_the_project_starts_the_wait_again(self, env, adapter):
+        app = start(env, adapter)
+        bake = group(app, "g1").buttons[1]
+        adapter.project_is_open = True
+        for _ in range(MENU_SETTLE_CHECKS - 1):
+            adapter.fire_timers()
+        adapter.project_is_open = False
+        adapter.fire_timers()
+        adapter.project_is_open = True
+        for _ in range(MENU_SETTLE_CHECKS - 1):
+            adapter.fire_timers()
+
+        assert not app.is_missing(bake)
+
+    def test_clicking_before_painter_has_settled_says_not_yet_without_a_badge(self, env, adapter):
+        app = start(env, adapter)
+
+        app.run_button(group(app, "g1").buttons[1])
+
+        assert adapter.triggered == []
+        assert app.view.notes == [NOT_YET_MESSAGE.format(name="Bake")]
+        assert not app.is_missing(group(app, "g1").buttons[1])
+
+    def test_after_the_project_is_closed_a_click_on_a_missing_command_says_not_yet(self, env, adapter):
+        app = start(env, adapter)
+        app.editor.delete_button(group(app, "g1").buttons[1])
+        settle(adapter)  # every command found: the timer stops
+        adapter.project_is_open = False
+        adapter.actions.remove(SAVE)
+
+        app.run_button(group(app, "g1").buttons[0])
+
+        assert app.view.notes == [NOT_YET_MESSAGE.format(name="Save")]
+        assert not app.is_missing(group(app, "g1").buttons[0])
 
     def test_clicking_an_unavailable_button_says_so_and_runs_nothing(self, env, adapter):
         app = start(env, adapter)
+        settle(adapter)
 
         app.run_button(group(app, "g1").buttons[1])
 
@@ -296,7 +365,9 @@ class TestRunning:
     def test_a_command_that_appears_later_loses_its_badge(self, env, adapter):
         # Some commands are created only when a project is opened.
         app = start(env, adapter)
+        settle(adapter)
         bake = group(app, "g1").buttons[1]
+        assert app.is_missing(bake)
         adapter.actions.append(MenuAction("bake_all", "Bake all"))
 
         adapter.fire_timers()
@@ -316,6 +387,7 @@ class TestRunning:
 
     def test_a_command_gone_by_the_time_of_a_click_is_badged_and_looked_for_again(self, env, adapter):
         app = start(env, adapter)
+        settle(adapter)
         save = group(app, "g1").buttons[0]
         app.editor.delete_button(group(app, "g1").buttons[1])  # only Save is left to check
         app.check_menu_buttons()
@@ -339,6 +411,7 @@ class TestRunning:
 
     def test_a_menu_button_added_for_a_missing_command_is_badged(self, env, adapter):
         app = start(env, adapter)
+        settle(adapter)
 
         button = app.add_menu_button("g2", MenuAction("gone", "Gone"))
 
