@@ -1,4 +1,4 @@
-# A Recording tesztelése (Shelf+ v0.8.0-rc.1)
+# A Recording tesztelése (Shelf+ v0.8.1-rc.1)
 
 Ebben a verzióban már **fel lehet venni egy Workflow-t**: te elvégzed a lépéseket a Painterben, a Panel közben figyel, a végén megnyomod a **Stop** gombot, és a szerkesztőben átnézed a Step-eket.
 
@@ -19,12 +19,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.8.0-rc.1.zip** fájlt a [v0.8.0-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.0-rc.1).
+2. Töltsd le a **ShelfPlus-v0.8.1-rc.1.zip** fájlt a [v0.8.1-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.1-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.0**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.0 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.1**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.1 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -95,7 +95,7 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.8.0-t mutat | | | |
+| 1. Telepítés: a ☰ v0.8.1-t mutat | | | |
 | A. 4 Step, az opacity pontosan 50, futtatás | | | |
 | B. Smart mask ⚠-tel, a behúzás kitölti | | | |
 | C. Megjelenik a select layer Step | | | |

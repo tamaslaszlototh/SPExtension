@@ -532,3 +532,10 @@ def test_a_new_layer_above_an_earlier_new_layer_runs_right_after_it():
     steps = capture(s0, op("Add fill layer", s0, s1), op("Add group", s1, s2), op("Add layer", s2, s3)).steps
 
     assert [s["layer"] for s in steps] == ["fill", "paint", "folder"]
+
+
+def test_only_the_last_rows_text_changing_is_a_merge():
+    from shelfplus_app.core.recording import MERGE
+
+    before = (("Add fill layer", "set blending opacity"), 2)
+    assert history_event(before, (("Add fill layer", "set blending opacity 50%"), 2)) == (MERGE, None, 0)

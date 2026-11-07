@@ -320,3 +320,73 @@ def test_stop_uses_the_last_good_snapshot_when_the_project_cannot_be_read(adapte
     adapter.snapshot_errors = [RuntimeError("The project is closing.")]
 
     assert recording.stop().steps[-1] == {"type": "set_opacity", "opacity": {"BaseColor": 50}}
+
+
+# -- a slider drag Painter merges into the row it made at the start --------------------
+
+
+def drag_opacity_with_row_at_the_start(adapter, layer, signal):
+    """The row appears at 99%; the rest of the drag is merged into it without a new row.
+    ``signal``: what tells the Recording about the rest ("history" or "stack")."""
+    layer.opacity = {"BaseColor": 99}
+    adapter.push_history("set blending opacity")
+    layer.opacity = {"BaseColor": 50}
+    if signal == "history":
+        adapter._history_changed()  # Qt's indexChanged after a merge: same rows, same index
+    else:
+        adapter.layer_stack_changed()
+        adapter.fire_timers()
+
+
+@pytest.mark.parametrize("signal", ["history", "stack"])
+def test_the_rest_of_a_merged_drag_stays_with_its_row_when_a_later_row_is_undone(adapter, recording, signal):
+    """Reported in the friend's run of check A: opacity dragged to 50, Multiply, Ctrl+Z
+    gave "Opacity 99%"."""
+    layer = add_fill(adapter)
+    drag_opacity_with_row_at_the_start(adapter, layer, signal)
+    layer.blend = "Multiply"
+    adapter.push_history("set blending mode")
+    layer.blend = "Normal"
+    adapter.undo_history()
+
+    assert recording.stop().steps == [
+        {"type": "add_layer", "layer": "fill"},
+        {"type": "set_opacity", "opacity": {"BaseColor": 50}},
+    ]
+
+
+def test_undoing_the_merged_drag_takes_all_of_it_back(adapter, recording):
+    layer = add_fill(adapter)
+    drag_opacity_with_row_at_the_start(adapter, layer, "stack")
+    layer.opacity = {}
+    adapter.undo_history()
+
+    assert recording.stop().steps == [{"type": "add_layer", "layer": "fill"}]
+
+
+def test_a_merge_that_renames_the_row_is_a_merge(adapter, recording):
+    layer = add_fill(adapter)
+    layer.opacity = {"BaseColor": 99}
+    adapter.push_history("set blending opacity")
+    layer.opacity = {"BaseColor": 50}
+    adapter.history[-1] = "set blending opacity (50%)"
+    adapter._history_changed()
+
+    assert recording.capture.steps[-1] == {"type": "set_opacity", "opacity": {"BaseColor": 50}}
+    assert len([o for o in recording.ops if o]) == 2
+
+
+def test_a_drag_before_its_row_is_not_merged_into_the_row_before(adapter, recording):
+    """Painter 11.1 (probe round 2, C): the row comes on release; the diffs during the
+    drag must not join the previous operation."""
+    layer = add_fill(adapter)
+    add_mask(adapter, layer)
+    layer.opacity = {"BaseColor": 70}
+    adapter.layer_stack_changed()
+    adapter.fire_timers()
+    layer.opacity = {"BaseColor": 50}
+    adapter.push_history("set blending opacity")
+    layer.opacity = {}
+    adapter.undo_history()
+
+    assert recording.stop().steps == [{"type": "add_layer", "layer": "fill"}, {"type": "add_mask", "background": "black"}]

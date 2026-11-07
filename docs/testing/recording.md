@@ -1,4 +1,4 @@
-# Testing Recording (Shelf+ v0.8.0-rc.1)
+# Testing Recording (Shelf+ v0.8.1-rc.1)
 
 This build lets you **record a Workflow**: you do the Steps in Painter while the Panel watches, then you press **Stop** and check the Steps in the editor.
 
@@ -17,11 +17,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.8.0-rc.1.zip** from the [v0.8.0-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.0-rc.1).
+2. Download **ShelfPlus-v0.8.1-rc.1.zip** from the [v0.8.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.0**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.1**.
 
 ## 2. The checks
 
@@ -74,7 +74,7 @@ A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 
 | Check | Home 11.1.0 | Work 12.2.0 | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.8.0 | | | |
+| 1. Install: ☰ shows v0.8.1 | | | |
 | A. 4 Steps, opacity exactly 50 | | | |
 | B. Smart mask marked, drop fills it | | | |
 | C. Select layer Step appears | | | |

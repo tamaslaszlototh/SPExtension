@@ -177,7 +177,7 @@ def _inside(snapshot, uid, ancestor):
 
 # -- History -------------------------------------------------------------------------
 
-PUSH, UNDO, REDO, NOTHING, RESET = "push", "undo", "redo", "nothing", "reset"
+PUSH, UNDO, REDO, MERGE, NOTHING, RESET = "push", "undo", "redo", "merge", "nothing", "reset"
 
 
 def history_event(before, after):
@@ -191,6 +191,8 @@ def history_event(before, after):
     - ``(UNDO, None, 0)`` / ``(REDO, None, 0)``: the same rows, the index down / up. (A
       new operation with the same label as an undone one looks like a redo here; the
       ``Recording`` tells them apart by the layer stack.)
+    - ``(MERGE, None, 0)``: only the text of the last done row changed (Qt merged the
+      next change into it, e.g. a slider still being dragged).
     - ``(NOTHING, None, 0)``; ``(RESET, None, 0)``: rows went away (a new project…).
     """
     labels_a, a = tuple(before[0]), before[1]
@@ -201,6 +203,8 @@ def history_event(before, after):
         if b > a:
             return REDO, None, 0
         return NOTHING, None, 0
+    if labels_a and len(labels_a) == len(labels_b) == a == b and labels_b[:-1] == labels_a[:-1]:
+        return MERGE, None, 0
     if labels_a and len(labels_a) == len(labels_b) == a == b and labels_b[:-1] == labels_a[1:]:
         return PUSH, len(labels_b) - 1, 1
     common = 0
@@ -737,6 +741,8 @@ class Recording:
                 self._announce(OTHER_STACK)
             log.info("Recording: texture set %r; new base snapshot", snap.get("stack"))
             self.closed = snap
+        elif self._merge_into_top(snap):
+            self._update()
 
     def _on_history(self, labels, index):
         if not self.active:
@@ -798,9 +804,35 @@ class Recording:
             self.ops = self.ops[: len(labels) - self.origin]
             self.done = self._clamp(index - self.origin)
             self.closed = snap
+        elif kind == MERGE:
+            self._merge_into_top(snap, forced=True)
         else:
-            return
+            self._merge_into_top(snap)  # a merge Qt signalled without a new text
         self._update()
+
+    def _top(self):
+        """The last done operation, or ``None``."""
+        return next((o for o in reversed(self.ops[: self.done]) if o is not None), None)
+
+    def _merge_into_top(self, snap, forced=False):
+        """Changes since the last History row that continue it (the same parameter of the
+        same node, e.g. the rest of a slider drag Painter merged into the row it made at
+        the start) belong to that row, so an undo of a later row leaves them alone.
+        ``forced``: the History said so. Other changes wait for the next row."""
+        top = self._top()
+        if top is None or not self._same_stack(snap) or top.skipped:
+            return False
+        changes = diff(self.closed, snap)
+        if not changes:
+            return False
+        keys = {(c.what, c.uid) for c in top.changes}
+        if not forced and not all((c.what, c.uid) in keys for c in changes):
+            return False
+        top.changes = diff(top.before, snap)
+        top.after = snap
+        self.closed = snap
+        log.debug("Recording: %d change(s) merged into %r", len(changes), top.label)
+        return True
 
     def _clamp(self, count):
         return max(0, min(count, len(self.ops)))
