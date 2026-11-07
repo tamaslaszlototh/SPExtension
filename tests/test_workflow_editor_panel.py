@@ -101,9 +101,9 @@ def test_building_fill_black_mask_dirt_opacity_by_hand(app, qt_app, adapter):
 
     assert editor.visible_rows() == [
         "Fill layer",
-        "Black mask",
-        "Generator  ⚠ choose resource",
-        "Opacity 100%",
+        "├ Black mask",
+        "├ Generator  ⚠ choose resource",
+        "└ Opacity 100%",
         "At the end of the Workflow",
     ]
     assert not editor.save_button.isEnabled()
@@ -155,13 +155,13 @@ def test_moving_opacity_into_the_start_block(app, qt_app):
     app.edit_workflow(app.layout.groups[0].buttons[1])  # Fill layer + Black mask
     qt_app.processEvents()
     editor = app.view.workflow_editor
-    assert editor.visible_rows() == ["Fill layer", "Black mask", "At the end of the Workflow"]
+    assert editor.visible_rows() == ["Fill layer", "└ Black mask", "At the end of the Workflow"]
 
     editor.row_widgets[1].buttons["up"].click()
 
     assert editor.visible_rows() == [
         "Start: the layer selected when it runs",
-        "Black mask",
+        "└ Black mask",
         "Fill layer",
         "At the end of the Workflow",
     ]
@@ -249,3 +249,11 @@ def test_an_icon_from_disk_is_copied_to_the_icons_folder(app, qt_app, tmp_path):
     stored = QtGui.QImage(str(icon))
     assert saved(app)[0]["icon"] == "icons/b3f80d16.png"
     assert (stored.width(), stored.height()) == (256, 150)  # scaled down, kept as PNG
+
+
+def test_ui_steps_are_marked_as_part_of_the_end_section(app, qt_app):
+    editor = open_new(app, qt_app)
+    for label in ("Paint layer", "Save", "Brush"):
+        editor.add_step(label)
+
+    assert editor.visible_rows() == ["Paint layer", "At the end of the Workflow", "├ Save", "└ Brush  ⚠ choose resource"]

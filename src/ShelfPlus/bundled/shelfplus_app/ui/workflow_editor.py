@@ -23,7 +23,9 @@ from .icons import step_icon, trash_icon
 
 OBJECT_NAME = "ShelfPlusWorkflowEditor"
 ROW_TEXT = {blocks.START: "Start: the layer selected when it runs", blocks.END: "At the end of the Workflow"}
-INDENT = "      "
+INDENT = "   "
+# Before a Step under a header or title row: "├" while more of the block follows, "└" on its last Step.
+BRANCH, LAST_BRANCH = "├ ", "└ "
 ICON_SIZE = 20
 IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)"
 ICON_PX = 256  # an image from disk is stored at most this big
@@ -305,16 +307,21 @@ class WorkflowEditor(QtWidgets.QFrame):
                 tree.addItem(item)
                 continue
             step = self.draft.steps[row.index]
-            indent = "" if row.kind == blocks.HEADER else INDENT
             note = incomplete(step)
-            text = indent + short_name(step) + (f"  {note}" if note else "")
+            label = short_name(step) + (f"  {note}" if note else "")
+            if row.kind == blocks.HEADER:
+                text = label
+            else:
+                following = self.rows[number + 1] if number + 1 < len(self.rows) else None
+                more = following is not None and following.kind == blocks.STEP and following.block == row.block
+                text = INDENT + (BRANCH if more else LAST_BRANCH) + label
             item = QtWidgets.QListWidgetItem(self._step_icon(step), text)
             if row.kind == blocks.HEADER:
                 font = item.font()
                 font.setBold(True)
                 item.setFont(font)
             item.setData(QtCore.Qt.ItemDataRole.UserRole, row.index)
-            item.setToolTip(text.strip())
+            item.setToolTip(label)
             item.setFlags(
                 QtCore.Qt.ItemFlag.ItemIsEnabled
                 | QtCore.Qt.ItemFlag.ItemIsSelectable
