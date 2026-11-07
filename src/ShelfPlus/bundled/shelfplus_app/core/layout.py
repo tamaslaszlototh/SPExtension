@@ -9,6 +9,8 @@ import re
 import secrets
 from dataclasses import dataclass, field
 
+from .channels import value_range
+
 SCHEMA_VERSION = 1
 
 BUTTON_KINDS = ("brush", "menu", "workflow")
@@ -44,8 +46,8 @@ def _resource(v):
 _HEX_COLOUR = re.compile(r"#[0-9a-fA-F]{6}")
 
 
-def _number_0_1(v):
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1
+def _number_in(v, low, high):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and low <= v <= high
 
 
 def _channels(v):
@@ -62,19 +64,20 @@ def _resource_ref(v):
     )
 
 
-def _source(v):
-    """One channel of a Fill layer: ``{"color": "#rrggbb"}``, ``{"value": 0..1}`` or a resource."""
+def _source(v, channel):
+    """One channel of a Fill layer: ``{"color": "#rrggbb"}``, ``{"value": 0..1}`` or a resource. A value is
+    checked against the channel's own range (``channels.value_range``)."""
     if not isinstance(v, dict) or len(v) == 0:
         return False
     if set(v) == {"color"}:
         return isinstance(v["color"], str) and _HEX_COLOUR.fullmatch(v["color"]) is not None
     if set(v) == {"value"}:
-        return _number_0_1(v["value"])
+        return _number_in(v["value"], *value_range(channel))
     return _resource_ref(v)
 
 
 def _sources(v):
-    return isinstance(v, dict) and v != {} and all(_text(k) and _source(x) for k, x in v.items())
+    return isinstance(v, dict) and v != {} and all(_text(k) and _source(x, k) for k, x in v.items())
 
 
 def _opacity(v):

@@ -16,7 +16,8 @@ from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
 from .core.workflow import run_workflow
-from .core.workflow_draft import DEFAULT_CHANNELS, WorkflowDraft, needs_resource, resource_name
+from .core.channels import DEFAULT_CHANNELS
+from .core.workflow_draft import WorkflowDraft, needs_resource, resource_name
 
 log = logging.getLogger("ShelfPlus.app")
 

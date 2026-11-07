@@ -97,7 +97,10 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 1. Csinálj egy új Workflow-t: **+ Add Step → Layer → Fill layer**, és kattints a **Fill layer** sorra.
    - ✅ A Step-ek alatt a **Channels** a texture set channeljeit sorolja fel, mindet bepipálva.
 2. Vedd ki a pipát a **Height** elől. A **Content** legyen **Per channel**.
-   - ✅ Minden bepipált channel kap egy sort: **Value**, színgombbal (BaseColor) vagy 0 és 1 közötti számmal (Roughness, Metallic…).
+   - ✅ Minden bepipált channel kap egy sort: **Value**, színgombbal (BaseColor, Normal…) vagy számmal (Roughness, Metallic, Height…).
+   - ✅ A **Normal** a sík normal színével indul: **#8080ff** (világos kéklila), ahogy a Painterben is.
+   - ✅ A számok a channel saját tartományán belül maradnak: a **Height −1 és 1** között mozog, és 0-ról indul; a Roughness és a Metallic 0 és 1 között.
+   - Ha valamelyik channel a Painter saját Fill layer tulajdonságainál más értékeket enged, mint itt (kisebbet, nagyobbat, vagy más skálán), írd fel a Notes oszlopba a channelt és a tartományát.
 3. Kattints a **BaseColor** színgombjára, és válassz egy erős pirosat. A **Roughness** legyen **0.9**.
 4. A **Normal** sorában (vagy bármelyik másik channelnél) állítsd a **Value**-t **Resource**-ra, kattints a **Choose…** gombra, keress egy textúrát vagy procedurált (például `clouds`), és válaszd ki.
    - ✅ A gombon most a kiválasztott resource neve áll.

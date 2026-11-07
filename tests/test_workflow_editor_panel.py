@@ -420,3 +420,21 @@ def test_a_brush_dropped_on_a_choose_button_for_another_kind_is_refused(app, qt_
 
     assert "resource" not in editor.draft.steps[1]
     assert app.view.notice.text() == "“Hard” is a brush. This setting needs another kind of resource."
+
+
+def test_per_channel_values_follow_each_channels_range_and_start(app, qt_app, adapter):
+    adapter.texture_channels = ["BaseColor", "Height", "Roughness", "Normal"]
+    editor = open_new(app, qt_app)
+    editor.add_step("Fill layer")
+    editor.select_step(0)
+
+    editor.fields["content"].setCurrentText("Per channel")
+    settled(qt_app)
+
+    height = editor.fields["value_Height"]
+    assert (height.minimum(), height.maximum(), height.value()) == (-1, 1, 0)
+    roughness = editor.fields["value_Roughness"]
+    assert (roughness.minimum(), roughness.maximum()) == (0, 1)
+    assert editor.fields["colour_Normal"].text() == "#8080ff"
+    height.setValue(-0.4)
+    assert editor.draft.steps[0]["sources"]["Height"] == {"value": -0.4} and editor.draft.problem is None

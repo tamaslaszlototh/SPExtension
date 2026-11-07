@@ -41,13 +41,6 @@ _TEMPLATES = [
 ]
 CATALOG = [(section, label) for section, label, _ in _TEMPLATES]
 
-# The channels offered for a new layer when Painter cannot list the texture set's own.
-DEFAULT_CHANNELS = ["BaseColor", "Height", "Roughness", "Metallic", "Normal", "Emissive", "Opacity", "Specular"]
-# Channels whose uniform value is a colour; the others take a grey from 0 to 1.
-COLOUR_CHANNELS = {
-    "BaseColor", "Diffuse", "Specular", "SpecularEdgeColor", "Emissive", "Normal",
-    "ScatterColor", "SheenColor", "CoatColor", "Transmissive", "Reflection",
-}
 
 
 def template(label):

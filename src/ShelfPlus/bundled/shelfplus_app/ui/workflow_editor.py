@@ -17,9 +17,9 @@ The rules live in ``core/workflow_draft.py``; this file only draws and forwards.
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import blocks
+from ..core.channels import default_source, value_range
 from ..core.workflow_draft import (
     CATALOG,
-    COLOUR_CHANNELS,
     incomplete,
     resource_name,
     short_name,
@@ -49,13 +49,6 @@ CHANNELS = ["BaseColor", "Height", "Roughness", "Metallic", "Normal", "Emissive"
 # A Fill layer's content, as the settings offer it
 CONTENT_DEFAULT, CONTENT_MATERIAL, CONTENT_CHANNELS = "Painter's default", "One material", "Per channel"
 SOURCE_VALUE, SOURCE_RESOURCE = "Value", "Resource"
-DEFAULT_GREY = 0.5
-DEFAULT_COLOUR = "#808080"
-
-
-def default_source(channel):
-    """What a channel of a Fill layer starts with in "Per channel"."""
-    return {"color": DEFAULT_COLOUR} if channel in COLOUR_CHANNELS else {"value": DEFAULT_GREY}
 
 
 def image_png(path, size=ICON_PX):
@@ -763,7 +756,7 @@ class WorkflowEditor(QtWidgets.QFrame):
         else:
             spin = QtWidgets.QDoubleSpinBox()
             spin.setObjectName(f"{OBJECT_NAME}Value")
-            spin.setRange(0, 1)
+            spin.setRange(*value_range(channel))  # Height -1 to 1, IOR 1 to 3…
             spin.setDecimals(3)
             spin.setSingleStep(0.05)
             spin.setValue(source["value"])

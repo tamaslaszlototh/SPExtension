@@ -93,7 +93,10 @@ Your own Layout stays as it is. This test adds a few Buttons, and you can delete
 1. Make a new Workflow: **+ Add Step → Layer → Fill layer**, and click the **Fill layer** row.
    - ✅ Below the Steps, **Channels** lists your texture set's channels, all ticked.
 2. Untick **Height**. Set **Content** to **Per channel**.
-   - ✅ Each ticked channel gets a row: **Value** with a colour button (BaseColor) or a number from 0 to 1 (Roughness, Metallic…).
+   - ✅ Each ticked channel gets a row: **Value** with a colour button (BaseColor, Normal…) or a number (Roughness, Metallic, Height…).
+   - ✅ **Normal** starts with the flat normal colour **#8080ff** (light blue-violet), as in Painter.
+   - ✅ The numbers stay inside the channel's own range: **Height** goes from **−1 to 1** and starts at 0; Roughness and Metallic go from 0 to 1.
+   - If a channel allows other values in Painter's own Fill layer properties than here (lower, higher, or another scale), write the channel and its range in Notes.
 3. Click the **BaseColor** colour button and pick a strong red. Set **Roughness** to **0.9**.
 4. On the **Normal** row (or any other channel), switch **Value** to **Resource**, click **Choose…**, search for a texture or procedural (for example `clouds`) and pick one.
    - ✅ The button now shows the name of what you picked.

@@ -272,7 +272,7 @@ class PainterAdapter:
 
     def set_channel_source(self, layer, channel, source):
         """A Fill layer's source for one channel: ``{"color": "#rrggbb"}``, ``{"value":
-        0..1}`` (a grey) or ``{"resource": url}``."""
+        number}`` (in the channel's range, see ``core/channels.py``) or ``{"resource": url}``."""
         import substance_painter.textureset as ts
 
         channel_type = _channel(ts, channel)
@@ -282,9 +282,16 @@ class PainterAdapter:
         if "color" in source:
             hex_colour = source["color"].lstrip("#")
             rgb = tuple(int(hex_colour[i : i + 2], 16) / 255 for i in (0, 2, 4))
-        else:
-            rgb = (source["value"],) * 3
-        layer.set_source(channel_type, _colour(rgb))
+            layer.set_source(channel_type, _colour(rgb))
+            return
+        # A grey channel's uniform value, on the channel's own scale (Height -1 to 1…).
+        # Painter may take it only as a grey colour.
+        value = float(source["value"])
+        try:
+            layer.set_source(channel_type, value)
+        except TypeError:
+            log.info("set_source(%s, float) refused; trying a grey colour", channel, exc_info=True)
+            layer.set_source(channel_type, _colour((value,) * 3))
 
     def find_layers(self, name):
         """Every layer of the active texture set named exactly ``name``, folders included."""
