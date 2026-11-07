@@ -90,6 +90,53 @@ class TestListing:
         assert PainterActions().find("") is None
 
 
+class TestHiddenMenus:
+    """Painter 11.1 has about 130 menus, but allWidgets() lists only 32 of them."""
+
+    @pytest.fixture
+    def only_the_menu_bar(self, painter, monkeypatch):
+        bar = painter.window.menuBar()
+        visible = [painter.window, bar]
+        monkeypatch.setattr(QtWidgets.QApplication, "allWidgets", staticmethod(lambda: list(visible)))
+        return bar
+
+    def test_menus_are_followed_from_the_entries_that_open_them(self, painter, only_the_menu_bar):
+        actions = {a.name: a for a in PainterActions().all()}
+
+        assert actions["SAVE_PROJECT"].path == ("File",)
+        assert actions["recent_1"].path == ("File", "Recent")
+
+    def test_commands_in_such_menus_are_watched(self, painter, only_the_menu_bar):
+        seen = []
+        stop = PainterActions().watch(seen.append)
+
+        painter.recent.trigger()
+        stop()
+
+        assert {(a.name, a.path) for a in seen} == {("recent_1", ("File", "Recent"))}
+
+
+class TestClickLog:
+    def test_a_click_in_a_menu_is_logged_while_watching_and_not_after(self, painter, caplog):
+        menu = painter.save.associatedObjects()[0]
+        release = lambda: QtWidgets.QApplication.sendEvent(  # noqa: E731
+            menu,
+            QtGui.QMouseEvent(
+                QtCore.QEvent.Type.MouseButtonRelease, QtCore.QPointF(1, 1), QtCore.QPointF(1, 1),
+                QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier,
+            ),
+        )
+        caplog.set_level("DEBUG", logger="ShelfPlus.app.actions")
+        stop = PainterActions().watch(lambda action: None)
+
+        release()
+        stop()
+        release()
+
+        clicks = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Menu click")]
+        assert len(clicks) == 1 and "title '&File'" in clicks[0]
+
+
 class TestReferences:
     def test_every_widget_and_command_found_is_kept_after_later_scans(self, painter):
         actions = PainterActions()

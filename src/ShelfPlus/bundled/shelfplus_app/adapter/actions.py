@@ -42,7 +42,10 @@ def _is_own(obj):
 
 class _Scan:
     """One pass over ``allWidgets()``: every command with the widget it sits in, and the
-    menu titles above each menu. Every widget and command found is put into ``keep``."""
+    menu titles above each menu. Every widget and command found is put into ``keep``.
+
+    Menus are also followed from the entries that open them (``QAction.menu()``): on
+    Painter 11.1 ``allWidgets()`` lists only 32 of its about 130 menus."""
 
     def __init__(self, keep):
         try:
@@ -59,7 +62,9 @@ class _Scan:
                 keep.pop(id(obj), None)
         keep.update((id(w), w) for w in self.widgets)
         seen = {}  # id(QAction) -> its entry
-        for widget in self.widgets:
+        queue = list(self.widgets)
+        queued = {id(w) for w in queue}
+        for widget in queue:  # grows while submenus are found
             try:
                 if not valid(widget) or _is_own(widget):
                     continue
@@ -74,6 +79,10 @@ class _Scan:
                     submenu = action.menu()
                     if submenu is not None:
                         self.parents.setdefault(id(submenu), widget)
+                        if id(submenu) not in queued:
+                            queued.add(id(submenu))
+                            queue.append(submenu)
+                            keep[id(submenu)] = submenu
                         continue
                     if action.isSeparator() or isinstance(action, QtWidgets.QWidgetAction):
                         continue
@@ -146,12 +155,36 @@ def describe(action, path=(), owner=""):
     return MenuAction(action.objectName(), action.text(), path, QtGui.QIcon(action.icon()), action, owner)
 
 
+class _MenuClicks(QtCore.QObject):
+    """While watching: logs every mouse click inside a menu (which menu, which entry),
+    whatever Painter does with it. Evidence for when a click is not reported."""
+
+    def eventFilter(self, obj, event):
+        try:
+            if event.type() == QtCore.QEvent.Type.MouseButtonRelease and isinstance(obj, QtWidgets.QMenu):
+                action = obj.activeAction()
+                log.debug(
+                    "Menu click: menu %r (title %r, objectName %r); entry %r (objectName %r, submenu %s)",
+                    obj.metaObject().className(), obj.title(), obj.objectName(),
+                    action.text() if action is not None else None,
+                    action.objectName() if action is not None else None,
+                    action is not None and action.menu() is not None,
+                )
+        except Exception:
+            log.debug("Logging a menu click failed", exc_info=True)
+        return False
+
+
 class _Watch:
     """The hooks of one ``watch()``: call it to stop; ``rescan()`` hooks new commands."""
 
     def __init__(self, callback, keep):
         self.callback = callback
         self._keep = keep
+        self._clicks = _MenuClicks()
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self._clicks)
         self._places = {}  # id(command) -> (menu titles, owner, where for the log)
         self._hooked = {}  # id(obj) -> (obj, signal name, slot); also keeps obj alive
         self._timer = QtCore.QTimer()
@@ -210,6 +243,9 @@ class _Watch:
 
     def __call__(self):
         self._timer.stop()
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self._clicks)
         hooked, self._hooked = self._hooked, {}
         for obj, signal, slot in hooked.values():
             if not valid(obj):

@@ -160,8 +160,8 @@ class ActionWatcher:
         if self._replaying:
             log.debug("Own trigger of %r ignored", action.key)
             return
-        if action.own:
-            return
+        if action.own or not action_label(action.text):
+            return  # e.g. the default action of a dock's close button: not a command
         now = self.now()
         previous = self._accepted.get(action.key)
         if previous is not None and now - previous <= self.window_ms:

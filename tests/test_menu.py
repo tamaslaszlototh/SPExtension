@@ -147,6 +147,15 @@ class TestActionWatcher:
 
         assert seen == [ADD_LAYER, MenuAction("", "Add fill layer")]
 
+    def test_a_command_without_text_is_ignored(self):
+        # e.g. the default action of a dock's close button
+        seen = []
+        watcher = ActionWatcher(seen.append)
+
+        watcher.notify(MenuAction("", ""))
+
+        assert seen == []
+
     def test_the_plugins_own_triggers_are_ignored(self):
         seen = []
         watcher = ActionWatcher(seen.append)
