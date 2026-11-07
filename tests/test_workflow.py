@@ -311,7 +311,7 @@ class TestPreflight:
     def test_missing_resource(self, adapter, base):
         adapter.stack.selected = base
         before = adapter.stack.names()
-        steps = [FILL, {"type": "select_brush", "resource": "resource://a/Gone"}]
+        steps = [PAINT, {"type": "select_brush", "resource": "resource://a/Gone"}]
 
         failed = result(adapter, steps, name="W", ui_steps={"select_brush": lambda a, s, d: d(StepResult(DONE))})
 

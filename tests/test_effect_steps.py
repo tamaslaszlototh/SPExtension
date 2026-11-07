@@ -223,9 +223,9 @@ class TestSmartMask:
 
 
 class TestEndSteps:
-    def test_fill_layer_then_a_brush(self, adapter, base):
+    def test_fill_layer_with_a_mask_then_a_brush(self, adapter, base):
         """Manual checklist item 3: the brush is chosen after the scope closes and the
-        Fill layer is selected."""
+        Fill layer is selected. (Without a mask, see test_brush_target.py.)"""
         adapter.stack.selected = base
         seen = []
 
@@ -233,7 +233,7 @@ class TestEndSteps:
             seen.append((step["resource"], a.stack.in_scope, a.stack.selected.name))
             done(StepResult(DONE))
 
-        steps = [FILL, {"type": "select_brush", "resource": HARD}]
+        steps = [FILL, BLACK, {"type": "select_brush", "resource": HARD}]
 
         assert result(adapter, steps, ui_steps={"select_brush": select_brush}).ok
         assert seen == [(HARD, False, "Fill layer")]

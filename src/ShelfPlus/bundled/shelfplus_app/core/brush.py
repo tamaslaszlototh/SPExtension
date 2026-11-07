@@ -239,6 +239,12 @@ class BrushActivation:
         return self._end(DONE)
 
 
+NOT_PAINTABLE = (
+    "Painter changes the brush only while a Paint layer or a mask is selected. "
+    "Select one, then try again."
+)
+
+
 def missing_message(url):
     return f"This brush is not available on this machine: {url}"
 
@@ -250,6 +256,26 @@ def resolve(adapter, url):
     except Exception:
         log.exception("Looking up %r failed", url)
         return None
+
+
+def _paintable_selection(adapter):
+    """Make sure Painter will take the brush: it changes the brush only while a Paint
+    layer or a mask is selected; with a Fill layer or folder itself selected, a click on
+    the tile only highlights it. Such a layer's mask is selected instead, if it has one.
+    ``False`` if there is nothing to paint on. When Painter cannot tell (no project, no
+    selection, an error), the brush is chosen anyway."""
+    try:
+        if adapter.selection_paintable() is not False:
+            return True
+        layer = adapter.selected_layer()
+        if layer is None or not adapter.has_mask(layer):
+            return False
+        adapter.select_mask(layer)
+        log.info("Selected the mask of the selected layer, so Painter takes the brush")
+        return True
+    except Exception:
+        log.exception("Could not check whether the selection can be painted on")
+        return True
 
 
 class _Running:
@@ -284,6 +310,9 @@ def select_brush(adapter, step, done, now=None):
     resource = resolve(adapter, url)
     if resource is None:
         done(StepResult(MISSING, missing_message(url)))
+        return None
+    if not _paintable_selection(adapter):
+        done(StepResult(FAILED, NOT_PAINTABLE))
         return None
     activation = BrushActivation(adapter, resource, now)
     if activation.start() != WAITING:

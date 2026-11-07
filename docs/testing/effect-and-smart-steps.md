@@ -1,4 +1,4 @@
-# Testing effect, smart material and brush Steps (Shelf+ v0.6.0-rc.1)
+# Testing effect, smart material and brush Steps (Shelf+ v0.6.1-rc.1)
 
 This build adds the rest of the Steps a Workflow can have:
 
@@ -18,7 +18,7 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.6.0-rc.1.zip** from the [v0.6.0-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.6.0-rc.1).
+2. Download **ShelfPlus-v0.6.1-rc.1.zip** from the [v0.6.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.6.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 
@@ -42,9 +42,15 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
       { "id": "t6material", "kind": "workflow", "name": "Smart material + Smart mask", "icon": null, "steps": [
         { "type": "add_smart", "smart": "material", "resource": "resource://starter_assets/Rust Coat" },
         { "type": "add_smart", "smart": "mask", "resource": "resource://starter_assets/Dirt" } ] },
-      { "id": "t6brush", "kind": "workflow", "name": "Fill + Basic Hard brush", "icon": null, "steps": [
+      { "id": "t6brush", "kind": "workflow", "name": "Fill + Black mask + Basic Hard brush", "icon": null, "steps": [
+        { "type": "add_layer", "layer": "fill" },
+        { "type": "add_mask", "background": "black" },
+        { "type": "select_brush", "resource": "resource://starter_assets/Basic Hard" } ] },
+      { "id": "t6nomask", "kind": "workflow", "name": "Fill + Basic Hard brush (no mask)", "icon": null, "steps": [
         { "type": "add_layer", "layer": "fill" },
         { "type": "select_brush", "resource": "resource://starter_assets/Basic Hard" } ] },
+      { "id": "t6hard", "kind": "brush", "name": "Basic Hard", "icon": null,
+        "resource": "resource://starter_assets/Basic Hard" },
       { "id": "t6renamed", "kind": "workflow", "name": "Renamed preset", "icon": null, "steps": [
         { "type": "add_layer", "layer": "fill" },
         { "type": "add_mask", "background": "black" },
@@ -57,10 +63,10 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ```
 
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.6.0**.
-   - If it says an older version, or Painter showed "Shelf+ v0.6.0 failed to start; reverted to …", stop here.
+6. In the Panel's top right corner, click **☰**. The first line must say **Shelf+ v0.6.1**.
+   - If it says an older version, or Painter showed "Shelf+ v0.6.1 failed to start; reverted to …", stop here.
    - Click **☰ → Copy diagnostics** and send what it copies.
-7. The Panel shows one Group, **Steps**, with five tiles. Hover over a tile to see its name.
+7. The Panel shows one Group, **Steps**, with seven tiles. Hover over a tile to see its name.
 
 ## 3. The checks
 
@@ -84,13 +90,21 @@ After each check, press **Ctrl+Z** once to undo it, unless the check says otherw
    - ✅ One Ctrl+Z removes all of it.
 3. If a message says the smart material *is not available on this machine*, the name in `layout.json` is not quite right: check step 4 of [Load the test Layout](#2-load-the-test-layout), restart Painter and try again. Write the name you used in the notes.
 
-### C. Fill layer, then a brush at the end
+### C. Fill layer with a mask, then a brush at the end
 
-1. Choose some other brush than *Basic Hard* first (for example the Eraser's brush is fine, or any other preset).
-2. Click a layer, then click **Fill + Basic Hard brush**.
-   - ✅ A new Fill layer appears above the layer you clicked, and it is selected.
-   - ✅ Afterwards, the active brush is **Basic Hard**. The Assets window opens or comes to the front for this; that is expected.
+Painter changes the brush only while something you can paint on is selected: a Paint layer or a mask. With a Fill layer or folder itself selected, it ignores a brush, even when you click one by hand.
+
+1. Choose **Basic Soft** first.
+2. Click a layer, then click **Fill + Black mask + Basic Hard brush**.
+   - ✅ A new Fill layer with a black mask appears above the layer you clicked, and its **mask** is selected.
+   - ✅ The **Properties** window shows **Basic Hard** as the brush, and a stroke on the mask paints with Basic Hard. (The Assets window opens or comes to the front for this; that is expected.)
 3. Press **Ctrl+Z** once. ✅ The Fill layer is gone. (The brush stays Basic Hard; brush changes are not undone.)
+4. Choose Basic Soft again, then click **Fill + Basic Hard brush (no mask)**.
+   - ✅ Nothing changes, and a message says *“Fill + Basic Hard brush (no mask)” did not start: Step 2 (Select brush) needs a Paint layer or a mask: …*
+5. Choose Basic Soft again. Click a **Fill layer that has a mask**, on the layer itself (not the mask), then click the **Basic Hard** tile (the plain Brush button).
+   - ✅ The layer's mask gets selected, and Properties shows **Basic Hard**.
+6. Click a **Fill layer without a mask**, then click the **Basic Hard** tile.
+   - ✅ A message says *Painter changes the brush only while a Paint layer or a mask is selected. Select one, then try again.* The brush stays Basic Soft.
 
 ### D. A renamed preset
 
@@ -120,10 +134,10 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.6.0 | | | |
+| 1. Install: ☰ shows v0.6.1 | | | |
 | A. Fill + black mask + Dirt + Levels (and one Ctrl+Z) | | | |
 | B. Smart material + smart mask | | | |
-| C. Fill layer, then Basic Hard | | | |
+| C. Fill + mask, then Basic Hard; the no-mask messages | | | |
 | D. Renamed preset does not start | | | |
 | E. Anchor point; folder message | | | |
 

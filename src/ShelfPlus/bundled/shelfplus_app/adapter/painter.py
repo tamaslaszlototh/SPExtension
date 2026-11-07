@@ -257,6 +257,35 @@ class PainterAdapter:
 
         ls.set_selected_nodes([layer])
 
+    def select_mask(self, layer):
+        """Select the layer's mask, so Painter paints on it and takes a brush."""
+        import substance_painter.layerstack as ls
+
+        ls.set_selected_nodes([layer])
+        ls.set_selection_type(layer, ls.SelectionType.Mask)
+
+    def selection_paintable(self):
+        """Whether Painter would paint on the selection: a mask, a Paint layer's content
+        or a paint effect. ``None`` if it cannot tell (no project, nothing selected)."""
+        import substance_painter.layerstack as ls
+        import substance_painter.project as project
+
+        if not project.is_open():
+            return None
+        selected = ls.get_selected_nodes(_active_stack())
+        if not selected:
+            return None
+        node = selected[0]
+        kind = node.get_type()
+        if kind == getattr(ls.NodeType, "PaintEffect", None):
+            return True
+        layer = _layer_of(ls, node)
+        if layer is not node:  # another effect, in the content or the mask stack
+            return False
+        if ls.get_selection_type(node) == ls.SelectionType.Mask:
+            return True
+        return kind == ls.NodeType.PaintLayer
+
     def save_project(self):
         import substance_painter.project as project
 

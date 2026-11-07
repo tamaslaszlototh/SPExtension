@@ -47,6 +47,7 @@ class FakeLayerStack:
     def __init__(self, layers=None):
         self.layers = list(layers or [])  # top of the stack first
         self.selected = None
+        self.selected_part = "content"  # or "mask": which part of the selected layer
         self.scopes = []  # the labels of every scope opened
         self.in_scope = False
         self.fail_on = None
@@ -310,6 +311,21 @@ class FakeAdapter:
         if self.stack.in_scope:
             raise RuntimeError("The selection cannot change inside a ScopedModification")
         self.stack.selected = layer
+        self.stack.selected_part = "content"
+
+    def select_mask(self, layer):
+        if self.stack.in_scope:
+            raise RuntimeError("The selection cannot change inside a ScopedModification")
+        assert layer.mask is not None, "the layer has no mask"
+        self.stack.selected = layer
+        self.stack.selected_part = "mask"
+
+    def selection_paintable(self):
+        """Like Painter: a Paint layer's content or any mask; ``None`` if it cannot tell."""
+        layer = self.stack.selected
+        if not self.project_ready() or layer is None:
+            return None
+        return self.stack.selected_part == "mask" or layer.kind == "paint"
 
     def save_project(self):
         if self.save_error is not None:

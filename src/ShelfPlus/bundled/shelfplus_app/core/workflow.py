@@ -37,6 +37,10 @@ UI_STEP_TYPES = ("select_brush", "run_action", "save")
 SCOPE_PREFIX = "Shelf+: "  # the History entry of a Workflow's layer changes
 
 NO_PROJECT = "open a project first"
+BRUSH_NEEDS_PAINT_TARGET = (
+    "needs a Paint layer or a mask: Painter does not change the brush while a Fill layer "
+    "or folder is selected. Add a mask before it."
+)
 SELECTION_UNREADABLE = "Painter's selected layer could not be read. See the log."
 LAYER_NAMES = {"fill": "Fill layer", "paint": "Paint layer", "folder": "folder"}
 EFFECT_NAMES = {"anchor": "anchor point"}
@@ -281,11 +285,35 @@ class WorkflowRun:
                 if start is None:
                     return self._problem(index, "needs a selected layer."), None
 
+        index = self._brush_without_paint_target()
+        if index is not None:
+            return self._problem(index, BRUSH_NEEDS_PAINT_TARGET), None
+
         for index, step in enumerate(steps):
             missing = _check_resources(self.adapter, step)
             if missing:
                 return self._not_started(MISSING, missing, index), None
         return None, start
+
+    def _brush_without_paint_target(self):
+        """The index of a ``select_brush`` Step that surely has nothing to paint on: the
+        last layer the Workflow creates is a Fill layer, folder or smart material, and no
+        mask is added to it. (A start layer or a picked layer is checked at run time.)"""
+        brush = next((i for i in range(self.first_ui, len(self.steps)) if self.steps[i]["type"] == "select_brush"), None)
+        if brush is None:
+            return None
+        paintable = None  # unknown until a Step creates a layer
+        for step in self.steps[: self.first_ui]:
+            kind = step["type"]
+            if kind == "add_layer":
+                paintable = step["layer"] == "paint"
+            elif kind == "add_smart" and step["smart"] == "material":
+                paintable = False
+            elif kind == "select_layer":
+                paintable = None
+            elif kind == "add_mask" or (kind == "add_smart" and step["smart"] == "mask"):
+                paintable = paintable if paintable is None else True
+        return brush if paintable is False else None
 
     # -- running ---------------------------------------------------------------
 

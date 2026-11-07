@@ -77,6 +77,15 @@ def painter(monkeypatch):
     ls.InsertPosition.inside_node = lambda node, stack: ("inside", node, stack)
     ls.NodeStack = types.SimpleNamespace(Content="Content", Mask="Mask", Substack="Substack")
     ls.MaskBackground = types.SimpleNamespace(Black="Black", White="White")
+    ls.SelectionType = types.SimpleNamespace(Content="Content", Mask="Mask", Properties="Properties")
+    ls.NodeType.PaintEffect = "PaintEffect"
+    selection = {"nodes": [mask], "types": {}}
+    ls.get_selected_nodes = lambda stack: stack_only(stack) and selection["nodes"]
+    ls.get_selection_type = lambda node: selection["types"].get(id(node), "Content")
+    ls.set_selected_nodes = lambda nodes: selection.update(nodes=list(nodes))
+    ls.set_selection_type = lambda node, kind: selection["types"].__setitem__(id(node), kind)
+    project = types.ModuleType("substance_painter.project")
+    project.is_open = lambda: True
 
     def effect(kind):
         return lambda position, *args: (calls.append((kind, position, *args)), Node(kind, kind))[1]
@@ -97,7 +106,7 @@ def painter(monkeypatch):
     ts = types.ModuleType("substance_painter.textureset")
     ts.get_active_stack = lambda: STACK
     package = types.ModuleType("substance_painter")
-    for name, module in (("layerstack", ls), ("textureset", ts), ("resource", res), ("application", types.ModuleType("a")), ("ui", types.ModuleType("u"))):
+    for name, module in (("layerstack", ls), ("textureset", ts), ("resource", res), ("project", project), ("application", types.ModuleType("a")), ("ui", types.ModuleType("u"))):
         setattr(package, name, module)
         monkeypatch.setitem(sys.modules, f"substance_painter.{name}", module)
     monkeypatch.setitem(sys.modules, "substance_painter", package)
@@ -105,7 +114,8 @@ def painter(monkeypatch):
     from shelfplus_app.adapter.painter import PainterAdapter
 
     adapter = PainterAdapter.__new__(PainterAdapter)  # no Assets window or QActions needed
-    return adapter, calls, {"inner": inner, "folder": folder, "base": base}
+    adapter.selection = selection  # for the tests: what Painter has selected
+    return adapter, calls, {"inner": inner, "folder": folder, "base": base, "mask": mask}
 
 
 def test_selected_mask_means_its_layer(painter):
@@ -185,3 +195,46 @@ def test_smart_mask_adds_a_black_mask_only_if_there_is_none(painter):
 
     assert base.mask == "Black" and inner.mask == "White"
     assert [c[:2] for c in calls] == [("smart mask", ("inside", base, "Mask")), ("smart mask", ("inside", inner, "Mask"))]
+
+
+def select(adapter, node, part="Content"):
+    adapter.selection["nodes"] = [node]
+    adapter.selection["types"][id(node)] = part
+
+
+def test_a_fill_layer_or_folder_itself_cannot_be_painted_on(painter):
+    adapter, _, nodes = painter
+    for name in ("base", "folder"):
+        select(adapter, nodes[name])
+        assert adapter.selection_paintable() is False
+
+
+def test_a_paint_layer_or_a_mask_can_be_painted_on(painter):
+    adapter, _, nodes = painter
+    select(adapter, Node("Paint", "PaintLayer"))
+    assert adapter.selection_paintable() is True
+    select(adapter, nodes["base"], "Mask")
+    assert adapter.selection_paintable() is True
+    select(adapter, Node("Paint effect", "PaintEffect"))
+    assert adapter.selection_paintable() is True
+
+
+def test_another_effect_cannot_be_painted_on(painter):
+    adapter, _, _ = painter  # the fixture selects a "Mask"-typed effect node under Base
+
+    assert adapter.selection_paintable() is False
+
+
+def test_nothing_selected_cannot_tell(painter):
+    adapter, _, _ = painter
+    adapter.selection["nodes"] = []
+
+    assert adapter.selection_paintable() is None
+
+
+def test_select_mask_selects_the_layer_and_its_mask(painter):
+    adapter, _, nodes = painter
+
+    adapter.select_mask(nodes["base"])
+
+    assert adapter.selection["nodes"] == [nodes["base"]] and adapter.selection_paintable() is True

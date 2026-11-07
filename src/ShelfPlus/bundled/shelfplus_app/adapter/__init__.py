@@ -45,7 +45,9 @@ The Workflow runner (``core/workflow.py``); layers are opaque handles to the cor
 - ``insert_smart_material(url, above=None) -> layer``: placed like ``insert_layer``.
 - ``insert_smart_mask(layer, url)``: into the layer's mask (a black one if it has none).
 - ``find_layers(name) -> [layer]``: exact name, whole stack, folders included.
-- ``select_layer(layer)``: never called inside ``layer_scope``.
+- ``select_layer(layer)``, ``select_mask(layer)``: never called inside ``layer_scope``.
+- ``selection_paintable() -> bool | None``: Painter would paint on the selection (a mask
+  or a Paint layer; only then does it take a brush). ``None`` if it cannot tell.
 - ``save_project()``
 
 ``painter.PainterAdapter`` is the real one; ``fake.FakeAdapter`` is used by tests.
