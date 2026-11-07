@@ -329,6 +329,14 @@ class TestRunning:
 
         assert not app.is_missing(save)
 
+    def test_a_button_saved_without_outer_menus_has_no_badge(self, env, adapter):
+        adapter.actions.append(MenuAction("", "Log", ("Window", "Views")))
+        layout = dict(LAYOUT, groups=[{"id": "g1", "name": "Old", "buttons": [menu("m1", "menu:Views › Log", "Log")]}])
+        (Path(env["data_dir"]) / "layout.json").write_text(json.dumps(layout), encoding="utf-8")
+        app = start(env, adapter)
+
+        assert not app.is_missing(group(app, "g1").buttons[0])
+
     def test_a_menu_button_added_for_a_missing_command_is_badged(self, env, adapter):
         app = start(env, adapter)
 

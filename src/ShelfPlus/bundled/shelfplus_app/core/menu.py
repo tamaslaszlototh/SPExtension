@@ -105,6 +105,18 @@ def action_id(action):
     return ""
 
 
+def same_action(found, saved):
+    """Whether the command found with id ``found`` is the one a Menu button saved as
+    ``saved``. A saved menu place may lack outer menus (``menu:Views › Log`` for
+    ``menu:Window › Views › Log``): v0.4.3 could not see menus above a submenu that Qt
+    does not list."""
+    if found == saved:
+        return True
+    if not (found.startswith(MENU_PREFIX) and saved.startswith(MENU_PREFIX)):
+        return False
+    return found.endswith(MENU_SEPARATOR + saved[len(MENU_PREFIX):])
+
+
 def menu_button(action):
     """The Layout's JSON for a new Menu button, without ``id`` and ``icon`` (see
     ``LayoutEditor.add_button``)."""

@@ -24,7 +24,7 @@ import logging
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ..core.menu import MENU_PREFIX, OWN_PREFIX, WIDGET_PREFIX, MenuAction, action_id
+from ..core.menu import MENU_PREFIX, OWN_PREFIX, WIDGET_PREFIX, MenuAction, action_id, same_action
 from .assets import png_bytes, valid
 
 log = logging.getLogger("ShelfPlus.app.actions")
@@ -292,7 +292,7 @@ class PainterActions:
                     if action.objectName():
                         continue
                     found = scan.describe(action, widget)
-                    if action_id(found) != name:
+                    if not same_action(action_id(found), name):
                         continue
                 elif action.objectName() == name:
                     found = scan.describe(action, widget)

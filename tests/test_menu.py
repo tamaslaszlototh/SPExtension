@@ -12,6 +12,7 @@ from shelfplus_app.core.menu import (
     capture_problem,
     menu_button,
     run_action,
+    same_action,
     search_actions,
 )
 from shelfplus_app.core.steps import DONE, FAILED, MISSING
@@ -70,6 +71,13 @@ class TestNaming:
         log = MenuAction("", "Log", ("Window", "Views"), owner="MainWindow")
 
         assert action_id(log) == "menu:Window › Views › Log"
+
+    def test_a_place_saved_without_its_outer_menus_matches_the_full_place(self):
+        assert same_action("menu:Window › Views › Log", "menu:Views › Log")
+        assert same_action("SAVE_PROJECT", "SAVE_PROJECT")
+        assert not same_action("menu:Window › Views › Log", "menu:iews › Log")
+        assert not same_action("menu:Views › Log", "menu:Window › Views › Log")
+        assert not same_action("widget:MainWindow › Log", "menu:Log")
 
     def test_a_command_with_none_of_these_has_no_id(self):
         assert action_id(ADD_LAYER) == ""

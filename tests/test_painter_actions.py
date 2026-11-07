@@ -164,6 +164,13 @@ class TestRunning:
         assert found.handle is unnamed and found.path == ("Window", "Views")
         assert PainterActions().find("menu:Window › Views › Nope") is None
 
+    def test_a_place_saved_without_its_outer_menus_is_still_found(self, painter):
+        # v0.4.3 could not see the Window menu above Views, and saved "menu:Views › Log".
+        unnamed = painter.window.menuBar().addMenu("Window").addMenu("Views").addAction("Log")
+
+        assert PainterActions().find("menu:Views › Log").handle is unnamed
+        assert PainterActions().find("menu:iews › Log") is None
+
     def test_triggering_runs_the_command(self, painter):
         seen = []
         painter.save.triggered.connect(lambda: seen.append("save"))

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .core.brush import MISSING, brush_button, brush_icon, resolve, resource_urls_from_drop, select_brush
 from .core.diagnostics import build_diagnostics, tail_log
-from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, run_action, search_actions
+from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, run_action, same_action, search_actions
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
@@ -276,15 +276,15 @@ class App:
             self._stop_menu_timer()
             return
         try:  # one look at Painter's commands for every Button
-            names = {action_id(action) for action in self.adapter.list_actions()}
+            found = [action_id(action) for action in self.adapter.list_actions()]
         except Exception:
             log.exception("Could not list Painter's commands")
             return
         unavailable = 0
         for button in buttons:
-            found = button.raw["action"] in names
-            self._set_missing(button, not found)
-            unavailable += not found
+            here = any(same_action(f, button.raw["action"]) for f in found)
+            self._set_missing(button, not here)
+            unavailable += not here
         if unavailable and self._menu_timer is None:
             log.info("%d Menu button(s) have no command in this Painter (yet)", unavailable)
             self._menu_timer = self.adapter.repeat(MENU_CHECK_MS, self.check_menu_buttons)
