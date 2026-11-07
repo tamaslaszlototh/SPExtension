@@ -10,11 +10,12 @@ _app = None
 
 def start_plugin(env):
     global _app
+    from .adapter.network import QtHttp
     from .adapter.painter import PainterAdapter
     from .app import App
     from .ui.panel import QtPanelView
 
-    app = App(env, PainterAdapter(), QtPanelView)
+    app = App(env, PainterAdapter(), QtPanelView, network=QtHttp(f"ShelfPlus/{env['version']}"))
     _app = app
     app.start()
 

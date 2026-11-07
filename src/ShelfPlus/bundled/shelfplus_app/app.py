@@ -6,6 +6,7 @@ so tests drive it with ``FakeAdapter`` and a fake view.
 
 import logging
 import platform
+import time
 from functools import partial
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, r
 from .core.editing import LayoutEditor
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
+from .core.updater import Updater
 from .core import blocks
 from .core.recording import Recording
 from .core.workflow import run_workflow
@@ -67,7 +69,7 @@ def button_steps(button):
 
 
 class App:
-    def __init__(self, env, adapter, view_factory):
+    def __init__(self, env, adapter, view_factory, network=None, clock=time.time):
         self.env = env
         self.version = env["version"]
         self.data_dir = Path(env["data_dir"])
@@ -116,6 +118,11 @@ class App:
         self._recording_group_id = None
         self._recording_draft = None
         self._stop_recording_watch = None
+        # Self-update (R9): the HTTP client (``core/updater.py`` has its interface; None:
+        # no updates) and the flow, made once panel.json is loaded
+        self.network = network
+        self.clock = clock
+        self.updater = None
         self.view = None
         self._dock = None
 
@@ -139,6 +146,7 @@ class App:
         self.view = self.view_factory(self)
         self.view.render()
         self._dock = self.adapter.add_dock_widget(self.view.widget)
+        self._start_updater()
 
     # -- view state (panel.json) ---------------------------------------------
 
@@ -173,6 +181,51 @@ class App:
             self.panel_state_store.save(self.panel_state)
         except OSError:
             log.exception("Could not save panel.json")
+
+    # -- self-update (R9) ------------------------------------------------------
+
+    def _start_updater(self):
+        if self.network is None:
+            return
+        self.updater = Updater(
+            self.network,
+            self.data_dir,
+            self.version,
+            self.env.get("loader_version", 1),
+            self.panel_state["updater"],
+            self.save_panel_state,
+            _UpdaterUi(self),
+            clock=self.clock,
+        )
+        try:
+            self.updater.check_on_start()
+        except Exception:
+            log.exception("The start-up update check failed")
+
+    def check_for_updates(self):
+        """**Check for updates** in the Panel menu."""
+        if self.updater is None:
+            self.show_message("Updates cannot be checked in this session.")
+            return
+        self.updater.check_now()
+
+    def update_now(self):
+        if self.updater is not None:
+            self.updater.update()
+
+    def update_later(self):
+        if self.updater is not None:
+            self.updater.later()
+
+    def skip_update(self):
+        if self.updater is not None:
+            self.updater.skip()
+
+    def show_message(self, text):
+        """A message that stays until the user closes it (the updater's results)."""
+        log.info("Message: %s", text)
+        if self.view is not None and hasattr(self.view, "show_message"):
+            self.view.show_message(text)
 
     # -- Buttons -------------------------------------------------------------
 
@@ -808,6 +861,15 @@ class App:
 
     def close(self):
         self._cancel_running()
+        updater, self.updater = self.updater, None
+        if updater is not None:
+            updater.close()
+        if self.network is not None and hasattr(self.network, "close"):
+            try:
+                self.network.close()
+            except Exception:
+                log.exception("Closing the network failed")
+            self.network = None
         if self.recording is not None:
             try:
                 self._end_recording()
@@ -860,3 +922,23 @@ class App:
         log_path = self.env.get("log_path")
         lines = tail_log(log_path) if log_path else []
         return build_diagnostics(versions, lines)
+
+
+class _UpdaterUi:
+    """What the updater shows, passed on to the Panel view (which may be gone)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    def offer(self, offer):
+        view = self.app.view
+        if view is not None and hasattr(view, "offer_update"):
+            view.offer_update(offer)
+
+    def message(self, text):
+        self.app.show_message(text)
+
+    def busy(self, text):
+        view = self.app.view
+        if view is not None and hasattr(view, "show_busy"):
+            view.show_busy(text)

@@ -35,6 +35,7 @@ def test_builds_the_zip_and_checksums(tmp_path):
         assert version == {"version": VERSION, "min_loader": version["min_loader"]}
         assert isinstance(version["min_loader"], int)
 
+    assert json.loads((tmp_path / "VERSION").read_text(encoding="utf-8")) == version
     sums = (tmp_path / "SHA256SUMS").read_text(encoding="utf-8")
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
     assert sums == f"{digest}  {zip_path.name}\n"
