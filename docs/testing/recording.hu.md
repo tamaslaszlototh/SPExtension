@@ -111,6 +111,8 @@ A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a vé
 
 ### H. Anchor pointok és egy meglévő layer Fill tartalma
 
+Ha csak az új dolgokat teszteled, a rövidebb, külön leírás itt van: [anchor-points.hu.md](anchor-points.hu.md).
+
 Kell hozzá egy projekt, amelyben van egy **meglévő Fill layer** és egy **meglévő anchor point** (bármelyik layer tartalmában vagy maszkjában; jobb klikk → *Add anchor point*). A projekt másolatát használd.
 
 1. Jelöld ki a meglévő Fill layert. Indíts egy felvételt.
