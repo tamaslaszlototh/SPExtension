@@ -285,13 +285,13 @@ class PainterAdapter:
             layer.set_source(channel_type, _colour(rgb))
             return
         # A grey channel's uniform value, on the channel's own scale (Height -1 to 1…).
-        # Painter may take it only as a grey colour.
+        # set_source takes only a ResourceID, a colormanagement.Color or an anchor point
+        # (a number raises ValueError on 11.1), so it goes in as a grey Color, unconverted:
+        # it is a value, not a colour someone picked.
+        from substance_painter.colormanagement import Color
+
         value = float(source["value"])
-        try:
-            layer.set_source(channel_type, value)
-        except TypeError:
-            log.info("set_source(%s, float) refused; trying a grey colour", channel, exc_info=True)
-            layer.set_source(channel_type, _colour((value,) * 3))
+        layer.set_source(channel_type, Color(value, value, value))
 
     def find_layers(self, name):
         """Every layer of the active texture set named exactly ``name``, folders included."""

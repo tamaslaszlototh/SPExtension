@@ -1,4 +1,4 @@
-# Testing the Workflow editor (Shelf+ v0.7.4-rc.1)
+# Testing the Workflow editor (Shelf+ v0.7.5-rc.1)
 
 This build lets you **make your own Workflows on the Panel** and fix existing ones:
 
@@ -16,11 +16,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.7.4-rc.1.zip** from the [v0.7.4-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.4-rc.1).
+2. Download **ShelfPlus-v0.7.5-rc.1.zip** from the [v0.7.5-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.7.5-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.4**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.7.5**.
 
 Your own Layout stays as it is. This test adds a few Buttons, and you can delete them afterwards.
 
@@ -123,7 +123,7 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 
 | Check | Home (11.1.0) | Work (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.7.4 | | | |
+| 1. Install: ☰ shows v0.7.5 | | | |
 | A. Build Fill + Black mask + Dirt + Opacity 50% (Dirt chosen from the list), run it | | | |
 | B. Double-click reopens; Opacity into Start | | | |
 | C. Save and a layer row snap back | | | |
