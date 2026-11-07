@@ -212,6 +212,20 @@ class TestRunning:
         assert found.handle is unnamed and found.path == ("Window", "Views")
         assert PainterActions().find("menu:Window › Views › Nope") is None
 
+    def test_an_unnamed_command_in_several_menus_is_found_by_any_of_its_places(self, painter, monkeypatch):
+        log = QtGui.QAction("Log", painter.window)
+        untitled = QtWidgets.QMenu(painter.window)  # e.g. a context menu, met first
+        untitled.addAction(log)
+        painter.window.menuBar().addMenu("Window").addMenu("Views").addAction(log)
+        order = [untitled, painter.window.menuBar(), painter.window]  # Views only via its entry
+        monkeypatch.setattr(QtWidgets.QApplication, "allWidgets", staticmethod(lambda: list(order)))
+
+        found = PainterActions().find("menu:Window › Views › Log")
+        places = {a.path for a in PainterActions().all() if a.handle is log}
+
+        assert found is not None and found.handle is log
+        assert ("Window", "Views") in places
+
     def test_a_place_saved_without_its_outer_menus_is_still_found(self, painter):
         # v0.4.3 could not see the Window menu above Views, and saved "menu:Views › Log".
         unnamed = painter.window.menuBar().addMenu("Window").addMenu("Views").addAction("Log")

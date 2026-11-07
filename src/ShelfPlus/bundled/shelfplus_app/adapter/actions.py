@@ -53,6 +53,7 @@ class _Scan:
         except Exception:
             log.exception("QApplication.allWidgets() failed")
             self.widgets = []
+        self.keep = keep
         self.menus = []
         self.parents = {}  # id(submenu) -> the menu it opens from
         self.entries = []  # [QAction, where it sits]: see _better_place
@@ -124,17 +125,29 @@ class _Scan:
         return ", ".join(names) or "no widget"
 
     def path(self, widget):
-        """The titles of the menus ``widget`` sits in, outermost first (``()`` if not a menu)."""
-        titles = []
-        while isinstance(widget, QtWidgets.QMenu) and len(titles) < MAX_MENU_DEPTH:
-            try:
-                title = widget.title().replace("&&", "\0").replace("&", "").replace("\0", "&")
-            except RuntimeError:
-                break
-            if title:
-                titles.append(title)
-            widget = self.parents.get(id(widget))
-        return tuple(reversed(titles))
+        """The titles of the menus ``widget`` sits in, outermost first (``()`` if not a
+        menu). The same walk as for a click (``menu_path``): matching menus by their
+        Python wrappers lost the outer menus on Painter 11.1."""
+        if not isinstance(widget, QtWidgets.QMenu):
+            return ()
+        try:
+            return menu_path(widget, self.keep)
+        except RuntimeError:
+            return ()
+
+    def places(self, action, widget):
+        """Every ``MenuAction`` the command can be found as: one if it has an objectName;
+        else one per menu it is in (a saved place may be any of them), or the widget it
+        is on if it is in no menu."""
+        if action.objectName():
+            return [self.describe(action, widget)]
+        found, paths = [], set()
+        for holder in self.holders.get(id(action), []):
+            path = self.path(holder)
+            if path and path not in paths:
+                paths.add(path)
+                found.append(describe(action, path))
+        return found or [self.describe(action, widget)]
 
 
 def _better_place(widget, current):
@@ -310,7 +323,7 @@ class PainterActions:
         found = []
         for action, widget in scan.entries:
             try:
-                found.append(scan.describe(action, widget))
+                found.extend(scan.places(action, widget))
             except RuntimeError:
                 continue
         return found
@@ -329,9 +342,10 @@ class PainterActions:
                 if by_place:
                     if action.objectName():
                         continue
-                    found = scan.describe(action, widget)
-                    if not same_action(action_id(found), name):
+                    matches = [p for p in scan.places(action, widget) if same_action(action_id(p), name)]
+                    if not matches:
                         continue
+                    found = matches[0]
                 elif action.objectName() == name:
                     found = scan.describe(action, widget)
                 else:
