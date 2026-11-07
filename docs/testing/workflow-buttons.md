@@ -60,7 +60,7 @@ One run takes about 10 minutes. Write the results in the [table at the end](#res
 
 ### D. Nothing selected
 
-1. Make sure no layer is selected. (Switching to another texture set and back, or opening the project fresh, usually leaves nothing selected. If you cannot get there, write *could not deselect* in the table and skip this check.)
+1. Make sure no layer is selected: no row in the Layers window is highlighted. Painter may not let you deselect everything; try clicking an empty area below the last layer, or switching to another texture set and back. If nothing works, write *could not deselect* in the table and skip this check.
 2. Click **Fill layer + Black mask**.
    - ✅ The new Fill layer appears at the **top** of the layer stack, and it is selected.
 3. Press **Ctrl+Z** once. ✅ It is gone.
@@ -74,8 +74,11 @@ One run takes about 10 minutes. Write the results in the [table at the end](#res
 ### F. No project open
 
 1. Close the project (**File → Close**), but leave Painter running.
+   - If the Panel disappears with the project, write *Panel hidden* in the table and skip the rest of this check.
 2. Click **Fill layer + Black mask**.
    - ✅ A message on the Panel says *“Fill layer + Black mask” did not start: open a project first.* Nothing else happens.
+3. Click **Save**.
+   - ✅ The same kind of message appears: *“Save” did not start: open a project first.*
 
 ## Results
 
