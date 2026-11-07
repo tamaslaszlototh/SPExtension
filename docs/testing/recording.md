@@ -1,4 +1,4 @@
-# Testing Recording (Shelf+ v0.8.3-rc.1)
+# Testing Recording (Shelf+ v0.8.4-rc.1)
 
 This build lets you **record a Workflow**: you do the Steps in Painter while the Panel watches, then you press **Stop** and check the Steps in the editor.
 
@@ -6,7 +6,7 @@ This build lets you **record a Workflow**: you do the Steps in Painter while the
 - **Stop** in the REC bar opens the editor with the recorded Steps. Save it as usual.
 - **● Continue** at the bottom of the editor records more Steps at the end of the Workflow that is open.
 - A new Fill or Paint layer's switched-on channels, and a Fill layer's content (colour, value, resource, material), are recorded too. What you paint onto a Paint layer is not.
-- New in v0.8.3: an **anchor point** keeps its name, a Fill channel can use an anchor point as its source, and changing the channels or content of an **existing** Fill or Paint layer becomes a **Fill content** Step.
+- New since v0.8.3: an **anchor point** keeps its name, a Fill channel can use an anchor point as its source, and changing the channels or content of an **existing** Fill or Paint layer becomes a **Fill content** Step.
 - Brushes cannot be recorded (Painter does not report them). Add them in the editor after Stop.
 
 Please run the checks once on **each machine**:
@@ -19,11 +19,11 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.8.3-rc.1.zip** from the [v0.8.3-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.3-rc.1).
+2. Download **ShelfPlus-v0.8.4-rc.1.zip** from the [v0.8.4-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.4-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
-6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.3**.
+6. Click **☰** in the Panel's top right corner. The first line must say **Shelf+ v0.8.4**.
 
 ## 2. The checks
 
@@ -111,7 +111,7 @@ You need a project with an **existing Fill layer** and an **existing anchor poin
 
 | Check | Home 11.1.0 | Work 12.2.0 | Notes |
 |---|---|---|---|
-| 1. Install: ☰ shows v0.8.3 | | | |
+| 1. Install: ☰ shows v0.8.4 | | | |
 | A. 4 Steps, opacity exactly 50 | | | |
 | B. Smart mask marked, drop fills it | | | |
 | C. Select layer Step appears | | | |

@@ -38,6 +38,14 @@ Because the two machines run different Painter versions, a difference between th
 - **Smart material drop**: the whole group arrives in a single diff, and the group name matches the dropped resource name.
 - **Project close**: `ProjectEditionLeft`, `BusyStatusChanged` and `ProjectAboutToClose` arrive as expected.
 
+### Anchor point sources (v0.8.3-rc.1 diagnostics, 11.1.0 only so far)
+
+- A Fill channel whose source is an anchor point (Properties → channel → *Anchor points* tab) has `get_source(channel)` returning a **`source.SourceReference`**. Public members: `alpha_matte`, `anchor`, `channel_mapping`, `get_levels`, `referenced_channel`, `set_levels`, `uid`.
+- `SourceReference.anchor` is the `AnchorPointEffectNode`, and its `get_name()` gives the anchor's name.
+- The anchor point in that run read as `Fill layer 2`: probably Painter names an anchor point added from the UI after its layer (not confirmed). Recording stores whatever name it reads.
+- `referenced_channel` and `channel_mapping` are not recorded; replay leaves them at Painter's default. From v0.8.4 the first anchor source read logs both, to learn what they hold.
+- Still to check: the same on 12.2.0.
+
 ## Differences between the versions
 
 | Topic | 11.1.0 (home) | 12.2.0 (company) |

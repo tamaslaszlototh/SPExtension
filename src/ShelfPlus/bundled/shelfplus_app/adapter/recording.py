@@ -103,19 +103,23 @@ def _rgb(colour, srgb):
 
 def _anchor_name(source):
     """The name of the anchor point a source refers to, or ``None`` if it is not an anchor
-    point source. The first one read is logged with what the source offers: Painter's API
-    for it could not be checked without Painter (Copy diagnostics shows the log)."""
-    kind = type(source).__name__
-    named_anchor = "anchor" in kind.lower()
-    getters = ("get_anchor_point", "anchor_point", "get_anchor", "anchor") + (("get_node", "node") if named_anchor else ())
-    anchor = _value(source, *getters)
-    if anchor is None and not named_anchor:
+    point source.
+
+    Painter 11.1.0 (measured): a ``source.SourceReference`` whose ``anchor`` is the
+    ``AnchorPointEffectNode``; it also has ``referenced_channel``, ``channel_mapping``,
+    ``alpha_matte`` and levels, which are not recorded (replay leaves them at Painter's
+    default). The first one read is logged with its ``referenced_channel`` and
+    ``channel_mapping`` (Copy diagnostics), to learn what they hold."""
+    anchor = _value(source, "anchor")
+    if anchor is None:
         return None
-    name = _value(anchor, "get_name", "name") if anchor is not None else None
+    name = _value(anchor, "get_name")
     if "anchor" not in _unreadable:
         _unreadable.add("anchor")
-        public = [a for a in dir(source) if not a.startswith("_")]
-        log.info("Recording: an anchor point source (%s, offers %s) reads as %r named %r", kind, public, anchor, name)
+        log.info(
+            "Recording: an anchor point source (%s) reads as %r named %r; referenced_channel=%r channel_mapping=%r",
+            type(source).__name__, anchor, name, _value(source, "referenced_channel"), _value(source, "channel_mapping"),
+        )
     return str(name) if name else None
 
 

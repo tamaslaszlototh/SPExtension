@@ -1,4 +1,4 @@
-# A Recording tesztelése (Shelf+ v0.8.3-rc.1)
+# A Recording tesztelése (Shelf+ v0.8.4-rc.1)
 
 Ebben a verzióban már **fel lehet venni egy Workflow-t**: te elvégzed a lépéseket a Painterben, a Panel közben figyel, a végén megnyomod a **Stop** gombot, és a szerkesztőben átnézed a Step-eket.
 
@@ -6,7 +6,7 @@ Ebben a verzióban már **fel lehet venni egy Workflow-t**: te elvégzed a lép�
 - A REC sáv **Stop** gombja megnyitja a szerkesztőt a felvett Step-ekkel. Innen a szokásos módon menthetsz.
 - A szerkesztő alján a **● Continue** gomb további Step-eket vesz fel az éppen nyitott Workflow végére.
 - Egy új Fill vagy Paint layer bekapcsolt channelei és a Fill layer tartalma (szín, érték, resource, material) is bekerül. Amit egy Paint layerre festesz, az nem.
-- Újdonság a v0.8.3-ban: az **anchor point** megtartja a nevét, egy Fill channel forrása lehet egy anchor point, és egy **meglévő** Fill vagy Paint layer channeleinek vagy tartalmának módosításából **Fill content** Step lesz.
+- Újdonság a v0.8.3 óta: az **anchor point** megtartja a nevét, egy Fill channel forrása lehet egy anchor point, és egy **meglévő** Fill vagy Paint layer channeleinek vagy tartalmának módosításából **Fill content** Step lesz.
 - A brusht nem lehet felvenni, mert a Painter nem jelzi, ha brusht váltasz. A Stop után a szerkesztőben add hozzá kézzel.
 
 A Shelf+ felülete angol, ezért a gombok és feliratok nevét angolul írjuk, ahogy a képernyőn látod.
@@ -21,12 +21,12 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.8.3-rc.1.zip** fájlt a [v0.8.3-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.3-rc.1).
+2. Töltsd le a **ShelfPlus-v0.8.4-rc.1.zip** fájlt a [v0.8.4-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.4-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
-6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.3**.
-   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.3 failed to start; reverted to …”, itt állj meg.
+6. Kattints a Panel jobb felső sarkában a **☰** gombra. Az első sornak ezt kell mutatnia: **Shelf+ v0.8.4**.
+   - Ha régebbi verziót mutat, vagy a Painter azt írta, hogy „Shelf+ v0.8.4 failed to start; reverted to …”, itt állj meg.
    - Kattints a **☰ → Copy diagnostics** menüpontra, és küldd el, amit kimásol.
 
 A saját Layoutod megmarad. A teszt néhány új Buttont ad hozzá, ezeket a végén törölheted.
@@ -135,7 +135,7 @@ Kell hozzá egy projekt, amelyben van egy **meglévő Fill layer** és egy **meg
 
 | Teszt | Otthon (11.1.0) | Munkahely (12.2.0) | Notes |
 |---|---|---|---|
-| 1. Telepítés: a ☰ v0.8.3-t mutat | | | |
+| 1. Telepítés: a ☰ v0.8.4-t mutat | | | |
 | A. 4 Step, az opacity pontosan 50, futtatás | | | |
 | B. Smart mask ⚠-tel, a behúzás kitölti | | | |
 | C. Megjelenik a select layer Step | | | |

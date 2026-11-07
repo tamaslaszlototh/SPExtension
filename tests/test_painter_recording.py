@@ -262,36 +262,32 @@ def test_a_paint_layer_has_channels_only_and_a_mask_fill_its_grey_value():
     assert nodes[1]["content"] == {"source": {"value": 0.3}} and nodes[1]["source"] is None
 
 
-class SourceAnchorPoint:
-    """An anchor point source, as far as the snapshot can guess Painter's API for it."""
+class SourceReference:
+    """An anchor point source as Painter 11.1.0 has it: ``anchor`` is the anchor point."""
 
     def __init__(self, name):
-        self._anchor = types.SimpleNamespace(get_name=lambda: name)
-
-    def get_anchor_point(self):
-        return self._anchor
+        self.anchor = types.SimpleNamespace(get_name=lambda: name)
+        self.referenced_channel = Enum("BaseColor")
+        self.channel_mapping = None
 
 
 def test_an_anchor_point_source_reads_as_its_name_and_the_first_one_is_logged(caplog):
     from shelfplus_app.adapter import recording as adapter_recording
 
     adapter_recording._unreadable.discard("anchor")
-    fill = FillNode("Fill layer 1", sources={"BaseColor": SourceAnchorPoint("Edges"), "Roughness": SourceAnchorPoint("Rim")})
+    fill = FillNode("Fill layer 1", sources={"BaseColor": SourceReference("Edges"), "Roughness": SourceReference("Rim")})
 
     with caplog.at_level("INFO", logger="ShelfPlus.app.recording"):
         (node,) = snapshot(painter([fill], []), Stack(), lambda n: n)["nodes"]
 
     assert node["content"] == {"sources": {"BaseColor": {"anchor": "Edges"}, "Roughness": {"anchor": "Rim"}}}
     logged = [r.getMessage() for r in caplog.records if "anchor point source" in r.getMessage()]
-    assert len(logged) == 1 and "SourceAnchorPoint" in logged[0] and "'Edges'" in logged[0]
+    assert len(logged) == 1
+    assert "SourceReference" in logged[0] and "'Edges'" in logged[0] and "referenced_channel=" in logged[0]
 
 
-class Source(SourceAnchorPoint):
-    """An anchor point source under a class name that does not say so."""
-
-
-def test_an_anchor_point_source_is_found_by_its_getter_whatever_its_class_name():
-    fill = FillNode("Fill layer 1", sources={"BaseColor": Source("Edges"), "Roughness": Uniform(Colour((0.5, 0.5, 0.5)))})
+def test_a_uniform_colour_next_to_an_anchor_is_still_a_colour():
+    fill = FillNode("Fill layer 1", sources={"BaseColor": SourceReference("Edges"), "Roughness": Uniform(Colour((0.5, 0.5, 0.5)))})
 
     (node,) = snapshot(painter([fill], []), Stack(), lambda n: n)["nodes"]
 
