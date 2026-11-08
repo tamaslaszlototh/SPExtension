@@ -1,0 +1,76 @@
+site_name: Shelf+ User Manual
+site_description: How to use Shelf+, a Panel of your own Buttons for Adobe Substance 3D Painter.
+site_url: https://tamaslaszlototh.github.io/ShelfPlus/
+repo_url: https://github.com/tamaslaszlototh/ShelfPlus
+repo_name: tamaslaszlototh/ShelfPlus
+edit_uri: ""
+docs_dir: manual
+copyright: Shelf+ is an independent plugin and is not made or endorsed by Adobe.
+
+theme:
+  name: material
+  icon:
+    logo: material/view-grid-plus
+  favicon: assets/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.footer
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - The Panel: panel.md
+  - Brush buttons: brush-buttons.md
+  - Menu buttons: menu-buttons.md
+  - Workflow buttons: workflow-buttons.md
+  - The Workflow editor: workflow-editor.md
+  - Step reference: steps.md
+  - Recording: recording.md
+  - Updates & diagnostics: updates.md
+  - Troubleshooting & FAQ: troubleshooting.md
+  - Glossary: glossary.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.keys
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/tamaslaszlototh/ShelfPlus
+      name: Shelf+ on GitHub
