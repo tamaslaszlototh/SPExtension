@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues on tamaslaszlototh/SPExtension (via `gh`). See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues on tamaslaszlototh/ShelfPlus (via `gh`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

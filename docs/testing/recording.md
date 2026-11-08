@@ -19,7 +19,7 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.8.4-rc.1.zip** from the [v0.8.4-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.4-rc.1).
+2. Download **ShelfPlus-v0.8.4-rc.1.zip** from the [v0.8.4-rc.1 release page](https://github.com/tamaslaszlototh/ShelfPlus/releases/tag/v0.8.4-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
@@ -68,7 +68,7 @@ One run takes about 15 minutes. Write the results in the [table at the end](#res
 2. Start a Recording, add a Fill layer, then close the project (**File → Close**). Expected: the REC bar goes away and the editor opens with what was recorded (the Fill layer).
 3. If the project has several texture sets: start a Recording, switch to another texture set and add a layer there. Expected: a message says changes in another texture set cannot be recorded, and after Stop that layer is not among the Steps.
 
-If anything goes wrong, click **☰ → Copy diagnostics** right away, before restarting Painter, and paste it into your message. Send the filled-in table back, for example as a comment on [issue #31](https://github.com/tamaslaszlototh/SPExtension/issues/31).
+If anything goes wrong, click **☰ → Copy diagnostics** right away, before restarting Painter, and paste it into your message. Send the filled-in table back, for example as a comment on [issue #31](https://github.com/tamaslaszlototh/ShelfPlus/issues/31).
 
 A Hungarian version of this guide is in [recording.hu.md](recording.hu.md).
 

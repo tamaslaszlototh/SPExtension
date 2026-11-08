@@ -21,7 +21,7 @@ Egy kör kb. 15 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 ## 1. A verzió telepítése
 
 1. Zárd be a Paintert.
-2. Töltsd le a **ShelfPlus-v0.8.4-rc.1.zip** fájlt a [v0.8.4-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.8.4-rc.1).
+2. Töltsd le a **ShelfPlus-v0.8.4-rc.1.zip** fájlt a [v0.8.4-rc.1 kiadás oldaláról](https://github.com/tamaslaszlototh/ShelfPlus/releases/tag/v0.8.4-rc.1).
 3. Nyisd meg a `Documents\Adobe\Adobe Substance 3D Painter\python\plugins` mappát. Ha van benne már `ShelfPlus` mappa, töröld.
 4. Másold be a zipből a `ShelfPlus` mappát ebbe a `plugins` mappába.
 5. Indítsd el a Paintert, és nyiss meg egy projektet. Olyan projekt másolatát használd, amelynek nem baj, ha megváltozik.
@@ -150,4 +150,4 @@ Kell hozzá egy projekt, amelyben van egy **meglévő Fill layer** és egy **meg
 1. Rögtön kattints a **☰ → Copy diagnostics** pontra, még a Painter újraindítása előtt.
 2. Másold be, amit kimásol, az üzenetedbe. Benne vannak a verziók és a napló legutóbbi sorai.
 
-A kitöltött táblázatot küldd vissza, például hozzászólásként a [#31-es issue-hoz](https://github.com/tamaslaszlototh/SPExtension/issues/31).
+A kitöltött táblázatot küldd vissza, például hozzászólásként a [#31-es issue-hoz](https://github.com/tamaslaszlototh/ShelfPlus/issues/31).

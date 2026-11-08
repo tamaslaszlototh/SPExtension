@@ -22,7 +22,7 @@ One run takes about 10 minutes. Write the results in the [table at the end](#res
 ## 1. Install the build
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.5.1-rc.1.zip** from the [v0.5.1-rc.1 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.5.1-rc.1).
+2. Download **ShelfPlus-v0.5.1-rc.1.zip** from the [v0.5.1-rc.1 release page](https://github.com/tamaslaszlototh/ShelfPlus/releases/tag/v0.5.1-rc.1).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Start Painter and open a project. Use a copy of a project you do not mind changing.
@@ -99,4 +99,4 @@ Fill in **Pass**, or **Fail** with a short note on what happened. Write anything
 1. Click **☰ → Copy diagnostics** right away, before restarting Painter.
 2. Paste what it copies into your message. It contains the versions and the recent log.
 
-Send the filled-in table back, for example as a comment on [issue #28](https://github.com/tamaslaszlototh/SPExtension/issues/28).
+Send the filled-in table back, for example as a comment on [issue #28](https://github.com/tamaslaszlototh/ShelfPlus/issues/28).

@@ -37,7 +37,7 @@ from pathlib import Path, PurePosixPath
 
 log = logging.getLogger("ShelfPlus.app.updater")
 
-REPO = "tamaslaszlototh/SPExtension"
+REPO = "tamaslaszlototh/ShelfPlus"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 API_ACCEPT = "application/vnd.github+json"
