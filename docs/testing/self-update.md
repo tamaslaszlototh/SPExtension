@@ -20,7 +20,7 @@ v0.9.0 and v0.9.1 cannot update themselves (their *Check for updates* ends with 
 ## 1. Install v0.9.2 by hand
 
 1. Close Painter.
-2. Download **ShelfPlus-v0.9.2.zip** from the [v0.9.2 release page](https://github.com/tamaslaszlototh/SPExtension/releases/tag/v0.9.2).
+2. Download **ShelfPlus-v0.9.2.zip** from the [v0.9.2 release page](https://github.com/tamaslaszlototh/ShelfPlus/releases/tag/v0.9.2).
 3. Open `Documents\Adobe\Adobe Substance 3D Painter\python\plugins`. If there is a `ShelfPlus` folder there already, delete it.
 4. Copy the `ShelfPlus` folder from the zip into that `plugins` folder.
 5. Open `%APPDATA%\ShelfPlus` (paste it into the Explorer address bar). If there is a `panel.json`, open it in Notepad. In the `"updater"` part, set `"lastCheck": null` and `"skippedVersion": null`, and save. This makes Shelf+ check for updates on the next start instead of waiting a day. Leave `layout.json` (your Buttons) alone.
