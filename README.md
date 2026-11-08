@@ -31,16 +31,3 @@ After that, Shelf+ updates itself: on start and with
 **☰ → Check for updates** it offers a newer release. An update is
 downloaded and becomes active the next time Painter
 starts. Only a release that needs a newer loader must be installed by hand again.
-
-## The User Manual
-
-The manual's sources are in [`manual/`](manual/), built with
-[MkDocs Material](https://squidfunk.github.io/mkdocs-material/). To preview it locally:
-
-```sh
-python -m pip install -r requirements-docs.txt
-mkdocs serve
-```
-
-The [User manual workflow](.github/workflows/pages.yml) publishes it to GitHub Pages
-on every `v*` tag, and can be run by hand from the Actions tab.
