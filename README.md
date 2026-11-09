@@ -9,6 +9,8 @@ dockable **Panel** of the user's own Buttons, arranged in Groups.
 
 - **Brush buttons**: drag a brush or tool preset from the Assets window onto the Panel;
   one click makes it the active brush.
+- **Smart material buttons**: drag a smart material from the Assets window onto the Panel;
+  one click puts it above the selected layer, or drag the tile onto the Layers window.
 - **Menu buttons**: one click runs a Painter menu command, such as **File → Save**.
 - **Workflow buttons**: one click carries out several Steps, for example
   "Fill layer + black mask + Dirt generator + 50% opacity". One **Ctrl+Z** undoes it all.

@@ -29,7 +29,7 @@ The layer side of the adapter (see ``adapter/__init__.py``): ``project_ready``,
 
 import logging
 
-from . import brush, menu
+from . import brush, menu, smart_material
 from .steps import DONE, FAILED, MISSING, StepResult
 
 log = logging.getLogger("ShelfPlus.app.workflow")
@@ -85,6 +85,11 @@ def step_label(step):
     if kind == "save":
         return "Save"
     return str(kind)
+
+
+def scope_label(steps, name=None):
+    """The History entry of a Workflow's layer changes: "Shelf+: <name or first Step>"."""
+    return SCOPE_PREFIX + (name or step_label(steps[0]))
 
 
 def needs_current_layer(step):
@@ -297,6 +302,8 @@ def _check_resources(adapter, step):
         if brush.resolve(adapter, url) is None:
             if step["type"] == "select_brush":
                 return brush.missing_message(url)
+            if step["type"] == "add_smart" and step["smart"] == "material":
+                return smart_material.missing_message(url)
             return f"This resource is not available on this machine: {url}"
     return None
 
@@ -360,8 +367,8 @@ class WorkflowRun:
         return f"Step {index + 1} ({step_label(self.steps[index])})"
 
     def _not_started(self, state, text, index=None):
-        if self._single_step_button and index is not None:
-            return StepResult(state, text)
+        if self._single_step_button:
+            return StepResult(state, text if index is not None else text[:1].upper() + text[1:])
         detail = text if index is None else f"{self._step(index)}: {text}"
         return StepResult(state, f"{self._title} did not start: {detail}")
 
@@ -525,7 +532,7 @@ class WorkflowRun:
         ``False`` if a Step failed (the run is finished)."""
         start = current
         failure = None
-        label = SCOPE_PREFIX + (self.name or step_label(self.steps[0]))
+        label = scope_label(self.steps, self.name)
         try:
             with self.adapter.layer_scope(label):
                 for index in range(self.first_ui):

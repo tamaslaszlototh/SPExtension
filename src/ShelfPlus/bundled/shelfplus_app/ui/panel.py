@@ -7,7 +7,9 @@
   the trash that appears while dragging. A delete can be undone for a few seconds.
 - Right-click menus on tiles and Group names; a "+" in each Group row.
 - A brush or tool preset dragged from the Assets window onto a Group becomes a Brush
-  button there. A Brush button whose preset is missing carries a warning badge.
+  button there, a smart material a Smart material button. A Button whose resource is
+  missing carries a warning badge. A Smart material button dragged onto Painter's Layers
+  window carries its ``resource://`` URL, and Painter puts the smart material there.
 - "+ → Menu button" shows the capture bar: the next command clicked in Painter's menu
   becomes a Menu button. "Choose from list…" opens ``ActionPicker`` instead; Esc or
   Cancel ends capture mode. A Menu button whose command is missing carries the badge.
@@ -27,6 +29,7 @@ from shiboken6 import isValid
 from ..core.flow import FLAT, TALL, drop_index, edge_scroll, grid_columns, orientation
 from ..core.menu import search_actions
 from ..core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN
+from ..core.smart_material import smart_material_step
 from ..core.storage import ReadOnlyLayoutError
 from .icons import automatic_icon, menu_icon, panel_icon, plus_icon, step_icon, trash_icon, with_warning_badge
 from .pen_hover import PenHover
@@ -77,6 +80,8 @@ def button_icon(app, button):
     if button.valid and button.kind == "workflow":  # the first Step's icon (R7.6)
         first = button.raw["steps"][0]
         return step_icon(first, app.step_action_png(first))
+    if button.valid and button.kind == "smart_material":  # no Assets image: the Step's icon
+        return step_icon(smart_material_step(button), None)
     return automatic_icon(button)
 
 
@@ -1109,6 +1114,9 @@ class QtPanelView:
         self.trash.show()
         mime = QtCore.QMimeData()
         mime.setData(MIME_TYPE, QtCore.QByteArray(b"button"))
+        uri_list = self.app.drag_uri_list(tile.button)
+        if uri_list:  # a Smart material button: Painter's Layers window takes it like an Assets drag
+            mime.setData(URI_LIST, QtCore.QByteArray(uri_list.encode("utf-8")))
         drag = QtGui.QDrag(tile)
         drag.setMimeData(mime)
         drag.setPixmap(tile.grab())
@@ -1119,7 +1127,8 @@ class QtPanelView:
         edge_timer.timeout.connect(lambda: self.edge_scroll_at(viewport.mapFromGlobal(QtGui.QCursor.pos())))
         edge_timer.start()
         try:
-            drag.exec(QtCore.Qt.DropAction.MoveAction)
+            # inside the Panel a move; Painter's Layers window copies a resource
+            drag.exec(QtCore.Qt.DropAction.MoveAction | QtCore.Qt.DropAction.CopyAction, QtCore.Qt.DropAction.MoveAction)
         finally:
             edge_timer.stop()
             edge_timer.deleteLater()
@@ -1169,9 +1178,10 @@ class QtPanelView:
         self._edit(lambda: self.app.editor.move_button(button, group_id, index))
 
     def add_brushes(self, group_id, index, uri_list):
-        """Brush buttons for what was dropped from the Assets window (the App re-renders)."""
+        """Brush and Smart material buttons for what was dropped from the Assets window
+        (the App re-renders)."""
         try:
-            self.app.add_brushes_from_drop(group_id, index, uri_list)
+            self.app.add_buttons_from_drop(group_id, index, uri_list)
         except Exception:
             log.exception("Adding dropped brushes failed")
             self.notify("The brush could not be added. See the log.")

@@ -35,6 +35,8 @@ Right-click a Group's **name** for these options:
 
 - Drag a tile to a new place in its Group, or into another Group. An orange line shows
   where it will land.
+- Drag a [Smart material button](smart-material-buttons.md) out of the Panel onto
+  Painter's Layers window to put its smart material there.
 - When you start dragging, a **Delete** button with a trash icon appears in the top bar.
   Drop the tile on it to delete the Button.
 - In a wide Panel, hold a dragged tile near the left or right edge to scroll the row.
@@ -81,7 +83,7 @@ Its name appears, for example the Button's name, or *Add a Button to Layers* ove
 
 ## Warning triangles
 
-A Brush or Menu button tile with a small **yellow warning triangle** cannot run here: its
-brush or menu command is missing. Hover over it to see *(not available on this
+A Brush, Smart material or Menu button tile with a small **yellow warning triangle**
+cannot run here: its brush, smart material or menu command is missing. Hover over it to see *(not available on this
 machine)* or *(not available in this Painter version)*. Clicking it only explains what is
 missing and changes nothing. See [Troubleshooting](troubleshooting.md#a-tile-has-a-yellow-warning-triangle).

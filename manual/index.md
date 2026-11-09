@@ -4,6 +4,7 @@
 that holds your own **Buttons**, arranged in named **Groups**. One click on a Button can:
 
 - make a brush the active brush, wherever it is in the Assets window;
+- put a smart material above the selected layer;
 - run one of Painter's menu commands, such as **File → Save**;
 - carry out a whole **Workflow**, for example *Fill layer + black mask + Dirt generator
   + 50 % opacity*, undone by a single ++ctrl+z++.
@@ -30,11 +31,12 @@ Painter.
 
 </div>
 
-## The three kinds of Button
+## The four kinds of Button
 
 | Button | What one click does | How you add it |
 |---|---|---|
 | [Brush button](brush-buttons.md) | Makes a brush or tool preset the active brush | Drag the brush from the Assets window onto a Group |
+| [Smart material button](smart-material-buttons.md) | Puts a smart material above the selected layer | Drag the smart material from the Assets window onto a Group |
 | [Menu button](menu-buttons.md) | Runs one Painter menu command | **+ → Menu button**, then click the command |
 | [Workflow button](workflow-buttons.md) | Carries out several Steps in Painter | **+ → Workflow button** or **+ → Recorded Workflow** |
 

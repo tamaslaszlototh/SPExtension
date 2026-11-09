@@ -250,7 +250,8 @@ def is_window_action(action):
 class Op:
     """One operation of the History. ``name``: what a hook called it (the command clicked),
     if anything did; ``drops``: resources dropped onto Painter just before; ``skipped``:
-    a notice when the whole operation is not recorded (another texture set…)."""
+    a notice when the whole operation is not recorded (another texture set…); ``smart``:
+    the smart material a Smart material button put in (its URL), if it was one."""
 
     label: str
     changes: list
@@ -259,6 +260,7 @@ class Op:
     name: str = None
     drops: tuple = ()
     skipped: str = None
+    smart: str = None
 
     @property
     def title(self):
@@ -413,7 +415,7 @@ class _Build:
         node, uid = change.new, change.uid
         if node.get("kind") == "folder" and change.size:
             name = node.get("name") or ""
-            url = next((u for u in reversed(op.drops) if resource_name(u) == name), "")
+            url = op.smart or next((u for u in reversed(op.drops) if resource_name(u) == name), "")
             step = {"type": "add_smart", "smart": "material", "resource": url, "resource_name": name}
         elif node.get("kind") in LAYER_KINDS:
             step = {"type": "add_layer", "layer": node["kind"]}
@@ -699,6 +701,7 @@ RETRY_MS = 300  # the project is locked while it saves
 RETRIES = 20
 HINT_MS = 3000  # a command clicked this long before its History row names it
 DROP_MS = 15000  # a resource dropped this long before a new smart material is its resource
+OWN_SMART_MS = 3000  # a Smart material button clicked this long before its History row
 
 OTHER_STACK = "Changes in another texture set cannot be recorded: a Workflow works on one texture set."
 OWN_WORKFLOW = "Shelf+'s own Workflows are not recorded."
@@ -747,6 +750,7 @@ class Recording:
         self._debounce = None
         self._hints = []  # (time, command label)
         self._drops = []  # (time, url)
+        self._own_smart = []  # (time, History label, url): Smart material buttons clicked
         self._announced = set()
         self._stops = []
         self.active = False
@@ -831,6 +835,23 @@ class Recording:
     def dropped(self, urls):
         if self.active:
             self._drops.extend((self.now(), url) for url in urls)
+
+    def own_smart_material(self, label, url):
+        """A Smart material button is about to put ``url`` in, under the History entry
+        ``label``: unlike Shelf+'s other Workflows, it is recorded, with its resource."""
+        if self.active:
+            self._own_smart.append((self.now(), label, url))
+
+    def _own_smart_material(self, label):
+        """The URL of the Smart material button just clicked whose History row this is
+        (once), or ``None``."""
+        now = self.now()
+        self._own_smart = [o for o in self._own_smart if now - o[0] <= OWN_SMART_MS]
+        found = next((o for o in self._own_smart if o[1] == label), None)
+        if found is None:
+            return None
+        self._own_smart.remove(found)
+        return found[2]
 
     def _hint(self):
         """The command clicked just before, once."""
@@ -1001,7 +1022,8 @@ class Recording:
         return self.closed is not None and self.closed.get("stack") == snap.get("stack") == self.stack
 
     def _operation(self, label, snap):
-        if (label or "").startswith(SCOPE_PREFIX):
+        smart = self._own_smart_material(label) if (label or "").startswith(SCOPE_PREFIX) else None
+        if (label or "").startswith(SCOPE_PREFIX) and smart is None:
             skipped = OWN_WORKFLOW
         elif snap.get("stack") != self.stack:
             skipped = OTHER_STACK
@@ -1010,7 +1032,7 @@ class Recording:
         else:
             skipped = None
         changes = [] if skipped else diff(self.closed, snap)
-        return Op(label, changes, self.closed, snap, self._hint(), self._recent_drops(), skipped=skipped)
+        return Op(label, changes, self.closed, snap, self._hint(), self._recent_drops(), skipped=skipped, smart=smart)
 
     def _done_ops(self):
         return self.fixed + [o for o in self.ops[: self.done] if o is not None]

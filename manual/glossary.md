@@ -6,8 +6,8 @@
 
 **Assets window**
 :   Painter's own window that lists brushes, materials, smart masks and other resources.
-    Older Painter versions call it the "shelf". You create Brush buttons by dragging from
-    it.
+    Older Painter versions call it the "shelf". You create Brush buttons and Smart
+    material buttons by dragging from it.
 
 **Group**
 :   A named section of the Panel that holds Buttons in order. You can collapse it. Each
@@ -18,11 +18,15 @@
     `%APPDATA%\ShelfPlus\layout.json`.
 
 **Button**
-:   One clickable tile on the Panel. Every Button is a Brush button, a Menu button or a
-    Workflow button.
+:   One clickable tile on the Panel. Every Button is a Brush button, a Smart material
+    button, a Menu button or a Workflow button.
 
 **Brush button**
 :   A Button that makes a chosen brush or tool preset the active brush.
+
+**Smart material button**
+:   A Button that puts a chosen smart material into the layer stack: above the selected
+    layer when clicked, or where you drop it on Painter's Layers window.
 
 **Menu button**
 :   A Button that runs one of Painter's existing menu commands, such as **File → Save**.

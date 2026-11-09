@@ -45,7 +45,8 @@ class PainterAdapter:
     # -- resources -----------------------------------------------------------
 
     def resolve_resource(self, url):
-        """The brush behind a version-less ``resource://`` URL, or ``None``."""
+        """The resource (a brush, smart material…) behind a version-less ``resource://``
+        URL, or ``None``."""
         import substance_painter.resource as res
 
         for candidate in dict.fromkeys((url, quote(url, safe=":/?=&"))):
@@ -57,7 +58,11 @@ class PainterAdapter:
             if found:
                 resource = found[0]
                 return BrushResource(
-                    versionless_url(resource.identifier().url()), resource.gui_name(), _is_brush(res, resource), resource
+                    versionless_url(resource.identifier().url()),
+                    resource.gui_name(),
+                    _is_brush(res, resource),
+                    resource,
+                    _kind_name(resource),
                 )
         return None
 

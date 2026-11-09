@@ -13,7 +13,7 @@ from .channels import value_range
 
 SCHEMA_VERSION = 1
 
-BUTTON_KINDS = ("brush", "menu", "workflow")
+BUTTON_KINDS = ("brush", "smart_material", "menu", "workflow")
 
 
 class LayoutError(ValueError):
@@ -254,7 +254,7 @@ def button_problem(raw):
         return f"unknown kind {kind!r}"
     if not _icon_ok(raw):
         return "invalid 'icon'"
-    if kind == "brush" and not _resource(raw.get("resource")):
+    if kind in ("brush", "smart_material") and not _resource(raw.get("resource")):
         return "missing 'resource'"
     if kind == "menu" and not _text(raw.get("action")):
         return "missing 'action'"

@@ -149,14 +149,14 @@ class TestSmartMaterial:
         assert result(adapter, [smart("material", RUST), BLACK]).ok
 
         material = adapter.stack.layers[0]
-        assert adapter.stack.names() == [("Rust Coat", []), "Base"]
+        assert adapter.stack.names() == [("Rust Coat", ["Layer 1"]), "Base"]
         assert material.mask == "black" and base.mask is None
         assert adapter.stack.selected is material
 
     def test_on_top_of_the_stack_with_nothing_selected(self, adapter):
         assert result(adapter, [smart("material", RUST)]).ok
 
-        assert adapter.stack.names() == [("Rust Coat", []), "Base"]
+        assert adapter.stack.names() == [("Rust Coat", ["Layer 1"]), "Base"]
 
     def test_a_mask_on_it_needs_no_selected_layer(self, adapter):
         assert result(adapter, [smart("material", RUST), BLACK]).ok

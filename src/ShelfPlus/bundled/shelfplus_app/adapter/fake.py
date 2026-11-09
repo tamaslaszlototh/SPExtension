@@ -8,8 +8,8 @@ from ..core.menu import action_id, same_action
 from ..core.workflow import ANCHOR_POINT_NAME
 
 
-def FakeResource(url, gui_name, is_brush=True):
-    return BrushResource(url, gui_name, is_brush)
+def FakeResource(url, gui_name, is_brush=True, kind=None):
+    return BrushResource(url, gui_name, is_brush, kind=kind)
 
 
 _uids = itertools.count(1)  # like Painter's node uids: unique, stable across undo/redo
@@ -323,7 +323,9 @@ class FakeAdapter:
     def insert_smart_material(self, url, above=None):
         stack = self.stack
         stack.change("insert_smart_material")
-        return stack.insert(FakeLayer(self._resource(url).gui_name, "folder"), above)
+        # like Painter's: a folder with the smart material's layers inside
+        folder = FakeLayer(self._resource(url).gui_name, "folder", children=[FakeLayer("Layer 1", "fill")])
+        return stack.insert(folder, above)
 
     def insert_smart_mask(self, layer, url):
         """Into the layer's mask; a layer without one gets a black mask first."""

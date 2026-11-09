@@ -14,12 +14,13 @@ from .core.brush import MISSING, brush_button, brush_icon, resolve, resource_url
 from .core.diagnostics import build_diagnostics, tail_log
 from .core.menu import ActionWatcher, action_id, capture_problem, menu_button, run_action, same_action, search_actions
 from .core.editing import LayoutEditor
+from .core.smart_material import drag_uri_list, is_smart_material, smart_material_button, smart_material_step
 from .core.panel_state import TILE_SIZE_MAX, TILE_SIZE_MIN, PanelStateStore, valid_tile_size
 from .core.storage import READ_ONLY_MESSAGE, LayoutStore, ReadOnlyLayoutError
 from .core.updater import Updater
 from .core import blocks
 from .core.recording import Recording
-from .core.workflow import run_workflow
+from .core.workflow import run_workflow, scope_label
 from .core.channels import DEFAULT_CHANNELS
 from .core.workflow_draft import WorkflowDraft, incomplete, needs_resource, resource_name
 
@@ -42,7 +43,9 @@ ADD_BUTTON_KINDS = [
 LOADING_CHECK_MS = 2000
 SETTLE_CHECKS = 15
 LOADING_CHECKS = 60
-LOADING_MESSAGE = "Painter is still loading its brushes. Try again in a moment."
+LOADING_MESSAGE = "Painter is still loading its {what}. Try again in a moment."
+LOADING_WHAT = {"brush": "brushes", "smart_material": "smart materials"}
+RESOURCE_KINDS = tuple(LOADING_WHAT)  # the Buttons whose resource may be missing
 
 # Painter builds many of its menus only once a project is open, so a Menu button whose
 # command is not found is badged only after a project has been open for
@@ -60,9 +63,11 @@ LIST_FAILED_MESSAGE = "Painter's commands could not be read. See the log."
 
 
 def button_steps(button):
-    """The Steps a Button runs. A Brush or Menu button is a one-Step Workflow."""
+    """The Steps a Button runs. A Brush, Smart material or Menu button is a one-Step Workflow."""
     if button.kind == "brush":
         return [{"type": "select_brush", "resource": button.raw["resource"]}]
+    if button.kind == "smart_material":
+        return [smart_material_step(button)]
     if button.kind == "menu":
         return [{"type": "run_action", "action": button.raw["action"]}]
     return button.raw["steps"]
@@ -242,10 +247,11 @@ class App:
         if self.view is not None and hasattr(self.view, "notify"):
             self.view.notify(text)
 
-    # -- Brush buttons ---------------------------------------------------------
+    # -- Brush and Smart material buttons -----------------------------------------
 
     def is_missing(self, button):
-        """Whether ``button`` is a Brush button whose preset is not on this machine."""
+        """Whether ``button`` is a Brush or Smart material button whose resource is not on
+        this machine, or a Menu button whose command is not in this Painter version."""
         return button.id in self.missing
 
     def _set_missing(self, button, missing):
@@ -277,15 +283,16 @@ class App:
         self._settled = True
         self.check_brushes()
 
-    def _buttons_of_kind(self, kind):
-        return [b for g in self.layout.groups for b in g.buttons if b.valid and b.kind == kind]
+    def _buttons_of_kind(self, *kinds):
+        return [b for g in self.layout.groups for b in g.buttons if b.valid and b.kind in kinds]
 
     def check_brushes(self):
-        """Clear the badge of every Brush button whose preset is found, and badge the
+        """Clear the badge of every Brush and Smart material button whose resource is
+        found, and badge the
         others once that is certain (see ``_can_confirm_missing``); until then the check
         runs again on a timer and whenever Painter reports a shelf loaded."""
         not_found = []
-        for button in self._buttons_of_kind("brush"):
+        for button in self._buttons_of_kind(*RESOURCE_KINDS):
             if resolve(self.adapter, button.raw["resource"]) is None:
                 not_found.append(button)
             else:
@@ -295,14 +302,14 @@ class App:
             self._stop_loading_timer()
             return
         if not self._can_confirm_missing():
-            log.info("%d Brush button(s) not found yet; checking again once Painter has loaded", len(not_found))
+            log.info("%d resource(s) of Buttons not found yet; checking again once Painter has loaded", len(not_found))
             if self._loading_timer is None:
                 self._loading_timer = self.adapter.repeat(LOADING_CHECK_MS, self._loading_tick)
             return
         self._stop_loading_timer()
         for button in not_found:
             self._set_missing(button, True)
-        log.info("%d Brush button(s) have no preset on this machine", len(not_found))
+        log.info("%d Button(s) have no resource on this machine", len(not_found))
 
     def _loading_tick(self):
         self._loading_checks += 1
@@ -316,9 +323,10 @@ class App:
     def explain_brush_drop(self, group):
         self.notify(f"Drag a brush or tool preset from the Assets window onto “{group.name}”.")
 
-    def add_brushes_from_drop(self, group_id, index, uri_list):
-        """Brush buttons for the brushes of a ``text/uri-list`` drop, inserted at ``index``
-        of the Group. Returns the new Buttons."""
+    def add_buttons_from_drop(self, group_id, index, uri_list):
+        """A Brush button for every brush and a Smart material button for every smart
+        material of a ``text/uri-list`` drop, in the dropped order, inserted at ``index`` of
+        the Group; anything else is skipped with a message. Returns the new Buttons."""
         urls = resource_urls_from_drop(uri_list)
         if not urls:
             return []
@@ -331,21 +339,34 @@ class App:
             if resource is None:
                 self.notify(f"Painter does not know this resource: {url}")
                 continue
-            if not resource.is_brush:
-                self.notify(f"“{resource.gui_name}” is not a brush or tool preset.")
+            if resource.is_brush:
+                raw, kind = brush_button(resource), "Brush button"
+            elif is_smart_material(resource):
+                raw, kind = smart_material_button(resource), "Smart material button"
+            else:
+                self.notify(f"“{resource.gui_name}” is not a brush, tool preset or smart material.")
                 continue
             png = brush_icon(self.adapter, resource)
             try:
-                button = self.editor.add_button(group_id, index + len(added), brush_button(resource), icon_png=png)
+                button = self.editor.add_button(group_id, index + len(added), raw, icon_png=png)
             except (ReadOnlyLayoutError, ValueError, KeyError, OSError):
-                log.exception("Adding a Brush button for %r failed", url)
+                log.exception("Adding a %s for %r failed", kind, url)
                 self.notify(f"“{resource.gui_name}” could not be added. See the log.")
                 break
-            log.info("Added Brush button %r (%s), icon: %s", button.name, url, button.icon or "generic")
+            log.info("Added %s %r (%s), icon: %s", kind, button.name, url, button.icon or "generic")
             added.append(button)
         if added and self.view is not None:
             self.view.render()
         return added
+
+    def drag_uri_list(self, button):
+        """What a tile dragged out of the Panel carries besides itself: a Smart material
+        button whose smart material is here carries it as ``text/uri-list``, like a drag
+        from the Assets window; every other Button ``None`` (it can only be dragged within
+        the Panel)."""
+        if not button.valid or button.kind != "smart_material" or self.is_missing(button):
+            return None
+        return drag_uri_list(button.raw["resource"])
 
     # -- Menu buttons ------------------------------------------------------------
 
@@ -822,26 +843,29 @@ class App:
 
     def run_button(self, button):
         """Clicking a Button: it runs as a Workflow (a Brush button as one ``select_brush``
-        Step, a Menu button as one ``run_action`` Step), so every kind has one error path."""
+        Step, a Smart material button as one ``add_smart`` Step, a Menu button as one
+        ``run_action`` Step), so every kind has one error path."""
         if not button.valid:
             self.notify(f"“{button.name}” is invalid and cannot run: {button.problem}.")
             return
         steps = button_steps(button)
         self._cancel_running()
+        if self.recording is not None and button.kind == "smart_material":
+            self.recording.own_smart_material(scope_label(steps), button.raw["resource"])
         log.info("Running %r (%s, %d Step(s))", button.name, button.kind, len(steps))
         reported = []
 
         def done(result):  # a cancelled Step never calls it, so it is always the running one
             reported.append(result)
             self._running = None
-            if result.state == MISSING and button.kind == "brush" and not self._can_confirm_missing():
-                self.notify(LOADING_MESSAGE)
+            if result.state == MISSING and button.kind in RESOURCE_KINDS and not self._can_confirm_missing():
+                self.notify(LOADING_MESSAGE.format(what=LOADING_WHAT[button.kind]))
                 return
             if result.state == MISSING and button.kind == "menu" and not self._menus_settled():
                 self.notify(NOT_YET_MESSAGE.format(name=button.name))
                 self.check_menu_buttons()  # keeps looking for it
                 return
-            if result.state == MISSING and button.kind in ("brush", "menu"):
+            if result.state == MISSING and button.kind != "workflow":
                 self._set_missing(button, True)
                 if button.kind == "menu":
                     self.check_menu_buttons()  # starts looking for it again

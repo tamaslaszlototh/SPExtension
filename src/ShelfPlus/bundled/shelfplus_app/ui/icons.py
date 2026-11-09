@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtGui
 
 KIND_COLOURS = {
     "brush": "#3d8fd1",
+    "smart_material": "#c98a3d",
     "menu": "#8a63c9",
     "workflow": "#3fa66a",
 }

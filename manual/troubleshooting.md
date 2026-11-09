@@ -16,6 +16,7 @@ The Button needs something that is not available here:
 | Hover text | Why | What to do |
 |---|---|---|
 | *(not available on this machine)* on a Brush button | The brush was renamed, deleted, or exists only on another machine | Drag the brush in again, then delete the old tile |
+| *(not available on this machine)* on a Smart material button | The smart material was renamed, deleted, or exists only on another machine | Drag the smart material in again, then delete the old tile |
 | *(not available in this Painter version)* on a Menu button | The command does not exist in this Painter version, or Painter's language changed | Add the command again, or switch Painter back to English |
 
 Workflow buttons do not get a triangle. If a resource a Workflow uses is missing, clicking

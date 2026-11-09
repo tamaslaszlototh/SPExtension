@@ -90,7 +90,7 @@ class TestDropping:
     def test_a_dropped_preset_becomes_a_brush_button_with_its_tooltip_icon(self, env, adapter):
         app = start(env, adapter)
 
-        added = app.add_brushes_from_drop("g2", 0, uri_list(HARD.url))
+        added = app.add_buttons_from_drop("g2", 0, uri_list(HARD.url))
 
         assert [b.name for b in added] == ["Basic Hard"]
         raw = saved(env)["groups"][1]["buttons"][0]
@@ -106,7 +106,7 @@ class TestDropping:
     def test_several_resources_land_in_order_at_the_drop_position(self, env, adapter):
         app = start(env, adapter)
 
-        app.add_brushes_from_drop("g1", 1, uri_list(INKER.url, HARD.url))
+        app.add_buttons_from_drop("g1", 1, uri_list(INKER.url, HARD.url))
 
         assert [b["name"] for b in saved(env)["groups"][0]["buttons"]] == ["Hard", "Archive Inker", "Basic Hard", "Gone"]
 
@@ -114,7 +114,7 @@ class TestDropping:
         adapter.add_resource(FakeResource("resource://a/Plain", "Plain"))
         app = start(env, adapter)
 
-        (added,) = app.add_brushes_from_drop("g2", 0, uri_list("resource://a/Plain"))
+        (added,) = app.add_buttons_from_drop("g2", 0, uri_list("resource://a/Plain"))
 
         assert added.icon is None
         assert not (Path(env["data_dir"]) / "icons").exists()
@@ -122,22 +122,22 @@ class TestDropping:
     def test_a_resource_that_is_not_a_brush_is_refused_with_a_message(self, env, adapter):
         app = start(env, adapter)
 
-        assert app.add_brushes_from_drop("g2", 0, uri_list(MATERIAL.url)) == []
+        assert app.add_buttons_from_drop("g2", 0, uri_list(MATERIAL.url)) == []
 
         assert saved(env)["groups"][1]["buttons"] == []
-        assert app.view.notes == ["“Bricks” is not a brush or tool preset."]
+        assert app.view.notes == ["“Bricks” is not a brush, tool preset or smart material."]
 
     def test_an_unknown_resource_is_refused_with_a_message(self, env, adapter):
         app = start(env, adapter)
 
-        assert app.add_brushes_from_drop("g2", 0, uri_list("resource://a/Nowhere")) == []
+        assert app.add_buttons_from_drop("g2", 0, uri_list("resource://a/Nowhere")) == []
 
         assert app.view.notes == ["Painter does not know this resource: resource://a/Nowhere"]
 
     def test_a_drop_without_resources_changes_nothing(self, env, adapter):
         app = start(env, adapter)
 
-        assert app.add_brushes_from_drop("g2", 0, "file:///C:/x.png") == []
+        assert app.add_buttons_from_drop("g2", 0, "file:///C:/x.png") == []
         assert app.view.notes == []
 
     def test_a_read_only_layout_refuses_the_drop(self, env, adapter):
@@ -145,7 +145,7 @@ class TestDropping:
         (Path(env["data_dir"]) / "layout.json").write_text(json.dumps(data), encoding="utf-8")
         app = start(env, adapter)
 
-        assert app.add_brushes_from_drop("g2", 0, uri_list(HARD.url)) == []
+        assert app.add_buttons_from_drop("g2", 0, uri_list(HARD.url)) == []
         assert "Update Shelf+" in app.view.notes[0]
 
 
