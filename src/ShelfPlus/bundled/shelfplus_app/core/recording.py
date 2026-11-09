@@ -836,13 +836,13 @@ class Recording:
         if self.active:
             self._drops.extend((self.now(), url) for url in urls)
 
-    def own_smart_material(self, label, url):
-        """A Smart material button is about to put ``url`` in, under the History entry
+    def expect_own_smart_material(self, label, url):
+        """A Smart material button has just put ``url`` in, under the History entry
         ``label``: unlike Shelf+'s other Workflows, it is recorded, with its resource."""
         if self.active:
             self._own_smart.append((self.now(), label, url))
 
-    def _own_smart_material(self, label):
+    def _take_own_smart_material(self, label):
         """The URL of the Smart material button just clicked whose History row this is
         (once), or ``None``."""
         now = self.now()
@@ -1022,8 +1022,9 @@ class Recording:
         return self.closed is not None and self.closed.get("stack") == snap.get("stack") == self.stack
 
     def _operation(self, label, snap):
-        smart = self._own_smart_material(label) if (label or "").startswith(SCOPE_PREFIX) else None
-        if (label or "").startswith(SCOPE_PREFIX) and smart is None:
+        own = (label or "").startswith(SCOPE_PREFIX)
+        smart = self._take_own_smart_material(label) if own else None
+        if own and smart is None:
             skipped = OWN_WORKFLOW
         elif snap.get("stack") != self.stack:
             skipped = OTHER_STACK

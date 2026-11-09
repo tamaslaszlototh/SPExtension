@@ -17,11 +17,12 @@ The Assets window's own drag may carry more formats. If the probe fails, the nex
 ## Decision (from issue #47)
 
 - **Works on both versions:** dragging stays; v1.1.0 is released as latest.
+- **Works on only one version:** dragging is removed as below. The feature does not depend on the Painter version.
 - **Does not work:** the drag part is removed entirely: no fallback that computes the drop position, no follow-up issue. `App.drag_uri_list` and its use in `QtPanelView.start_drag` go, and the drag sentence goes from the `GLOSSARY.md` definition and the manual. Clicking is then the whole feature.
 
 ## Results
 
-| Version | Drop line shown | Lands at the line | Panel drops unchanged | Notes |
-|---|---|---|---|---|
-| 11.1.0 | | | | |
-| 12.2.0 | | | | |
+| Version | Drop line shown | Lands at the line | Panel drops unchanged | Recorded (check C, step 4) | Notes |
+|---|---|---|---|---|---|
+| 11.1.0 | | | | | |
+| 12.2.0 | | | | | |

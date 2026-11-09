@@ -220,6 +220,16 @@ class TestRecording:
         ]
         assert recording.workflow_draft.problem is None
 
+    def test_a_click_that_changed_nothing_does_not_make_the_next_own_row_recorded(self, recording, project):
+        from shelfplus_app.core.recording import OWN_WORKFLOW
+
+        recording.run_button(button(recording, "s2"))  # missing: nothing is put in
+        project.push_history("Shelf+: Add smart material")  # a Workflow of that name, say
+
+        recording.stop_recording()
+
+        assert OWN_WORKFLOW in recording.view.notes
+
     def test_own_workflows_are_still_not_recorded(self, recording, project):
         from shelfplus_app.core.recording import OWN_WORKFLOW
 

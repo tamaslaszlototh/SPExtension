@@ -385,4 +385,4 @@ def test_the_add_menu_explains_how_to_add_a_brush_button(env, adapter):
     handler(app.layout.groups[1])
 
     assert label == "Brush button"
-    assert app.view.notes == ["Drag a brush or tool preset from the Assets window onto “Empty”."]
+    assert app.view.notes == ["Drag a brush, tool preset or smart material from the Assets window onto “Empty”."]

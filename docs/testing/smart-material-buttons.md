@@ -9,7 +9,9 @@ Please run the checks once on **each machine**:
 - **Home:** Painter 11.1.0
 - **Work:** Painter 12.2.0, no admin rights
 
-One run takes about 20 minutes. Write the results in the [table at the end](#results).
+One run takes about 20 minutes.
+
+**Later:** Shelf+ does not offer updates from an alpha build to the final v1.1.0 (they have the same version number). When v1.1.0 is out, install it by hand as in step 1. Write the results in the [table at the end](#results).
 
 ## 1. Install the build
 
@@ -53,9 +55,10 @@ One run takes about 20 minutes. Write the results in the [table at the end](#res
 1. Open the project again. In a Group row, click **+ → Recorded Workflow**.
 2. Click the Smart material button.
 3. Drag a smart material from the **Assets window** onto the Layers window.
-4. Click **Stop**.
-   - ✅ The editor shows two **Add smart material** Steps. Both have their smart material chosen; neither says *⚠ choose resource*.
-5. Close the editor without saving.
+4. Drag the Smart material button's **tile** from the Panel onto the Layers window (skip this if check F fails).
+5. Click **Stop**.
+   - ✅ The editor shows three **Add smart material** Steps (two if you skipped step 4). Both have their smart material chosen; neither says *⚠ choose resource*.
+6. Close the editor without saving.
 
 ### D. After a restart
 

@@ -290,7 +290,7 @@ class App:
         """Clear the badge of every Brush and Smart material button whose resource is
         found, and badge the
         others once that is certain (see ``_can_confirm_missing``); until then the check
-        runs again on a timer and whenever Painter reports a shelf loaded."""
+        runs again on a timer and whenever Painter reports its resources loaded."""
         not_found = []
         for button in self._buttons_of_kind(*RESOURCE_KINDS):
             if resolve(self.adapter, button.raw["resource"]) is None:
@@ -302,7 +302,7 @@ class App:
             self._stop_loading_timer()
             return
         if not self._can_confirm_missing():
-            log.info("%d resource(s) of Buttons not found yet; checking again once Painter has loaded", len(not_found))
+            log.info("%d Button(s) not found yet; checking again once Painter has loaded", len(not_found))
             if self._loading_timer is None:
                 self._loading_timer = self.adapter.repeat(LOADING_CHECK_MS, self._loading_tick)
             return
@@ -321,7 +321,7 @@ class App:
             timer.stop()
 
     def explain_brush_drop(self, group):
-        self.notify(f"Drag a brush or tool preset from the Assets window onto “{group.name}”.")
+        self.notify(f"Drag a brush, tool preset or smart material from the Assets window onto “{group.name}”.")
 
     def add_buttons_from_drop(self, group_id, index, uri_list):
         """A Brush button for every brush and a Smart material button for every smart
@@ -340,9 +340,9 @@ class App:
                 self.notify(f"Painter does not know this resource: {url}")
                 continue
             if resource.is_brush:
-                raw, kind = brush_button(resource), "Brush button"
+                raw, label = brush_button(resource), "Brush button"
             elif is_smart_material(resource):
-                raw, kind = smart_material_button(resource), "Smart material button"
+                raw, label = smart_material_button(resource), "Smart material button"
             else:
                 self.notify(f"“{resource.gui_name}” is not a brush, tool preset or smart material.")
                 continue
@@ -350,10 +350,10 @@ class App:
             try:
                 button = self.editor.add_button(group_id, index + len(added), raw, icon_png=png)
             except (ReadOnlyLayoutError, ValueError, KeyError, OSError):
-                log.exception("Adding a %s for %r failed", kind, url)
+                log.exception("Adding a %s for %r failed", label, url)
                 self.notify(f"“{resource.gui_name}” could not be added. See the log.")
                 break
-            log.info("Added %s %r (%s), icon: %s", kind, button.name, url, button.icon or "generic")
+            log.info("Added %s %r (%s), icon: %s", label, button.name, url, button.icon or "generic")
             added.append(button)
         if added and self.view is not None:
             self.view.render()
@@ -850,8 +850,6 @@ class App:
             return
         steps = button_steps(button)
         self._cancel_running()
-        if self.recording is not None and button.kind == "smart_material":
-            self.recording.own_smart_material(scope_label(steps), button.raw["resource"])
         log.info("Running %r (%s, %d Step(s))", button.name, button.kind, len(steps))
         reported = []
 
@@ -865,7 +863,7 @@ class App:
                 self.notify(NOT_YET_MESSAGE.format(name=button.name))
                 self.check_menu_buttons()  # keeps looking for it
                 return
-            if result.state == MISSING and button.kind != "workflow":
+            if result.state == MISSING and button.kind in (*RESOURCE_KINDS, "menu"):
                 self._set_missing(button, True)
                 if button.kind == "menu":
                     self.check_menu_buttons()  # starts looking for it again
@@ -877,6 +875,9 @@ class App:
         self._running = run_workflow(self.adapter, steps, done, ui_steps=self.ui_steps, name=name)
         if not any(r.state == MISSING for r in reported):
             self._set_missing(button, False)  # it was found this time
+        # Painter's History row comes after this returns; only a run that changed the stack has one
+        if self.recording is not None and button.kind == "smart_material" and reported and reported[0].ok:
+            self.recording.expect_own_smart_material(scope_label(steps), button.raw["resource"])
 
     def _cancel_running(self):
         running, self._running = self._running, None

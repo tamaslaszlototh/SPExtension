@@ -312,7 +312,7 @@ class GroupBox(QtWidgets.QFrame):
         if carries_button(self.view, event):
             self.view.move_button(self.view.dragging, self.group.id, index)
         else:
-            self.view.add_brushes(self.group.id, index, resource_drop_text(event.mimeData()))
+            self.view.add_dropped_buttons(self.group.id, index, resource_drop_text(event.mimeData()))
 
 
 # The trash with a tile over it: the same orange as a Group drop target.
@@ -1177,14 +1177,14 @@ class QtPanelView:
     def move_button(self, button, group_id, index):
         self._edit(lambda: self.app.editor.move_button(button, group_id, index))
 
-    def add_brushes(self, group_id, index, uri_list):
+    def add_dropped_buttons(self, group_id, index, uri_list):
         """Brush and Smart material buttons for what was dropped from the Assets window
         (the App re-renders)."""
         try:
             self.app.add_buttons_from_drop(group_id, index, uri_list)
         except Exception:
-            log.exception("Adding dropped brushes failed")
-            self.notify("The brush could not be added. See the log.")
+            log.exception("Adding dropped Buttons failed")
+            self.notify("What was dropped could not be added. See the log.")
 
     def delete_button(self, button):
         self._edit(lambda: self.show_undo(self.app.editor.delete_button(button)))

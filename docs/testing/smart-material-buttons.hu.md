@@ -11,7 +11,9 @@ Kérlek, a teszteket **mindkét gépen** egyszer futtasd le:
 - **Otthon:** Painter 11.1.0
 - **Munkahelyen:** Painter 12.2.0, admin jog nélkül
 
-Egy kör kb. 20 perc. Az eredményeket a [végén lévő táblázatba](#eredmények) írd.
+Egy kör kb. 20 perc.
+
+**Később:** a Shelf+ az alpha verzióról nem ajánlja fel a frissítést a végleges v1.1.0-ra (ugyanaz a verziószámuk). Ha a v1.1.0 megjelenik, telepítsd kézzel, az 1. lépés szerint. Az eredményeket a [végén lévő táblázatba](#eredmények) írd.
 
 ## 1. A verzió telepítése
 
@@ -55,9 +57,10 @@ Egy kör kb. 20 perc. Az eredményeket a [végén lévő táblázatba](#eredmén
 1. Nyisd meg újra a projektet. Egy Group sorában kattints a **+ → Recorded Workflow** pontra.
 2. Kattints a Smart material buttonra.
 3. Húzz egy smart materialt az **Assets ablakból** a Layers ablakra.
-4. Kattints a **Stop** gombra.
-   - ✅ A szerkesztő két **Add smart material** Step-et mutat. Mindkettőnek ki van választva a smart materialja, egyiken sincs *⚠ choose resource*.
-5. Zárd be a szerkesztőt mentés nélkül.
+4. Húzd a Smart material button **csempéjét** a Panelről a Layers ablakra (hagyd ki, ha az F teszt nem sikerül).
+5. Kattints a **Stop** gombra.
+   - ✅ A szerkesztő három **Add smart material** Step-et mutat (kettőt, ha a 4. lépést kihagytad). Mindkettőnek ki van választva a smart materialja, egyiken sincs *⚠ choose resource*.
+6. Zárd be a szerkesztőt mentés nélkül.
 
 ### D. Újraindítás után
 
