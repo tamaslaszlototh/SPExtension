@@ -6,14 +6,17 @@ _Avoid_: shelf (on its own, "shelf" means Painter's Assets window)
 **Assets window**: Painter's own window listing brushes, materials, smart masks and other resources; older Painter versions and its internal names call it the "shelf". Brush buttons are created by dragging from it.
 _Avoid_: shelf
 
-**Button**: A single clickable item on the Panel. Every Button is exactly one of the following kinds: Brush button, Workflow button, or Menu button.
+**Button**: A single clickable item on the Panel. Every Button is exactly one of the following kinds: Brush button, Smart material button, Workflow button, or Menu button.
 
 **Brush button**: A Button that makes a chosen brush preset the active brush in Painter.
+
+**Smart material button**: A Button that puts a chosen smart material into the layer stack. Clicked, it puts the smart material above the selected layer; dragged onto Painter's Layers window, it puts it where it is dropped, as if dragged from the Assets window. Like a Brush button, it is created by dragging from the Assets window.
+_Avoid_: material button (a material is a different resource)
 
 **Workflow**: A user-defined, ordered sequence of Steps that Painter carries out one after another (e.g. "create Fill layer → add black mask"). The user creates it on the Panel. If a Step fails, the Workflow stops.
 _Avoid_: process, macro
 
-**Step**: A single action inside a Workflow, chosen from a fixed list of supported actions: layer and mask operations, effects, layer settings, picking an existing layer by its name, and (only at the end of a Workflow) brush selection, menu commands and saving. A Brush button or Menu button behaves like a Workflow with exactly one Step.
+**Step**: A single action inside a Workflow, chosen from a fixed list of supported actions: layer and mask operations, effects, layer settings, picking an existing layer by its name, and (only at the end of a Workflow) brush selection, menu commands and saving. A Brush button, Smart material button or Menu button behaves like a Workflow with exactly one Step.
 
 **Recording**: Creating a Workflow by performing its Steps in Painter while the Panel watches, then stopping. The captured Steps can be reviewed and corrected before the Workflow is saved.
 _Avoid_: macro recording
